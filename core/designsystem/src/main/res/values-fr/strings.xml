@@ -3,4 +3,5 @@
     <string name="ds_state_loading">Chargement…</string>
     <string name="ds_state_error_title">Une erreur est survenue</string>
     <string name="ds_state_retry">Réessayer</string>
+    <string name="ds_action_back">Retour</string>
 </resources>
