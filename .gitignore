@@ -8,7 +8,7 @@
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .DS_Store
-/build
+build/
 /captures
 .externalNativeBuild
 .cxx
@@ -17,3 +17,7 @@ CLAUDE.md
 CLAUDE.local.md
 .claude/
 docs/
+
+# Roborazzi comparison outputs
+*_compare.png
+*_actual.png
