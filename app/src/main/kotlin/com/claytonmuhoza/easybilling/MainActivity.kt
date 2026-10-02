@@ -4,8 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.claytonmuhoza.easybilling.access.AppRoot
 import com.claytonmuhoza.easybilling.core.designsystem.theme.EasyBillingTheme
-import com.claytonmuhoza.easybilling.navigation.EasyBillingNavHost
 import dagger.hilt.android.AndroidEntryPoint
 
 /** Single activity of the application: every screen is a destination of its navigation graph. */
@@ -17,7 +17,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             EasyBillingTheme {
-                EasyBillingNavHost()
+                AppRoot()
             }
         }
     }

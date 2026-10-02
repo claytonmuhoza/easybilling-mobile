@@ -1,5 +1,59 @@
 <resources>
     <string name="app_name" translatable="false">EasyBilling</string>
-    <string name="home_empty_title">Welcome</string>
+
+    <!-- Access -->
+    <string name="access_error_message">The data of the application could not be read.</string>
+
+    <!-- Fields shared by several screens -->
+    <string name="field_name">Name</string>
+    <string name="field_pin">PIN</string>
+    <string name="field_new_pin">New PIN</string>
+    <string name="field_pin_confirmation">Confirm the PIN</string>
+    <string name="field_recovery_code">Recovery code</string>
+    <string name="pin_rule_hint">6 to 12 digits</string>
+    <string name="error_name_blank">Enter a name</string>
+    <string name="error_name_too_long">The name is limited to 50 characters</string>
+    <string name="error_pin_not_digits">The PIN contains digits only</string>
+    <string name="error_pin_too_short">The PIN has at least 6 digits</string>
+    <string name="error_pin_too_long">The PIN has at most 12 digits</string>
+    <string name="error_pin_mismatch">The two PINs are different</string>
+
+    <!-- First launch assistant -->
+    <string name="setup_title">Create the administrator account</string>
+    <string name="setup_intro">This account puts the application into service and manages its settings.</string>
+    <string name="setup_submit">Create the account</string>
+
+    <!-- Recovery code -->
+    <string name="recovery_code_title">Your recovery code</string>
+    <string name="recovery_code_explanation">Write this code down and keep it in a safe place. It is the only way to choose a new PIN if you forget yours. It will not be shown again.</string>
+    <string name="recovery_code_acknowledge">I have written it down</string>
+
+    <!-- Login -->
+    <string name="login_title">Hello, %1$s</string>
+    <string name="login_instruction">Enter your PIN to continue</string>
+    <string name="login_submit">Log in</string>
+    <string name="login_forgot_pin">Forgot your PIN?</string>
+    <plurals name="login_wrong_pin">
+        <item quantity="one">Wrong PIN. %1$d attempt left.</item>
+        <item quantity="other">Wrong PIN. %1$d attempts left.</item>
+    </plurals>
+    <plurals name="login_locked">
+        <item quantity="one">Account locked after too many attempts. Try again in %1$d second.</item>
+        <item quantity="other">Account locked after too many attempts. Try again in %1$d seconds.</item>
+    </plurals>
+
+    <!-- New PIN -->
+    <string name="reset_title">Choose a new PIN</string>
+    <string name="reset_instruction">Enter the recovery code you wrote down when the account was created.</string>
+    <string name="reset_submit">Change the PIN</string>
+    <string name="reset_locked">Account locked after too many attempts. Try again in a minute.</string>
+    <plurals name="reset_wrong_code">
+        <item quantity="one">Wrong recovery code. %1$d attempt left.</item>
+        <item quantity="other">Wrong recovery code. %1$d attempts left.</item>
+    </plurals>
+
+    <!-- Home -->
+    <string name="home_welcome">Welcome, %1$s</string>
     <string name="home_empty_message">The application is ready. Its features will arrive step by step.</string>
+    <string name="home_log_out">Log out</string>
 </resources>

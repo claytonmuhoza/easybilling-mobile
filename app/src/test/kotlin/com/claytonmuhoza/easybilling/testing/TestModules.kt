@@ -1,0 +1,65 @@
+package com.claytonmuhoza.easybilling.testing
+
+import android.content.Context
+import com.claytonmuhoza.easybilling.data.local.LocalStorage
+import com.claytonmuhoza.easybilling.di.PlatformModule
+import com.claytonmuhoza.easybilling.di.StorageModule
+import com.claytonmuhoza.easybilling.domain.identity.RecoveryCode
+import com.claytonmuhoza.easybilling.domain.identity.RecoveryCodeGenerator
+import com.claytonmuhoza.easybilling.domain.identity.SecretHasher
+import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
+import com.claytonmuhoza.easybilling.platform.security.Pbkdf2SecretHasher
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import dagger.hilt.testing.TestInstallIn
+import java.time.Duration
+import java.time.Instant
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/** Clock of the tests: it only moves when a test moves it. */
+@Singleton
+class TestClock @Inject constructor() : TimeProvider {
+    private var instant: Instant = Instant.parse("2026-10-02T08:00:00Z")
+
+    override fun now(): Instant = instant
+
+    fun advance(duration: Duration) {
+        instant += duration
+    }
+}
+
+/** Replaces the device services by controllable ones: test clock, known recovery codes, fast hashing. */
+@Module
+@TestInstallIn(components = [SingletonComponent::class], replaces = [PlatformModule::class])
+object TestPlatformModule {
+    /** The recovery codes handed out, in order, as the user sees them. */
+    val RECOVERY_CODES = listOf("ABCD-EFGH-JKLM", "NPQR-STUV-WXYZ", "2345-6789-ABCD")
+
+    @Provides
+    fun timeProvider(clock: TestClock): TimeProvider = clock
+
+    @Provides
+    @Singleton
+    fun secretHasher(): SecretHasher = Pbkdf2SecretHasher(iterations = 1_000)
+
+    @Provides
+    @Singleton
+    fun recoveryCodes(): RecoveryCodeGenerator {
+        var issued = 0
+        return RecoveryCodeGenerator {
+            RecoveryCode(RecoveryCode.normalize(RECOVERY_CODES[issued++ % RECOVERY_CODES.size]))
+        }
+    }
+}
+
+/** Replaces the encrypted database, whose native library cannot be loaded on the JVM. */
+@Module
+@TestInstallIn(components = [SingletonComponent::class], replaces = [StorageModule::class])
+object TestStorageModule {
+    @Provides
+    @Singleton
+    fun localStorage(@ApplicationContext context: Context): LocalStorage = LocalStorage.inMemory(context)
+}

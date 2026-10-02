@@ -1,4 +1,60 @@
 <resources>
-    <string name="home_empty_title">Bienvenue</string>
+    <!-- Access -->
+    <string name="access_error_message">Les données de l\'application n\'ont pas pu être lues.</string>
+
+    <!-- Fields shared by several screens -->
+    <string name="field_name">Nom</string>
+    <string name="field_pin">Code PIN</string>
+    <string name="field_new_pin">Nouveau code PIN</string>
+    <string name="field_pin_confirmation">Confirmer le code PIN</string>
+    <string name="field_recovery_code">Code de secours</string>
+    <string name="pin_rule_hint">6 à 12 chiffres</string>
+    <string name="error_name_blank">Saisissez un nom</string>
+    <string name="error_name_too_long">Le nom est limité à 50 caractères</string>
+    <string name="error_pin_not_digits">Le code PIN ne contient que des chiffres</string>
+    <string name="error_pin_too_short">Le code PIN compte au moins 6 chiffres</string>
+    <string name="error_pin_too_long">Le code PIN compte au plus 12 chiffres</string>
+    <string name="error_pin_mismatch">Les deux codes PIN sont différents</string>
+
+    <!-- First launch assistant -->
+    <string name="setup_title">Créer le compte administrateur</string>
+    <string name="setup_intro">Ce compte met l\'application en service et gère ses réglages.</string>
+    <string name="setup_submit">Créer le compte</string>
+
+    <!-- Recovery code -->
+    <string name="recovery_code_title">Votre code de secours</string>
+    <string name="recovery_code_explanation">Notez ce code et gardez-le en lieu sûr. C\'est le seul moyen de choisir un nouveau code PIN si vous oubliez le vôtre. Il ne sera plus affiché.</string>
+    <string name="recovery_code_acknowledge">Je l\'ai noté</string>
+
+    <!-- Login -->
+    <string name="login_title">Bonjour, %1$s</string>
+    <string name="login_instruction">Saisissez votre code PIN pour continuer</string>
+    <string name="login_submit">Se connecter</string>
+    <string name="login_forgot_pin">Code PIN oublié ?</string>
+    <plurals name="login_wrong_pin">
+        <item quantity="one">Code PIN incorrect. Il reste %1$d tentative.</item>
+        <item quantity="many">Code PIN incorrect. Il reste %1$d tentatives.</item>
+        <item quantity="other">Code PIN incorrect. Il reste %1$d tentatives.</item>
+    </plurals>
+    <plurals name="login_locked">
+        <item quantity="one">Compte bloqué après trop de tentatives. Réessayez dans %1$d seconde.</item>
+        <item quantity="many">Compte bloqué après trop de tentatives. Réessayez dans %1$d secondes.</item>
+        <item quantity="other">Compte bloqué après trop de tentatives. Réessayez dans %1$d secondes.</item>
+    </plurals>
+
+    <!-- New PIN -->
+    <string name="reset_title">Choisir un nouveau code PIN</string>
+    <string name="reset_instruction">Saisissez le code de secours noté à la création du compte.</string>
+    <string name="reset_submit">Changer le code PIN</string>
+    <string name="reset_locked">Compte bloqué après trop de tentatives. Réessayez dans une minute.</string>
+    <plurals name="reset_wrong_code">
+        <item quantity="one">Code de secours incorrect. Il reste %1$d tentative.</item>
+        <item quantity="many">Code de secours incorrect. Il reste %1$d tentatives.</item>
+        <item quantity="other">Code de secours incorrect. Il reste %1$d tentatives.</item>
+    </plurals>
+
+    <!-- Home -->
+    <string name="home_welcome">Bienvenue, %1$s</string>
     <string name="home_empty_message">L\'application est prête. Ses fonctionnalités arriveront étape par étape.</string>
+    <string name="home_log_out">Se déconnecter</string>
 </resources>
