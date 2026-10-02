@@ -8,20 +8,50 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+// The version name has a single source, gradle.properties. The continuous integration passes the
+// rest: -Papp.versionCode=<run number>, and -Papp.snapshot=<run number> for a build of develop.
+val appVersionName = providers.gradleProperty("app.versionName").get()
+val appVersionCode = providers.gradleProperty("app.versionCode").map(String::toInt).getOrElse(1)
+val snapshotNumber = providers.gradleProperty("app.snapshot").orNull
+
+// The release keystore never lives in the repository: the continuous integration restores it from
+// its secrets and points to it with these variables. Without them the release APK is left unsigned.
+val releaseKeystore = providers.environmentVariable("EASYBILLING_KEYSTORE_FILE").orNull
+
 android {
     namespace = "com.claytonmuhoza.easybilling"
 
     defaultConfig {
         applicationId = "com.claytonmuhoza.easybilling"
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
+        manifestPlaceholders["appLabel"] = "EasyBilling"
+    }
+
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = providers.environmentVariable("EASYBILLING_KEYSTORE_PASSWORD").get()
+                keyAlias = providers.environmentVariable("EASYBILLING_KEY_ALIAS").get()
+                keyPassword = providers.environmentVariable("EASYBILLING_KEY_PASSWORD").get()
+            }
+        }
     }
 
     buildTypes {
         release {
+            // The whole application is optimized: limiting R8 to a few packages produced an APK
+            // that crashed at startup (classes renamed on one side of the limit only).
             optimization {
                 enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
+            }
+            signingConfig = signingConfigs.findByName("release")
+            if (snapshotNumber != null) {
+                // A snapshot installs next to the stable application and keeps its own data.
+                applicationIdSuffix = ".snapshot"
+                versionNameSuffix = "-snapshot.$snapshotNumber"
+                manifestPlaceholders["appLabel"] = "EasyBilling Snapshot"
             }
         }
     }

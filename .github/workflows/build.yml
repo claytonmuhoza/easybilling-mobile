@@ -1,0 +1,169 @@
+name: Build
+
+# Every push is checked and produces an APK:
+#   develop        signed snapshot, tag vX.Y.Z-snapshot.N, GitHub pre-release
+#   main           signed stable build, tag vX.Y.Z, GitHub release
+#   other branches debug APK, kept as an artifact of the run only
+#
+# X.Y.Z comes from app.versionName in gradle.properties; N is the run number of this workflow,
+# also used as the Android version code. Renaming this file restarts the run number: do not.
+#
+# Signing needs four repository secrets: KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS and
+# KEY_PASSWORD. The builds of develop and main fail on purpose while one of them is missing.
+
+on:
+  push:
+    branches: ['**']
+
+concurrency:
+  group: build-${{ github.ref }}
+  # A newer push replaces a running build, except where a build publishes a version.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Check and build the APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      channel: ${{ steps.version.outputs.channel }}
+      name: ${{ steps.version.outputs.name }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Check out the sources
+        uses: actions/checkout@v7
+
+      - name: Resolve the version
+        id: version
+        run: |
+          base=$(grep '^app.versionName=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
+          if ! [[ "$base" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::app.versionName in gradle.properties must be MAJOR.MINOR.PATCH, found '$base'."
+            exit 1
+          fi
+          case "$GITHUB_REF_NAME" in
+            main) channel=stable; name="$base" ;;
+            develop) channel=snapshot; name="$base-snapshot.$GITHUB_RUN_NUMBER" ;;
+            *) channel=debug; name="$base-debug.$GITHUB_RUN_NUMBER" ;;
+          esac
+          {
+            echo "channel=$channel"
+            echo "name=$name"
+            echo "tag=v$name"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Refuse a stable version that is already published
+        if: steps.version.outputs.channel == 'stable'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+            echo "::error::The tag $TAG already exists. Raise app.versionName in gradle.properties."
+            exit 1
+          fi
+
+      - name: Require the signing secrets
+        if: steps.version.outputs.channel != 'debug'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          for secret in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!secret}" ]; then
+              echo "::error::The repository secret $secret is missing: the APK cannot be signed."
+              exit 1
+            fi
+          done
+
+      - name: Set up the JDK
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Run the checks
+        run: ./gradlew check
+
+      - name: Keep the reports of failed checks
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: check-reports
+          path: |
+            **/build/reports/
+            **/build/outputs/roborazzi/
+            **/src/test/screenshots/*_compare.png
+            **/src/test/screenshots/*_actual.png
+          if-no-files-found: ignore
+
+      - name: Build the APK
+        env:
+          CHANNEL: ${{ steps.version.outputs.channel }}
+          NAME: ${{ steps.version.outputs.name }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          EASYBILLING_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          EASYBILLING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          EASYBILLING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ "$CHANNEL" != debug ]; then
+            export EASYBILLING_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$EASYBILLING_KEYSTORE_FILE"
+          fi
+          case "$CHANNEL" in
+            stable)
+              ./gradlew :app:assembleRelease -Papp.versionCode="$GITHUB_RUN_NUMBER"
+              apk=app/build/outputs/apk/release/app-release.apk ;;
+            snapshot)
+              ./gradlew :app:assembleRelease -Papp.versionCode="$GITHUB_RUN_NUMBER" \
+                -Papp.snapshot="$GITHUB_RUN_NUMBER"
+              apk=app/build/outputs/apk/release/app-release.apk ;;
+            *)
+              ./gradlew :app:assembleDebug -Papp.versionCode="$GITHUB_RUN_NUMBER"
+              apk=app/build/outputs/apk/debug/app-debug.apk ;;
+          esac
+          mkdir dist
+          cp "$apk" "dist/easybilling-$NAME.apk"
+
+      - name: Keep the APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: easybilling-${{ steps.version.outputs.name }}
+          path: dist/*.apk
+          if-no-files-found: error
+
+  publish:
+    name: Tag and publish the version
+    needs: build
+    if: needs.build.outputs.channel != 'debug'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Fetch the APK
+        uses: actions/download-artifact@v8
+        with:
+          name: easybilling-${{ needs.build.outputs.name }}
+          path: dist
+
+      - name: Create the tag and the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CHANNEL: ${{ needs.build.outputs.channel }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          flags=()
+          if [ "$CHANNEL" = snapshot ]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$TAG" dist/*.apk --target "$GITHUB_SHA" --title "$TAG" \
+            --generate-notes "${flags[@]}"
