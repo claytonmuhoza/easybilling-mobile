@@ -1,0 +1,26 @@
+package com.claytonmuhoza.easybilling.testing
+
+import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+
+private const val TIMEOUT_MILLIS = 10_000L
+
+/** Waits for work done off the main thread (database, PIN derivation) to show [text]. */
+fun ComposeTestRule.waitForText(text: String): SemanticsNodeInteraction {
+    waitUntil(TIMEOUT_MILLIS) { onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
+    return onNodeWithText(text)
+}
+
+/** Types [value] in the field labelled [label]. */
+fun ComposeTestRule.type(label: String, value: String) {
+    onNodeWithText(label).performTextInput(value)
+}
+
+/** Presses the button showing [text]. */
+fun ComposeTestRule.press(text: String) {
+    onNodeWithText(text).performClick()
+}

@@ -11,6 +11,7 @@ android {
 
     defaultConfig {
         minSdk = ProjectConfig.MIN_SDK
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
@@ -32,4 +33,7 @@ dependencies {
     "testImplementation"(versionCatalog.library("robolectric"))
     "testImplementation"(versionCatalog.library("androidx-test-core"))
     "testImplementation"(versionCatalog.library("androidx-test-ext-junit"))
+    "androidTestImplementation"(versionCatalog.library("kotlin-test-junit"))
+    "androidTestImplementation"(versionCatalog.library("androidx-test-runner"))
+    "androidTestImplementation"(versionCatalog.library("androidx-test-ext-junit"))
 }
