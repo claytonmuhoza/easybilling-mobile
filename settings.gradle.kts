@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google {
             content {
@@ -24,3 +25,9 @@ dependencyResolutionManagement {
 
 rootProject.name = "EasyBilling"
 include(":app")
+include(":domain")
+include(":data:obr")
+include(":data:local")
+include(":platform")
+include(":core:designsystem")
+include(":testing:obr-simulator")

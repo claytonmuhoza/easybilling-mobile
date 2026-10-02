@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">EasyBilling</string>
+    <string name="app_name" translatable="false">EasyBilling</string>
+    <string name="home_empty_title">Welcome</string>
+    <string name="home_empty_message">The application is ready. Its features will arrive step by step.</string>
 </resources>

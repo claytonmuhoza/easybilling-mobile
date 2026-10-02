@@ -1,0 +1,25 @@
+# Overrides of the detekt default configuration (see `easybilling.detekt` convention plugin).
+
+comments:
+  # Project rule: KDoc on every public class, interface and function.
+  UndocumentedPublicClass:
+    active: true
+  UndocumentedPublicFunction:
+    active: true
+
+naming:
+  # Composable functions are named like classes.
+  FunctionNaming:
+    ignoreAnnotated: ['Composable']
+
+complexity:
+  LongParameterList:
+    ignoreDefaultParameters: true
+    ignoreAnnotated: ['Composable']
+
+style:
+  MagicNumber:
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+  UnusedPrivateFunction:
+    ignoreAnnotated: ['Preview']

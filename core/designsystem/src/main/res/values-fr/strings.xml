@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ds_state_loading">Chargement…</string>
+    <string name="ds_state_error_title">Une erreur est survenue</string>
+    <string name="ds_state_retry">Réessayer</string>
+</resources>

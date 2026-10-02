@@ -1,0 +1,8 @@
+# The Gradle wrapper script must keep LF line endings to run on Linux and macOS.
+gradlew text eol=lf
+*.bat text eol=crlf
+
+# Screenshot references and other binaries are never converted.
+*.png binary
+*.webp binary
+*.jar binary

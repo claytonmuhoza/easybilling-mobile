@@ -1,0 +1,4 @@
+<resources>
+    <string name="home_empty_title">Bienvenue</string>
+    <string name="home_empty_message">L\'application est prête. Ses fonctionnalités arriveront étape par étape.</string>
+</resources>
