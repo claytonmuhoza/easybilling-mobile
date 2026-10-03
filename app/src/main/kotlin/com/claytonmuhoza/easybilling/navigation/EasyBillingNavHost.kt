@@ -2,6 +2,7 @@ package com.claytonmuhoza.easybilling.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +27,10 @@ import com.claytonmuhoza.easybilling.items.ItemListRoute
 import com.claytonmuhoza.easybilling.login.LoginRoute
 import com.claytonmuhoza.easybilling.numbering.NumberingRoute
 import com.claytonmuhoza.easybilling.recovery.ResetPinRoute
+import com.claytonmuhoza.easybilling.sale.HeldSalesRoute
+import com.claytonmuhoza.easybilling.sale.InvoiceIssuedRoute
+import com.claytonmuhoza.easybilling.sale.SaleCustomerRoute
+import com.claytonmuhoza.easybilling.sale.SaleRoute
 import com.claytonmuhoza.easybilling.setup.SetupRoute
 import com.claytonmuhoza.easybilling.taxes.LinePreviewRoute
 import com.claytonmuhoza.easybilling.taxes.TaxEditorRoute
@@ -96,6 +101,7 @@ fun EasyBillingNavHost(
                     onOpenNumbering = { navController.navigate(NumberingDestination) },
                     onOpenItems = { navController.navigate(ItemsDestination) },
                     onOpenCustomers = { navController.navigate(CustomersDestination) },
+                    onOpenSale = { navController.navigate(SaleDestination) },
                 )
             }
         }
@@ -104,6 +110,7 @@ fun EasyBillingNavHost(
         taxScreens(access, navController)
         itemScreens(access, navController)
         customerScreens(access, navController)
+        saleScreens(access, navController)
         composable<NumberingDestination> {
             LoggedIn(access) {
                 NumberingRoute(onBack = { navController.popBackStack() })
@@ -192,7 +199,62 @@ private fun NavGraphBuilder.customerScreens(access: AccessState.Ready, navContro
     }
     composable<CustomerEditorDestination> {
         LoggedIn(access) {
-            CustomerEditorRoute(onClose = { navController.popBackStack() })
+            CustomerEditorRoute(
+                onClose = { navController.popBackStack() },
+                onSaved = { id ->
+                    // The screen that asked for the customer learns which one was stored.
+                    navController.previousBackStackEntry?.savedStateHandle?.set(SAVED_CUSTOMER, id)
+                    navController.popBackStack()
+                },
+            )
+        }
+    }
+}
+
+/** Key under which the customer editor leaves the identifier of the customer it stored. */
+private const val SAVED_CUSTOMER = "savedCustomer"
+
+/** The cash register, the customer of the sale, the sales on hold and the issued invoice (UC-C01 to C03). */
+private fun NavGraphBuilder.saleScreens(access: AccessState.Ready, navController: NavHostController) {
+    composable<SaleDestination> {
+        LoggedIn(access) {
+            SaleRoute(
+                onBack = { navController.popBackStack() },
+                onChooseCustomer = { navController.navigate(SaleCustomerDestination) },
+                onOpenHeld = { navController.navigate(HeldSalesDestination) },
+                onIssued = { id ->
+                    navController.navigate(InvoiceIssuedDestination(id)) {
+                        popUpTo<SaleDestination> { inclusive = true }
+                    }
+                },
+            )
+        }
+    }
+    composable<SaleCustomerDestination> { entry ->
+        LoggedIn(access) {
+            val created by entry.savedStateHandle.getStateFlow<Long?>(SAVED_CUSTOMER, null).collectAsState()
+            SaleCustomerRoute(
+                createdCustomerId = created,
+                onClose = { navController.popBackStack() },
+                onNewCustomer = { navController.navigate(CustomerEditorDestination()) },
+            )
+        }
+    }
+    composable<HeldSalesDestination> {
+        LoggedIn(access) {
+            HeldSalesRoute(onClose = { navController.popBackStack() })
+        }
+    }
+    composable<InvoiceIssuedDestination> {
+        LoggedIn(access) {
+            InvoiceIssuedRoute(
+                onNewSale = {
+                    navController.navigate(SaleDestination) {
+                        popUpTo<InvoiceIssuedDestination> { inclusive = true }
+                    }
+                },
+                onHome = { navController.popBackStack() },
+            )
         }
     }
 }

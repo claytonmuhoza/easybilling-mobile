@@ -71,8 +71,8 @@ sealed interface CustomerEditorUiState {
     /** There is no customer with that identifier. */
     data object NotFound : CustomerEditorUiState
 
-    /** The customer is stored: the screen can close. */
-    data object Saved : CustomerEditorUiState
+    /** The customer [id] is stored: the screen can close. */
+    data class Saved(val id: Long) : CustomerEditorUiState
 
     /**
      * The form is shown.
@@ -172,7 +172,7 @@ class CustomerEditorViewModel @Inject constructor(
                 useCases.update(current.existing.id, current.form, actor)
             }
             when (result) {
-                is CustomerSaveResult.Saved -> CustomerEditorUiState.Saved
+                is CustomerSaveResult.Saved -> CustomerEditorUiState.Saved(result.customer.id.value)
                 is CustomerSaveResult.Invalid -> current.copy(problems = result.problems)
                 CustomerSaveResult.TinUnknown -> current.copy(tinNotice = TinNotice.Unknown)
                 is CustomerSaveResult.NotVerified ->

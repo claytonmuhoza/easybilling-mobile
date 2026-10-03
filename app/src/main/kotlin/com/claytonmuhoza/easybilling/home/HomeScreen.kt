@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -19,8 +18,6 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.SectionHeader
 import com.claytonmuhoza.easybilling.core.designsystem.component.TextAction
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
 import com.claytonmuhoza.easybilling.domain.configuration.ReadinessStep
-import com.claytonmuhoza.easybilling.ebms.label
-import com.claytonmuhoza.easybilling.ui.dateTimeText
 
 /**
  * Home screen wired to its view model.
@@ -33,6 +30,7 @@ import com.claytonmuhoza.easybilling.ui.dateTimeText
  * @param onOpenNumbering called when the user opens the numbering.
  * @param onOpenItems called when the user opens the items.
  * @param onOpenCustomers called when the user opens the customers.
+ * @param onOpenSale called when the user opens the cash register.
  * @param viewModel holder of the home state.
  */
 @Composable
@@ -45,6 +43,7 @@ fun HomeRoute(
     onOpenNumbering: () -> Unit,
     onOpenItems: () -> Unit,
     onOpenCustomers: () -> Unit,
+    onOpenSale: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val taxProfileStatus by viewModel.taxProfileStatus.collectAsStateWithLifecycle()
@@ -54,6 +53,7 @@ fun HomeRoute(
     val readiness by viewModel.readiness.collectAsStateWithLifecycle()
     val catalogStatus by viewModel.catalogStatus.collectAsStateWithLifecycle()
     val customersStatus by viewModel.customersStatus.collectAsStateWithLifecycle()
+    val salesStatus by viewModel.salesStatus.collectAsStateWithLifecycle()
 
     // Reloaded each time the screen appears: the settings may have changed on their own screens.
     LaunchedEffect(Unit) { viewModel.load() }
@@ -67,6 +67,7 @@ fun HomeRoute(
         readiness = readiness,
         catalogStatus = catalogStatus,
         customersStatus = customersStatus,
+        salesStatus = salesStatus,
         actions = HomeActions(
             onLogOut = onLogOut,
             onOpenTaxProfile = onOpenTaxProfile,
@@ -75,6 +76,7 @@ fun HomeRoute(
             onOpenNumbering = onOpenNumbering,
             onOpenItems = onOpenItems,
             onOpenCustomers = onOpenCustomers,
+            onOpenSale = onOpenSale,
         ),
     )
 }
@@ -89,6 +91,7 @@ fun HomeRoute(
  * @property onOpenNumbering called when the user opens the numbering.
  * @property onOpenItems called when the user opens the items.
  * @property onOpenCustomers called when the user opens the customers.
+ * @property onOpenSale called when the user opens the cash register.
  */
 class HomeActions(
     val onLogOut: () -> Unit = {},
@@ -98,10 +101,12 @@ class HomeActions(
     val onOpenNumbering: () -> Unit = {},
     val onOpenItems: () -> Unit = {},
     val onOpenCustomers: () -> Unit = {},
+    val onOpenSale: () -> Unit = {},
 )
 
 /**
- * Home screen: a welcome, what is left to do before the first invoice and the settings.
+ * Home screen: a welcome, the cash register, what is left to do before the first invoice and the
+ * settings.
  *
  * @param userName name of the logged in user.
  * @param taxProfileStatus where the tax profile stands.
@@ -111,6 +116,7 @@ class HomeActions(
  * @param readiness what is left to configure before the first invoice.
  * @param catalogStatus where the catalogue stands.
  * @param customersStatus where the customers stand.
+ * @param salesStatus where the sales stand.
  * @param actions what the user can do.
  * @param modifier modifier applied to the screen.
  */
@@ -124,6 +130,7 @@ fun HomeScreen(
     readiness: ReadinessStatus,
     catalogStatus: CatalogStatus,
     customersStatus: CustomersStatus,
+    salesStatus: SalesStatus,
     actions: HomeActions,
     modifier: Modifier = Modifier,
 ) {
@@ -139,6 +146,7 @@ fun HomeScreen(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            SettingCard(stringResource(R.string.home_new_sale), salesStatus.text(), null, actions.onOpenSale)
 
             SectionHeader(stringResource(R.string.home_settings))
             ReadinessSummary(readiness)
@@ -167,18 +175,8 @@ fun HomeScreen(
                 onOpen = actions.onOpenNumbering,
             )
             SectionHeader(stringResource(R.string.home_catalog))
-            SettingCard(
-                title = stringResource(R.string.items_title),
-                status = catalogStatus.text(),
-                done = null,
-                onOpen = actions.onOpenItems,
-            )
-            SettingCard(
-                title = stringResource(R.string.customers_title),
-                status = customersStatus.text(),
-                done = null,
-                onOpen = actions.onOpenCustomers,
-            )
+            SettingCard(stringResource(R.string.items_title), catalogStatus.text(), null, actions.onOpenItems)
+            SettingCard(stringResource(R.string.customers_title), customersStatus.text(), null, actions.onOpenCustomers)
         }
     }
 }
@@ -206,43 +204,6 @@ private fun SettingCard(title: String, status: String, done: Boolean?, onOpen: (
     }
 }
 
-@Composable
-private fun TaxProfileStatus.text(): String = when (this) {
-    TaxProfileStatus.Loading -> "…"
-    TaxProfileStatus.Unreadable -> stringResource(R.string.home_status_unreadable)
-    TaxProfileStatus.ToComplete -> stringResource(R.string.home_tax_profile_to_complete)
-    is TaxProfileStatus.Saved -> stringResource(R.string.home_tax_profile_version, number)
-}
-
-@Composable
-private fun EbmsStatus.text(): String = when (this) {
-    EbmsStatus.Loading -> "…"
-    EbmsStatus.Unreadable -> stringResource(R.string.home_status_unreadable)
-    EbmsStatus.ToConfigure -> stringResource(R.string.home_ebms_to_configure)
-    is EbmsStatus.Configured -> lastSuccess
-        ?.let { stringResource(R.string.home_ebms_connected, environment.label(), dateTimeText(it)) }
-        ?: stringResource(R.string.home_ebms_never_tested, environment.label())
-}
-
-@Composable
-private fun TaxesStatus.text(): String = when (this) {
-    TaxesStatus.Loading -> "…"
-    TaxesStatus.Unreadable -> stringResource(R.string.home_status_unreadable)
-    is TaxesStatus.Defined -> if (active == 0) {
-        stringResource(R.string.home_taxes_none)
-    } else {
-        pluralStringResource(R.plurals.home_taxes_active, active, active)
-    }
-}
-
-@Composable
-private fun NumberingStatus.text(): String = when (this) {
-    NumberingStatus.Loading -> "…"
-    NumberingStatus.Unreadable -> stringResource(R.string.home_status_unreadable)
-    NumberingStatus.ToDefine -> stringResource(R.string.home_numbering_to_define)
-    is NumberingStatus.Defined -> if (locked) stringResource(R.string.home_numbering_locked, example) else example
-}
-
 /** Whether invoices can be issued; the cards below show what is left to do. */
 @Composable
 private fun ReadinessSummary(status: ReadinessStatus) {
@@ -258,29 +219,3 @@ private fun ReadinessSummary(status: ReadinessStatus) {
 /** @return whether [step] is done, or null when it does not apply or is not known yet. */
 private fun ReadinessStatus.done(step: ReadinessStep): Boolean? =
     (this as? ReadinessStatus.Known)?.readiness?.steps?.get(step)
-
-@Composable
-private fun CatalogStatus.text(): String = when (this) {
-    CatalogStatus.Loading -> "…"
-    CatalogStatus.Unreadable -> stringResource(R.string.home_status_unreadable)
-    is CatalogStatus.Counted -> {
-        val items = if (active == 0) {
-            stringResource(R.string.home_items_none)
-        } else {
-            pluralStringResource(R.plurals.home_items_active, active, active)
-        }
-        val toComplete = pluralStringResource(R.plurals.home_items_without_vat, withoutVat, withoutVat)
-        if (withoutVat == 0) items else "$items · $toComplete"
-    }
-}
-
-@Composable
-private fun CustomersStatus.text(): String = when (this) {
-    CustomersStatus.Loading -> "…"
-    CustomersStatus.Unreadable -> stringResource(R.string.home_status_unreadable)
-    is CustomersStatus.Counted -> if (active == 0) {
-        stringResource(R.string.home_customers_none)
-    } else {
-        pluralStringResource(R.plurals.home_customers_active, active, active)
-    }
-}

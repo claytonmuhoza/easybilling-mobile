@@ -89,7 +89,8 @@ class EbmsConnectionFlowTest {
     }
 
     private fun openScreen() {
-        composeRule.waitForText("EBMS connection").performClick()
+        // The card is below the fold of a small phone since the home screen opens the cash register.
+        composeRule.waitForText("EBMS connection").performScrollTo().performClick()
         composeRule.waitForText("Test the connection")
     }
 
@@ -108,7 +109,7 @@ class EbmsConnectionFlowTest {
 
     @Test
     fun `the home screen asks for the connection while it is not configured`() {
-        composeRule.waitForText("EBMS connection").assertIsDisplayed()
+        composeRule.waitForText("EBMS connection").performScrollTo().assertIsDisplayed()
         composeRule.waitForText("To configure").assertIsDisplayed()
     }
 
@@ -144,7 +145,7 @@ class EbmsConnectionFlowTest {
 
         scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
 
-        composeRule.waitForText("Test · connected on", substring = true).assertIsDisplayed()
+        composeRule.waitForText("Test · connected on", substring = true).performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -279,7 +280,7 @@ class EbmsConnectionFlowTest {
     @Test
     @Config(qualifiers = "fr")
     fun `the screen is translated in French`() {
-        composeRule.waitForText("Connexion EBMS").performClick()
+        composeRule.waitForText("Connexion EBMS").performScrollTo().performClick()
 
         composeRule.waitForText("Tester la connexion").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Adresse du serveur").performScrollTo().assertIsDisplayed()

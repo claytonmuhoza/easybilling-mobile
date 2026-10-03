@@ -32,15 +32,18 @@ import com.claytonmuhoza.easybilling.ui.dateTimeText
 /**
  * Customer editor wired to its view model.
  *
- * @param onClose called to leave the screen, after a save or when the user goes back.
+ * @param onClose called to leave the screen when the user goes back.
+ * @param onSaved called with the identifier of the customer once it is stored; it leaves the screen.
  * @param viewModel holder of the editor state.
  */
 @Composable
-fun CustomerEditorRoute(onClose: () -> Unit, viewModel: CustomerEditorViewModel = hiltViewModel()) {
+fun CustomerEditorRoute(
+    onClose: () -> Unit,
+    onSaved: (Long) -> Unit = { onClose() },
+    viewModel: CustomerEditorViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    if (state == CustomerEditorUiState.Saved) {
-        LaunchedEffect(Unit) { onClose() }
-    }
+    (state as? CustomerEditorUiState.Saved)?.let { saved -> LaunchedEffect(saved) { onSaved(saved.id) } }
     CustomerEditorScreen(
         state = state,
         actions = CustomerEditorActions(
@@ -90,7 +93,7 @@ fun CustomerEditorScreen(
     val title = existing?.details?.name ?: stringResource(R.string.customer_new_title)
     TitledScreen(title = title, modifier = modifier, onBack = actions.onBack) {
         when (state) {
-            CustomerEditorUiState.Loading, CustomerEditorUiState.Saved -> LoadingState()
+            CustomerEditorUiState.Loading, is CustomerEditorUiState.Saved -> LoadingState()
             CustomerEditorUiState.Failed -> ErrorState(
                 message = stringResource(R.string.customers_load_error),
                 onRetry = actions.onRetry,

@@ -14,6 +14,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
 import com.claytonmuhoza.easybilling.domain.configuration.activeLoginTarget
 import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.DocumentType
+import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.BusinessCalendar
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.ui.storageCall
@@ -133,6 +134,18 @@ sealed interface CustomersStatus {
     data class Counted(val active: Int) : CustomersStatus
 }
 
+/** Where the sales stand, as summed up on the home screen. */
+sealed interface SalesStatus {
+    /** The sales are being read. */
+    data object Loading : SalesStatus
+
+    /** The sales could not be read. */
+    data object Unreadable : SalesStatus
+
+    /** [held] sales are on hold. */
+    data class Counted(val held: Int) : SalesStatus
+}
+
 /**
  * Reads what the home screen sums up.
  *
@@ -143,6 +156,7 @@ sealed interface CustomersStatus {
  * @param numbering where the numbering is kept.
  * @param items where the items are kept.
  * @param customers where the customers are kept.
+ * @param drafts where the sales that are not issued are kept.
  * @param time source of the current year.
  */
 class HomeStatusReader @Inject constructor(
@@ -153,6 +167,7 @@ class HomeStatusReader @Inject constructor(
     private val numbering: NumberingRepository,
     private val items: ItemRepository,
     private val customers: CustomerRepository,
+    private val drafts: SaleDraftRepository,
     private val time: TimeProvider,
 ) {
     /** @return where the tax profile stands. */
@@ -185,6 +200,9 @@ class HomeStatusReader @Inject constructor(
 
     /** @return where the customers stand. */
     suspend fun customers(): CustomersStatus = CustomersStatus.Counted(customers.count(archived = false))
+
+    /** @return where the sales stand. */
+    suspend fun sales(): SalesStatus = SalesStatus.Counted(drafts.held().size)
 }
 
 /** Drives the home screen. */
@@ -201,6 +219,7 @@ class HomeViewModel @Inject constructor(
     private val mutableReadiness = MutableStateFlow<ReadinessStatus>(ReadinessStatus.Loading)
     private val mutableCatalogStatus = MutableStateFlow<CatalogStatus>(CatalogStatus.Loading)
     private val mutableCustomersStatus = MutableStateFlow<CustomersStatus>(CustomersStatus.Loading)
+    private val mutableSalesStatus = MutableStateFlow<SalesStatus>(SalesStatus.Loading)
 
     /** Where the tax profile stands. */
     val taxProfileStatus: StateFlow<TaxProfileStatus> = mutableTaxProfileStatus.asStateFlow()
@@ -223,6 +242,9 @@ class HomeViewModel @Inject constructor(
     /** Where the customers stand. */
     val customersStatus: StateFlow<CustomersStatus> = mutableCustomersStatus.asStateFlow()
 
+    /** Where the sales stand. */
+    val salesStatus: StateFlow<SalesStatus> = mutableSalesStatus.asStateFlow()
+
     /** Reads the state of the settings, of the catalogue and of the customers. Called each time the screen is shown. */
     fun load() {
         viewModelScope.launch {
@@ -236,6 +258,7 @@ class HomeViewModel @Inject constructor(
             mutableNumberingStatus.value = storageCall { reader.numbering() }.getOrElse { NumberingStatus.Unreadable }
             mutableCatalogStatus.value = storageCall { reader.catalog() }.getOrElse { CatalogStatus.Unreadable }
             mutableCustomersStatus.value = storageCall { reader.customers() }.getOrElse { CustomersStatus.Unreadable }
+            mutableSalesStatus.value = storageCall { reader.sales() }.getOrElse { SalesStatus.Unreadable }
         }
     }
 }
