@@ -10,8 +10,13 @@ import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialsVault
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettings
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
+import com.claytonmuhoza.easybilling.domain.configuration.TaxDefinition
+import com.claytonmuhoza.easybilling.domain.configuration.TaxId
+import com.claytonmuhoza.easybilling.domain.configuration.TaxKind
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileVersion
+import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
+import com.claytonmuhoza.easybilling.domain.configuration.TaxVersion
 import com.claytonmuhoza.easybilling.domain.identity.NewUser
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCode
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCodeGenerator
@@ -169,6 +174,30 @@ class InMemoryExchangeLog : ExchangeLog {
         val before = exchanges.size
         exchanges.removeAll { it.startedAt < instant }
         return before - exchanges.size
+    }
+}
+
+/** Tax definitions kept in a map. */
+class InMemoryTaxRepository : TaxRepository {
+    private val taxes = LinkedHashMap<TaxId, TaxDefinition>()
+
+    override suspend fun all(): List<TaxDefinition> = taxes.values.toList()
+
+    override suspend fun find(id: TaxId): TaxDefinition? = taxes[id]
+
+    override suspend fun create(kind: TaxKind, name: String, version: TaxVersion): TaxDefinition {
+        val tax = TaxDefinition(TaxId(taxes.size + 1L), kind, name, listOf(version))
+        taxes[tax.id] = tax
+        return tax
+    }
+
+    override suspend fun addVersion(id: TaxId, version: TaxVersion) {
+        val tax = taxes.getValue(id)
+        taxes[id] = tax.copy(versions = tax.versions + version)
+    }
+
+    override suspend fun setArchived(id: TaxId, archived: Boolean) {
+        taxes[id] = taxes.getValue(id).copy(archived = archived)
     }
 }
 
