@@ -71,6 +71,55 @@
         <item quantity="other">%1$d active taxes</item>
     </plurals>
 
+    <string name="home_numbering_to_define">Not set</string>
+    <string name="home_numbering_locked">%1$s · locked</string>
+
+    <string name="home_readiness_ready">Ready to invoice.</string>
+    <string name="home_readiness_not_ready">Cash register locked: finish the steps marked “To do”.</string>
+    <string name="home_readiness_done">Done</string>
+    <string name="home_readiness_to_do">To do</string>
+
+    <!-- Numbering -->
+    <string name="numbering_title">Numbering</string>
+    <string name="numbering_intro">Every document gets the number that follows the previous one, without gap. Each type of document has its own sequence.</string>
+    <string name="numbering_load_error">The numbering could not be read.</string>
+    <string name="numbering_multiple_devices">Other devices also invoice for this NIF</string>
+    <string name="numbering_device_code">Device code</string>
+    <string name="numbering_device_code_hint">Different on each device</string>
+    <string name="numbering_prefix">Prefix</string>
+    <string name="numbering_prefix_hint">Optional</string>
+    <string name="numbering_separator">Separator</string>
+    <string name="numbering_separator_none">None</string>
+    <string name="numbering_counter_digits">Digits of the counter</string>
+    <string name="numbering_year">Year</string>
+    <string name="numbering_year_none">No year</string>
+    <string name="numbering_year_short">2 digits</string>
+    <string name="numbering_year_full">4 digits</string>
+    <string name="numbering_year_separator">Separator before the year</string>
+    <string name="numbering_reset">Counters start again from 1</string>
+    <string name="numbering_reset_yearly">Every year</string>
+    <string name="numbering_reset_never">Never</string>
+    <string name="numbering_example">Next invoice: %1$s</string>
+    <string name="numbering_preview">Next numbers</string>
+    <string name="numbering_preview_unavailable">The next numbers appear once the fields are valid.</string>
+    <string name="numbering_identifier">Invoice identifier sent to the OBR</string>
+    <string name="numbering_identifier_unknown">Shown once the tax profile and the EBMS connection are saved.</string>
+    <string name="numbering_lock_hint">Once the first document is issued, the numbering can no longer be changed.</string>
+    <string name="numbering_locked">Locked since %1$s: a document was issued, the numbering can no longer be changed.</string>
+    <string name="numbering_save">Save</string>
+    <string name="numbering_saved">Numbering saved.</string>
+    <string name="numbering_save_error">The numbering could not be saved. Try again.</string>
+    <string name="numbering_problem_device_code">Enter 1 to 4 letters or digits.</string>
+    <string name="numbering_problem_prefix">Only letters, digits and - / _ . are accepted.</string>
+    <string name="numbering_problem_year_missing">Starting again every year needs the year in the number.</string>
+    <string name="numbering_problem_too_long">A number would exceed 30 characters.</string>
+    <string name="numbering_problem_identifier_too_long">A number would not fit in the invoice identifier: 90 characters with the NIF and the system identifier.</string>
+    <string name="numbering_problem_other">This numbering is not valid.</string>
+    <string name="numbering_type_fn">Invoice (FN)</string>
+    <string name="numbering_type_fa">Credit note (FA)</string>
+    <string name="numbering_type_rc">Deposit refund (RC)</string>
+    <string name="numbering_type_rhf">Discount outside invoice (RHF)</string>
+
     <!-- Taxes -->
     <string name="taxes_title">Taxes</string>
     <string name="taxes_preview">Line preview</string>

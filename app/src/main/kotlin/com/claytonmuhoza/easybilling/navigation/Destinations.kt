@@ -71,3 +71,7 @@ data class TaxEditorDestination(val id: Long = NEW_TAX) {
 /** Preview of the calculation of a line. */
 @Serializable
 data object LinePreviewDestination
+
+/** Numbering of the documents. */
+@Serializable
+data object NumberingDestination

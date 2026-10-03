@@ -73,6 +73,55 @@
         <item quantity="other">%1$d taxes actives</item>
     </plurals>
 
+    <string name="home_numbering_to_define">À définir</string>
+    <string name="home_numbering_locked">%1$s · verrouillée</string>
+
+    <string name="home_readiness_ready">Prêt à facturer.</string>
+    <string name="home_readiness_not_ready">Caisse bloquée : terminez les étapes marquées « À faire ».</string>
+    <string name="home_readiness_done">Fait</string>
+    <string name="home_readiness_to_do">À faire</string>
+
+    <!-- Numbering -->
+    <string name="numbering_title">Numérotation</string>
+    <string name="numbering_intro">Chaque document reçoit le numéro qui suit le précédent, sans rupture. Chaque type de document a sa propre séquence.</string>
+    <string name="numbering_load_error">La numérotation n\'a pas pu être lue.</string>
+    <string name="numbering_multiple_devices">D\'autres appareils facturent aussi pour ce NIF</string>
+    <string name="numbering_device_code">Code de l\'appareil</string>
+    <string name="numbering_device_code_hint">Différent sur chaque appareil</string>
+    <string name="numbering_prefix">Préfixe</string>
+    <string name="numbering_prefix_hint">Facultatif</string>
+    <string name="numbering_separator">Séparateur</string>
+    <string name="numbering_separator_none">Sans</string>
+    <string name="numbering_counter_digits">Chiffres du compteur</string>
+    <string name="numbering_year">Année</string>
+    <string name="numbering_year_none">Sans année</string>
+    <string name="numbering_year_short">2 chiffres</string>
+    <string name="numbering_year_full">4 chiffres</string>
+    <string name="numbering_year_separator">Séparateur avant l\'année</string>
+    <string name="numbering_reset">Les compteurs repartent de 1</string>
+    <string name="numbering_reset_yearly">Chaque année</string>
+    <string name="numbering_reset_never">Jamais</string>
+    <string name="numbering_example">Prochaine facture : %1$s</string>
+    <string name="numbering_preview">Prochains numéros</string>
+    <string name="numbering_preview_unavailable">Les prochains numéros apparaissent quand les champs sont valides.</string>
+    <string name="numbering_identifier">Identifiant de facture envoyé à l\'OBR</string>
+    <string name="numbering_identifier_unknown">Affiché une fois le profil fiscal et la connexion EBMS enregistrés.</string>
+    <string name="numbering_lock_hint">Dès le premier document émis, la numérotation ne peut plus être modifiée.</string>
+    <string name="numbering_locked">Verrouillée depuis le %1$s : un document a été émis, la numérotation ne peut plus être modifiée.</string>
+    <string name="numbering_save">Enregistrer</string>
+    <string name="numbering_saved">Numérotation enregistrée.</string>
+    <string name="numbering_save_error">La numérotation n\'a pas pu être enregistrée. Réessayez.</string>
+    <string name="numbering_problem_device_code">Saisissez 1 à 4 lettres ou chiffres.</string>
+    <string name="numbering_problem_prefix">Seuls les lettres, les chiffres et - / _ . sont acceptés.</string>
+    <string name="numbering_problem_year_missing">Repartir de 1 chaque année exige l\'année dans le numéro.</string>
+    <string name="numbering_problem_too_long">Un numéro dépasserait 30 caractères.</string>
+    <string name="numbering_problem_identifier_too_long">Un numéro ne tiendrait pas dans l\'identifiant de facture : 90 caractères avec le NIF et l\'identifiant système.</string>
+    <string name="numbering_problem_other">Cette numérotation n\'est pas valide.</string>
+    <string name="numbering_type_fn">Facture normale (FN)</string>
+    <string name="numbering_type_fa">Facture d\'avoir (FA)</string>
+    <string name="numbering_type_rc">Remboursement de caution (RC)</string>
+    <string name="numbering_type_rhf">Réduction hors facture (RHF)</string>
+
     <!-- Taxes -->
     <string name="taxes_title">Taxes</string>
     <string name="taxes_preview">Aperçu d\'une ligne</string>

@@ -7,6 +7,9 @@ import com.claytonmuhoza.easybilling.data.local.audit.AuditDao
 import com.claytonmuhoza.easybilling.data.local.audit.AuditEntryEntity
 import com.claytonmuhoza.easybilling.data.local.configuration.EbmsSettingsDao
 import com.claytonmuhoza.easybilling.data.local.configuration.EbmsSettingsEntity
+import com.claytonmuhoza.easybilling.data.local.configuration.NumberCounterEntity
+import com.claytonmuhoza.easybilling.data.local.configuration.NumberingDao
+import com.claytonmuhoza.easybilling.data.local.configuration.NumberingSettingsEntity
 import com.claytonmuhoza.easybilling.data.local.configuration.TaxDao
 import com.claytonmuhoza.easybilling.data.local.configuration.TaxEntity
 import com.claytonmuhoza.easybilling.data.local.configuration.TaxProfileDao
@@ -25,7 +28,8 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeEntity
  * mandatory before the first stable version.
  *
  * History: 1 users and audit (step 02); 2 tax profile versions (step 03); 3 EBMS settings and
- * exchanges with the OBR (step 04); 4 taxes and their dated rates (step 05).
+ * exchanges with the OBR (step 04); 4 taxes and their dated rates (step 05); 5 numbering and its
+ * counters (step 06).
  */
 @Database(
     entities = [
@@ -36,8 +40,10 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeEntity
         ObrExchangeEntity::class,
         TaxEntity::class,
         TaxVersionEntity::class,
+        NumberingSettingsEntity::class,
+        NumberCounterEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 internal abstract class EasyBillingDatabase : RoomDatabase() {
@@ -52,6 +58,8 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
     abstract fun obrExchangeDao(): ObrExchangeDao
 
     abstract fun taxDao(): TaxDao
+
+    abstract fun numberingDao(): NumberingDao
 }
 
 /**

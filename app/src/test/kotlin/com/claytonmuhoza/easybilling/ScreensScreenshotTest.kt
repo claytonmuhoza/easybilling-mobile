@@ -2,12 +2,14 @@ package com.claytonmuhoza.easybilling
 
 import android.app.Application
 import com.claytonmuhoza.easybilling.domain.identity.PinProblem
+import com.claytonmuhoza.easybilling.domain.configuration.BillingReadiness
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsConnectionForm
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialField
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsServerAddress
 import com.claytonmuhoza.easybilling.domain.configuration.FieldProblem
 import com.claytonmuhoza.easybilling.domain.configuration.FiscalCenter
+import com.claytonmuhoza.easybilling.domain.configuration.ReadinessStep
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileCheck
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileChoice
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileField
@@ -31,6 +33,8 @@ import com.claytonmuhoza.easybilling.ebms.PinPrompt
 import com.claytonmuhoza.easybilling.home.EbmsStatus
 import com.claytonmuhoza.easybilling.home.HomeActions
 import com.claytonmuhoza.easybilling.home.HomeScreen
+import com.claytonmuhoza.easybilling.home.NumberingStatus
+import com.claytonmuhoza.easybilling.home.ReadinessStatus
 import com.claytonmuhoza.easybilling.home.TaxesStatus
 import com.claytonmuhoza.easybilling.home.TaxProfileStatus
 import com.claytonmuhoza.easybilling.login.LoginScreen
@@ -171,6 +175,16 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
             taxProfileStatus = TaxProfileStatus.ToComplete,
             ebmsStatus = EbmsStatus.ToConfigure,
             taxesStatus = TaxesStatus.Defined(0),
+            numberingStatus = NumberingStatus.ToDefine,
+            readiness = ReadinessStatus.Known(
+                BillingReadiness(
+                    mapOf(
+                        ReadinessStep.TAX_PROFILE to false,
+                        ReadinessStep.EBMS_CONNECTION to false,
+                        ReadinessStep.NUMBERING to false,
+                    ),
+                ),
+            ),
             actions = HomeActions(),
         )
     }
@@ -182,6 +196,39 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
             taxProfileStatus = TaxProfileStatus.Saved(2),
             ebmsStatus = EbmsStatus.Configured(EbmsEnvironment.TEST, Instant.parse("2026-10-03T12:30:00Z")),
             taxesStatus = TaxesStatus.Defined(3),
+            numberingStatus = NumberingStatus.Defined("FN-00001/2026", locked = false),
+            readiness = ReadinessStatus.Known(
+                BillingReadiness(
+                    mapOf(
+                        ReadinessStep.TAX_PROFILE to true,
+                        ReadinessStep.EBMS_CONNECTION to true,
+                        ReadinessStep.VAT to false,
+                        ReadinessStep.NUMBERING to true,
+                    ),
+                ),
+            ),
+            actions = HomeActions(),
+        )
+    }
+
+    @Test
+    fun homeReady() = capture("home_ready") {
+        HomeScreen(
+            userName = "Alice",
+            taxProfileStatus = TaxProfileStatus.Saved(2),
+            ebmsStatus = EbmsStatus.Configured(EbmsEnvironment.TEST, Instant.parse("2026-10-03T12:30:00Z")),
+            taxesStatus = TaxesStatus.Defined(3),
+            numberingStatus = NumberingStatus.Defined("FN-00001/2026", locked = true),
+            readiness = ReadinessStatus.Known(
+                BillingReadiness(
+                    mapOf(
+                        ReadinessStep.TAX_PROFILE to true,
+                        ReadinessStep.EBMS_CONNECTION to true,
+                        ReadinessStep.VAT to true,
+                        ReadinessStep.NUMBERING to true,
+                    ),
+                ),
+            ),
             actions = HomeActions(),
         )
     }

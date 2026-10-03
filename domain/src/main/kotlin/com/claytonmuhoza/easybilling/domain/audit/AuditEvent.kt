@@ -115,4 +115,9 @@ sealed interface AuditEvent {
         override val action get() = "TAX_PROFILE_SAVED"
         override val details get() = "version=$version"
     }
+
+    /** The numbering of the documents was saved. */
+    data class NumberingSaved(override val actor: UserId) : AuditEvent {
+        override val action get() = "NUMBERING_SAVED"
+    }
 }

@@ -5,12 +5,14 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.claytonmuhoza.easybilling.data.local.audit.RoomAuditStore
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomEbmsSettingsRepository
+import com.claytonmuhoza.easybilling.data.local.configuration.RoomNumberingRepository
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxProfileRepository
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxRepository
 import com.claytonmuhoza.easybilling.data.local.identity.RoomUserRepository
 import com.claytonmuhoza.easybilling.data.local.transmission.RoomExchangeLog
 import com.claytonmuhoza.easybilling.domain.audit.AuditStore
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
+import com.claytonmuhoza.easybilling.domain.configuration.NumberingRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
 import com.claytonmuhoza.easybilling.domain.identity.UserRepository
@@ -34,6 +36,9 @@ class LocalStorage private constructor(internal val database: EasyBillingDatabas
 
     /** The tax definitions and their rates. */
     val taxes: TaxRepository = RoomTaxRepository(database.taxDao())
+
+    /** The numbering of the documents and its counters. */
+    val numbering: NumberingRepository = RoomNumberingRepository(database.numberingDao())
 
     /** The settings of the connection to the EBMS, except the credentials. */
     val ebmsSettings: EbmsSettingsRepository = RoomEbmsSettingsRepository(database.ebmsSettingsDao())

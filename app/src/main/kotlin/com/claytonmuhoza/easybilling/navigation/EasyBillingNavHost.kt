@@ -20,6 +20,7 @@ import com.claytonmuhoza.easybilling.ebms.ExchangeLogRoute
 import com.claytonmuhoza.easybilling.ebms.ExchangeRoute
 import com.claytonmuhoza.easybilling.home.HomeRoute
 import com.claytonmuhoza.easybilling.login.LoginRoute
+import com.claytonmuhoza.easybilling.numbering.NumberingRoute
 import com.claytonmuhoza.easybilling.recovery.ResetPinRoute
 import com.claytonmuhoza.easybilling.setup.SetupRoute
 import com.claytonmuhoza.easybilling.taxes.LinePreviewRoute
@@ -88,12 +89,18 @@ fun EasyBillingNavHost(
                     onOpenTaxProfile = { navController.navigate(TaxProfileDestination) },
                     onOpenEbmsConnection = { navController.navigate(EbmsConnectionDestination) },
                     onOpenTaxes = { navController.navigate(TaxesDestination) },
+                    onOpenNumbering = { navController.navigate(NumberingDestination) },
                 )
             }
         }
         taxProfileScreens(access, navController)
         ebmsScreens(access, navController)
         taxScreens(access, navController)
+        composable<NumberingDestination> {
+            LoggedIn(access) {
+                NumberingRoute(onBack = { navController.popBackStack() })
+            }
+        }
     }
 }
 
