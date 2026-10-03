@@ -32,6 +32,7 @@ import com.claytonmuhoza.easybilling.ui.dateTimeText
  * @param onOpenTaxes called when the user opens the taxes.
  * @param onOpenNumbering called when the user opens the numbering.
  * @param onOpenItems called when the user opens the items.
+ * @param onOpenCustomers called when the user opens the customers.
  * @param viewModel holder of the home state.
  */
 @Composable
@@ -43,6 +44,7 @@ fun HomeRoute(
     onOpenTaxes: () -> Unit,
     onOpenNumbering: () -> Unit,
     onOpenItems: () -> Unit,
+    onOpenCustomers: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val taxProfileStatus by viewModel.taxProfileStatus.collectAsStateWithLifecycle()
@@ -51,6 +53,7 @@ fun HomeRoute(
     val numberingStatus by viewModel.numberingStatus.collectAsStateWithLifecycle()
     val readiness by viewModel.readiness.collectAsStateWithLifecycle()
     val catalogStatus by viewModel.catalogStatus.collectAsStateWithLifecycle()
+    val customersStatus by viewModel.customersStatus.collectAsStateWithLifecycle()
 
     // Reloaded each time the screen appears: the settings may have changed on their own screens.
     LaunchedEffect(Unit) { viewModel.load() }
@@ -63,6 +66,7 @@ fun HomeRoute(
         numberingStatus = numberingStatus,
         readiness = readiness,
         catalogStatus = catalogStatus,
+        customersStatus = customersStatus,
         actions = HomeActions(
             onLogOut = onLogOut,
             onOpenTaxProfile = onOpenTaxProfile,
@@ -70,6 +74,7 @@ fun HomeRoute(
             onOpenTaxes = onOpenTaxes,
             onOpenNumbering = onOpenNumbering,
             onOpenItems = onOpenItems,
+            onOpenCustomers = onOpenCustomers,
         ),
     )
 }
@@ -83,6 +88,7 @@ fun HomeRoute(
  * @property onOpenTaxes called when the user opens the taxes.
  * @property onOpenNumbering called when the user opens the numbering.
  * @property onOpenItems called when the user opens the items.
+ * @property onOpenCustomers called when the user opens the customers.
  */
 class HomeActions(
     val onLogOut: () -> Unit = {},
@@ -91,6 +97,7 @@ class HomeActions(
     val onOpenTaxes: () -> Unit = {},
     val onOpenNumbering: () -> Unit = {},
     val onOpenItems: () -> Unit = {},
+    val onOpenCustomers: () -> Unit = {},
 )
 
 /**
@@ -103,6 +110,7 @@ class HomeActions(
  * @param numberingStatus where the numbering stands.
  * @param readiness what is left to configure before the first invoice.
  * @param catalogStatus where the catalogue stands.
+ * @param customersStatus where the customers stand.
  * @param actions what the user can do.
  * @param modifier modifier applied to the screen.
  */
@@ -115,6 +123,7 @@ fun HomeScreen(
     numberingStatus: NumberingStatus,
     readiness: ReadinessStatus,
     catalogStatus: CatalogStatus,
+    customersStatus: CustomersStatus,
     actions: HomeActions,
     modifier: Modifier = Modifier,
 ) {
@@ -163,6 +172,12 @@ fun HomeScreen(
                 status = catalogStatus.text(),
                 done = null,
                 onOpen = actions.onOpenItems,
+            )
+            SettingCard(
+                title = stringResource(R.string.customers_title),
+                status = customersStatus.text(),
+                done = null,
+                onOpen = actions.onOpenCustomers,
             )
         }
     }
@@ -256,5 +271,16 @@ private fun CatalogStatus.text(): String = when (this) {
         }
         val toComplete = pluralStringResource(R.plurals.home_items_without_vat, withoutVat, withoutVat)
         if (withoutVat == 0) items else "$items · $toComplete"
+    }
+}
+
+@Composable
+private fun CustomersStatus.text(): String = when (this) {
+    CustomersStatus.Loading -> "…"
+    CustomersStatus.Unreadable -> stringResource(R.string.home_status_unreadable)
+    is CustomersStatus.Counted -> if (active == 0) {
+        stringResource(R.string.home_customers_none)
+    } else {
+        pluralStringResource(R.plurals.home_customers_active, active, active)
     }
 }

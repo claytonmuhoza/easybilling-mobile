@@ -14,6 +14,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.claytonmuhoza.easybilling.access.AccessState
+import com.claytonmuhoza.easybilling.customers.CustomerEditorRoute
+import com.claytonmuhoza.easybilling.customers.CustomerListRoute
 import com.claytonmuhoza.easybilling.domain.identity.Session
 import com.claytonmuhoza.easybilling.ebms.EbmsConnectionRoute
 import com.claytonmuhoza.easybilling.ebms.ExchangeLogRoute
@@ -93,6 +95,7 @@ fun EasyBillingNavHost(
                     onOpenTaxes = { navController.navigate(TaxesDestination) },
                     onOpenNumbering = { navController.navigate(NumberingDestination) },
                     onOpenItems = { navController.navigate(ItemsDestination) },
+                    onOpenCustomers = { navController.navigate(CustomersDestination) },
                 )
             }
         }
@@ -100,6 +103,7 @@ fun EasyBillingNavHost(
         ebmsScreens(access, navController)
         taxScreens(access, navController)
         itemScreens(access, navController)
+        customerScreens(access, navController)
         composable<NumberingDestination> {
             LoggedIn(access) {
                 NumberingRoute(onBack = { navController.popBackStack() })
@@ -171,6 +175,24 @@ private fun NavGraphBuilder.itemScreens(access: AccessState.Ready, navController
     composable<ItemEditorDestination> {
         LoggedIn(access) {
             ItemEditorRoute(onClose = { navController.popBackStack() })
+        }
+    }
+}
+
+/** The customers (UC-B05 to B07). */
+private fun NavGraphBuilder.customerScreens(access: AccessState.Ready, navController: NavHostController) {
+    composable<CustomersDestination> {
+        LoggedIn(access) {
+            CustomerListRoute(
+                onBack = { navController.popBackStack() },
+                onOpenCustomer = { id -> navController.navigate(CustomerEditorDestination(id)) },
+                onNewCustomer = { navController.navigate(CustomerEditorDestination()) },
+            )
+        }
+    }
+    composable<CustomerEditorDestination> {
+        LoggedIn(access) {
+            CustomerEditorRoute(onClose = { navController.popBackStack() })
         }
     }
 }

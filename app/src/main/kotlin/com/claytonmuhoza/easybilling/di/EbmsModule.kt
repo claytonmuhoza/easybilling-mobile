@@ -2,7 +2,6 @@ package com.claytonmuhoza.easybilling.di
 
 import com.claytonmuhoza.easybilling.data.local.LocalStorage
 import com.claytonmuhoza.easybilling.data.local.configuration.SecretStoreCredentialsVault
-import com.claytonmuhoza.easybilling.data.obr.ObrClient
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialsVault
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
@@ -24,10 +23,9 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import okhttp3.OkHttpClient
 import javax.inject.Singleton
 
-/** Builds the connection to the EBMS: settings, credentials, client, token and log of the exchanges. */
+/** Builds the connection to the EBMS: settings, credentials, token and log of the exchanges. */
 @Module
 @InstallIn(SingletonComponent::class)
 object EbmsModule {
@@ -51,13 +49,7 @@ object EbmsModule {
     fun exchangeJournal(log: ExchangeLog, settings: EbmsSettingsRepository, time: TimeProvider): ExchangeJournal =
         ExchangeJournal(log, settings, time)
 
-    /** @return the login to the EBMS, through the client that records every exchange. */
-    @Provides
-    @Singleton
-    fun obrAuthentication(http: OkHttpClient, journal: ExchangeJournal, time: TimeProvider): ObrAuthentication =
-        ObrClient(http, journal, time)
-
-    /** @return the token of the active environment, shared by every call (used from step 10). */
+    /** @return the token of the active environment, shared by every call. */
     @Provides
     @Singleton
     fun tokenProvider(

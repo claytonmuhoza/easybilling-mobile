@@ -12,6 +12,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.NumberingRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
 import com.claytonmuhoza.easybilling.domain.configuration.activeLoginTarget
+import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.DocumentType
 import com.claytonmuhoza.easybilling.domain.shared.BusinessCalendar
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
@@ -120,6 +121,18 @@ sealed interface CatalogStatus {
     data class Counted(val active: Int, val withoutVat: Int) : CatalogStatus
 }
 
+/** Where the customers stand, as summed up on the home screen. */
+sealed interface CustomersStatus {
+    /** The customers are being read. */
+    data object Loading : CustomersStatus
+
+    /** The customers could not be read. */
+    data object Unreadable : CustomersStatus
+
+    /** [active] customers can be chosen at the sale, besides the counter customer. */
+    data class Counted(val active: Int) : CustomersStatus
+}
+
 /**
  * Reads what the home screen sums up.
  *
@@ -129,6 +142,7 @@ sealed interface CatalogStatus {
  * @param taxes where the taxes are kept.
  * @param numbering where the numbering is kept.
  * @param items where the items are kept.
+ * @param customers where the customers are kept.
  * @param time source of the current year.
  */
 class HomeStatusReader @Inject constructor(
@@ -138,6 +152,7 @@ class HomeStatusReader @Inject constructor(
     private val taxes: TaxRepository,
     private val numbering: NumberingRepository,
     private val items: ItemRepository,
+    private val customers: CustomerRepository,
     private val time: TimeProvider,
 ) {
     /** @return where the tax profile stands. */
@@ -167,6 +182,9 @@ class HomeStatusReader @Inject constructor(
             withoutVat = if (vatRegistered) items.countWithoutVat() else 0,
         )
     }
+
+    /** @return where the customers stand. */
+    suspend fun customers(): CustomersStatus = CustomersStatus.Counted(customers.count(archived = false))
 }
 
 /** Drives the home screen. */
@@ -182,6 +200,7 @@ class HomeViewModel @Inject constructor(
     private val mutableNumberingStatus = MutableStateFlow<NumberingStatus>(NumberingStatus.Loading)
     private val mutableReadiness = MutableStateFlow<ReadinessStatus>(ReadinessStatus.Loading)
     private val mutableCatalogStatus = MutableStateFlow<CatalogStatus>(CatalogStatus.Loading)
+    private val mutableCustomersStatus = MutableStateFlow<CustomersStatus>(CustomersStatus.Loading)
 
     /** Where the tax profile stands. */
     val taxProfileStatus: StateFlow<TaxProfileStatus> = mutableTaxProfileStatus.asStateFlow()
@@ -201,7 +220,10 @@ class HomeViewModel @Inject constructor(
     /** Where the catalogue stands. */
     val catalogStatus: StateFlow<CatalogStatus> = mutableCatalogStatus.asStateFlow()
 
-    /** Reads the state of the settings and of the catalogue. Called each time the screen is shown. */
+    /** Where the customers stand. */
+    val customersStatus: StateFlow<CustomersStatus> = mutableCustomersStatus.asStateFlow()
+
+    /** Reads the state of the settings, of the catalogue and of the customers. Called each time the screen is shown. */
     fun load() {
         viewModelScope.launch {
             // Read first: its sentence is the only text whose height changes once loaded.
@@ -213,6 +235,7 @@ class HomeViewModel @Inject constructor(
             mutableTaxesStatus.value = storageCall { reader.taxes() }.getOrElse { TaxesStatus.Unreadable }
             mutableNumberingStatus.value = storageCall { reader.numbering() }.getOrElse { NumberingStatus.Unreadable }
             mutableCatalogStatus.value = storageCall { reader.catalog() }.getOrElse { CatalogStatus.Unreadable }
+            mutableCustomersStatus.value = storageCall { reader.customers() }.getOrElse { CustomersStatus.Unreadable }
         }
     }
 }
