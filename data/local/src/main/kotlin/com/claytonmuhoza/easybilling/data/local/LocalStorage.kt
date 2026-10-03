@@ -2,9 +2,12 @@ package com.claytonmuhoza.easybilling.data.local
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
 import com.claytonmuhoza.easybilling.data.local.audit.RoomAuditStore
+import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxProfileRepository
 import com.claytonmuhoza.easybilling.data.local.identity.RoomUserRepository
 import com.claytonmuhoza.easybilling.domain.audit.AuditStore
+import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.identity.UserRepository
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
 
@@ -19,6 +22,9 @@ class LocalStorage private constructor(internal val database: EasyBillingDatabas
 
     /** The entries of the audit log. */
     val auditStore: AuditStore = RoomAuditStore(database.auditDao())
+
+    /** The versions of the tax profile. */
+    val taxProfiles: TaxProfileRepository = RoomTaxProfileRepository(database.taxProfileDao())
 
     /** Runs several writes as one. */
     val transactions: TransactionRunner = RoomTransactionRunner(database)
@@ -43,11 +49,9 @@ class LocalStorage private constructor(internal val database: EasyBillingDatabas
             context: Context,
             name: String = DATABASE_NAME,
             passphrase: () -> ByteArray,
-        ): LocalStorage = LocalStorage(
+        ): LocalStorage = open(
             Room.databaseBuilder(context.applicationContext, EasyBillingDatabase::class.java, name)
-                .openHelperFactory { configuration -> LazyEncryptedOpenHelper(configuration, passphrase) }
-                .addCallback(AppendOnlyAuditLog)
-                .build(),
+                .openHelperFactory { configuration -> LazyEncryptedOpenHelper(configuration, passphrase) },
         )
 
         /**
@@ -57,9 +61,26 @@ class LocalStorage private constructor(internal val database: EasyBillingDatabas
          * @param context any context of the application.
          * @return the storage.
          */
-        fun inMemory(context: Context): LocalStorage = LocalStorage(
-            Room.inMemoryDatabaseBuilder(context.applicationContext, EasyBillingDatabase::class.java)
-                .addCallback(AppendOnlyAuditLog)
+        fun inMemory(context: Context): LocalStorage = open(
+            Room.inMemoryDatabaseBuilder(context.applicationContext, EasyBillingDatabase::class.java),
+        )
+
+        /**
+         * Opens an unencrypted database file. For the tests of what happens to an existing file.
+         *
+         * @param context any context of the application.
+         * @param name file name of the database.
+         * @return the storage.
+         */
+        internal fun unencryptedFile(context: Context, name: String): LocalStorage = open(
+            Room.databaseBuilder(context.applicationContext, EasyBillingDatabase::class.java, name),
+        )
+
+        private fun open(builder: RoomDatabase.Builder<EasyBillingDatabase>) = LocalStorage(
+            builder
+                // Decision D30: until the first stable version, an older schema is erased.
+                .fallbackToDestructiveMigration(dropAllTables = true)
+                .addCallback(AppendOnlyTables)
                 .build(),
         )
     }

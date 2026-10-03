@@ -7,7 +7,17 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import com.claytonmuhoza.easybilling.core.designsystem.theme.EasyBillingTheme
 import com.claytonmuhoza.easybilling.domain.identity.PinProblem
+import com.claytonmuhoza.easybilling.domain.configuration.FiscalCenter
+import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileCheck
+import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileChoice
+import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileField
+import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileForm
+import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileVersion
+import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
+import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
+import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.home.HomeScreen
+import com.claytonmuhoza.easybilling.home.TaxProfileStatus
 import com.claytonmuhoza.easybilling.login.LoginScreen
 import com.claytonmuhoza.easybilling.login.LoginUiState
 import com.claytonmuhoza.easybilling.recovery.RecoveryCodeError
@@ -17,6 +27,14 @@ import com.claytonmuhoza.easybilling.recovery.ResetPinUiState
 import com.claytonmuhoza.easybilling.setup.NameError
 import com.claytonmuhoza.easybilling.setup.SetupScreen
 import com.claytonmuhoza.easybilling.setup.SetupUiState
+import com.claytonmuhoza.easybilling.taxprofile.TaxProfileActions
+import com.claytonmuhoza.easybilling.taxprofile.TaxProfileHistoryScreen
+import com.claytonmuhoza.easybilling.taxprofile.TaxProfileHistoryUiState
+import com.claytonmuhoza.easybilling.taxprofile.TaxProfileScreen
+import com.claytonmuhoza.easybilling.taxprofile.TaxProfileUiState
+import com.claytonmuhoza.easybilling.taxprofile.TaxProfileVersionScreen
+import com.claytonmuhoza.easybilling.taxprofile.TaxProfileVersionUiState
+import com.claytonmuhoza.easybilling.taxprofile.VersionSummary
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.rules.ExternalResource
@@ -26,11 +44,12 @@ import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.time.Instant
 import kotlin.test.Test
 
 /**
- * Screenshots of the first launch, login and home screens in every supported language, theme and
- * screen size. The screens are rendered from a fixed state, without view model nor database.
+ * Screenshots of the first launch, login, home and tax profile screens in every supported language,
+ * theme and screen size. The screens are rendered from a fixed state, without view model nor database.
  *
  * References live in `src/test/screenshots`. Record them with `./gradlew recordRoborazziDebug`.
  *
@@ -151,9 +170,123 @@ class ScreensScreenshotTest(private val variant: Variant) {
     }
 
     @Test
-    fun home() = capture("home") {
-        HomeScreen(userName = "Alice", onLogOut = {})
+    fun homeProfileToComplete() = capture("home") {
+        HomeScreen(
+            userName = "Alice",
+            taxProfileStatus = TaxProfileStatus.ToComplete,
+            onLogOut = {},
+            onOpenTaxProfile = {},
+        )
     }
+
+    @Test
+    fun homeProfileSaved() = capture("home_profile_saved") {
+        HomeScreen(
+            userName = "Alice",
+            taxProfileStatus = TaxProfileStatus.Saved(2),
+            onLogOut = {},
+            onOpenTaxProfile = {},
+        )
+    }
+
+    @Test
+    fun taxProfileLoading() = capture("tax_profile_loading", animated = true) {
+        TaxProfileScreen(state = TaxProfileUiState.Loading, actions = TaxProfileActions())
+    }
+
+    @Test
+    fun taxProfileLoadError() = capture("tax_profile_load_error") {
+        TaxProfileScreen(state = TaxProfileUiState.LoadFailed, actions = TaxProfileActions())
+    }
+
+    @Test
+    fun taxProfileEmpty() = capture("tax_profile_empty") {
+        TaxProfileScreen(state = TaxProfileUiState.Editing(TaxProfileForm()), actions = TaxProfileActions())
+    }
+
+    @Test
+    fun taxProfileFilled() = capture("tax_profile_filled") {
+        TaxProfileScreen(state = TaxProfileUiState.Editing(sampleForm()), actions = TaxProfileActions())
+    }
+
+    @Test
+    fun taxProfileErrors() = capture("tax_profile_errors") {
+        val form = sampleForm().with(TaxProfileField.NAME, "").with(TaxProfileField.TIN, "1234567890123456")
+        val invalid = form.check() as TaxProfileCheck.Invalid
+        TaxProfileScreen(
+            state = TaxProfileUiState.Editing(
+                form = form.copy(taxpayerType = null),
+                problems = invalid.problems,
+                missingChoices = setOf(TaxProfileChoice.TAXPAYER_TYPE),
+                saveFailed = true,
+            ),
+            actions = TaxProfileActions(),
+        )
+    }
+
+    @Test
+    fun taxProfileHistory() = capture("tax_profile_history") {
+        TaxProfileHistoryScreen(
+            state = TaxProfileHistoryUiState.Ready(
+                listOf(
+                    VersionSummary(2, Instant.parse("2026-10-03T12:30:00Z"), "Alice"),
+                    VersionSummary(1, Instant.parse("2026-09-28T07:05:00Z"), null),
+                ),
+            ),
+            onBack = {},
+            onOpenVersion = {},
+            onRetry = {},
+        )
+    }
+
+    @Test
+    fun taxProfileHistoryEmpty() = capture("tax_profile_history_empty") {
+        TaxProfileHistoryScreen(
+            state = TaxProfileHistoryUiState.Ready(emptyList()),
+            onBack = {},
+            onOpenVersion = {},
+            onRetry = {},
+        )
+    }
+
+    @Test
+    fun taxProfileVersion() = capture("tax_profile_version") {
+        val profile = (sampleForm().check() as TaxProfileCheck.Valid).profile
+        TaxProfileVersionScreen(
+            number = 1,
+            state = TaxProfileVersionUiState.Ready(
+                TaxProfileVersion(1, profile, Instant.parse("2026-09-28T07:05:00Z"), UserId(1)),
+                authorName = "Alice",
+            ),
+            onBack = {},
+            onRetry = {},
+        )
+    }
+
+    @Test
+    fun taxProfileVersionNotFound() = capture("tax_profile_version_not_found") {
+        TaxProfileVersionScreen(number = 9, state = TaxProfileVersionUiState.NotFound, onBack = {}, onRetry = {})
+    }
+
+    /** A complete profile, made up for the screenshots. */
+    private fun sampleForm() = TaxProfileForm(
+        taxpayerType = TaxpayerType.LEGAL_PERSON,
+        texts = mapOf(
+            TaxProfileField.NAME to "Boutique Umuco SPRL",
+            TaxProfileField.TIN to "4000000001",
+            TaxProfileField.TRADE_NUMBER to "RC 12345",
+            TaxProfileField.PHONE_NUMBER to "+257 22 22 22 22",
+            TaxProfileField.PROVINCE to "Bujumbura Mairie",
+            TaxProfileField.COMMUNE to "Mukaza",
+            TaxProfileField.QUARTIER to "Rohero",
+            TaxProfileField.AVENUE to "Avenue de l'Industrie",
+            TaxProfileField.ADDRESS_NUMBER to "12",
+            TaxProfileField.ACTIVITY_SECTOR to "Commerce general",
+            TaxProfileField.LEGAL_FORM to "SPRL",
+        ),
+        taxes = TaxRegistrations(vat = true),
+        fiscalCenter = FiscalCenter.DMC,
+    )
 
     /**
      * Renders [content] and compares it with (or records) its reference image.

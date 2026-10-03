@@ -55,4 +55,10 @@ sealed interface AuditEvent {
     data class PinReset(override val actor: UserId) : AuditEvent {
         override val action get() = "PIN_RESET"
     }
+
+    /** Version [version] of the tax profile was saved. */
+    data class TaxProfileSaved(override val actor: UserId, val version: Int) : AuditEvent {
+        override val action get() = "TAX_PROFILE_SAVED"
+        override val details get() = "version=$version"
+    }
 }
