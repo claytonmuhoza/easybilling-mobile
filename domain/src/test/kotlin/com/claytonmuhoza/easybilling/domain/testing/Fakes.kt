@@ -10,6 +10,8 @@ import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialsVault
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettings
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
+import com.claytonmuhoza.easybilling.domain.configuration.NumberingRepository
+import com.claytonmuhoza.easybilling.domain.configuration.NumberingSettings
 import com.claytonmuhoza.easybilling.domain.configuration.TaxDefinition
 import com.claytonmuhoza.easybilling.domain.configuration.TaxId
 import com.claytonmuhoza.easybilling.domain.configuration.TaxKind
@@ -25,6 +27,7 @@ import com.claytonmuhoza.easybilling.domain.identity.SecretHasher
 import com.claytonmuhoza.easybilling.domain.identity.User
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.identity.UserRepository
+import com.claytonmuhoza.easybilling.domain.invoicing.DocumentType
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
 import com.claytonmuhoza.easybilling.domain.transmission.ExchangeLog
@@ -204,4 +207,22 @@ class InMemoryTaxRepository : TaxRepository {
 /** Runs the block directly: there is nothing to roll back in memory. */
 object DirectTransactionRunner : TransactionRunner {
     override suspend fun <T> run(block: suspend () -> T): T = block()
+}
+
+/** Numbering and counters kept in memory. */
+class InMemoryNumberingRepository : NumberingRepository {
+    private var settings: NumberingSettings? = null
+    private val counters = mutableMapOf<Pair<DocumentType, Int>, Long>()
+
+    override suspend fun settings(): NumberingSettings? = settings
+
+    override suspend fun save(settings: NumberingSettings) {
+        this.settings = settings
+    }
+
+    override suspend fun lastCounter(type: DocumentType, period: Int): Long = counters[type to period] ?: 0
+
+    override suspend fun setLastCounter(type: DocumentType, period: Int, counter: Long) {
+        counters[type to period] = counter
+    }
 }
