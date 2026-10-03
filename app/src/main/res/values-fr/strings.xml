@@ -57,4 +57,58 @@
     <string name="home_welcome">Bienvenue, %1$s</string>
     <string name="home_empty_message">L\'application est prête. Ses fonctionnalités arriveront étape par étape.</string>
     <string name="home_log_out">Se déconnecter</string>
+    <string name="home_settings">Configuration</string>
+    <string name="home_tax_profile_to_complete">À compléter</string>
+    <string name="home_tax_profile_version">Version %1$d</string>
+    <string name="home_tax_profile_unreadable">Lecture impossible</string>
+
+    <!-- Tax profile -->
+    <string name="tax_profile_title">Profil fiscal</string>
+    <string name="tax_profile_history">Historique</string>
+    <string name="tax_profile_save">Enregistrer</string>
+    <string name="tax_profile_load_error">Le profil fiscal n\'a pas pu être lu.</string>
+    <string name="tax_profile_save_error">Le profil n\'a pas pu être enregistré. Réessayez.</string>
+    <string name="tax_profile_section_identity">Identité</string>
+    <string name="tax_profile_section_address">Adresse</string>
+    <string name="tax_profile_section_taxes">Fiscalité</string>
+    <string name="tax_profile_optional">Facultatif</string>
+    <string name="tax_profile_required">Obligatoire</string>
+    <string name="tax_profile_choose">Choisissez une option</string>
+    <plurals name="tax_profile_too_long">
+        <item quantity="one">%1$d caractère au plus</item>
+        <item quantity="many">%1$d caractères au plus</item>
+        <item quantity="other">%1$d caractères au plus</item>
+    </plurals>
+    <string name="tax_profile_field_name">Nom ou raison sociale</string>
+    <string name="tax_profile_field_tin">Numéro d\'identification fiscale (NIF)</string>
+    <string name="tax_profile_field_trade_number">N° du registre de commerce</string>
+    <string name="tax_profile_field_postal_number">Boîte postale</string>
+    <string name="tax_profile_field_phone_number">Téléphone</string>
+    <string name="tax_profile_field_province">Province</string>
+    <string name="tax_profile_field_commune">Commune</string>
+    <string name="tax_profile_field_quartier">Quartier ou colline</string>
+    <string name="tax_profile_field_avenue">Avenue</string>
+    <string name="tax_profile_field_rue">Rue</string>
+    <string name="tax_profile_field_address_number">Numéro</string>
+    <string name="tax_profile_field_activity_sector">Secteur d\'activité</string>
+    <string name="tax_profile_field_legal_form">Forme juridique</string>
+    <string name="tax_profile_taxpayer_type">Type de contribuable</string>
+    <string name="tax_profile_natural_person">Personne physique</string>
+    <string name="tax_profile_legal_person">Personne morale</string>
+    <string name="tax_profile_fiscal_center">Direction fiscale</string>
+    <string name="tax_profile_fiscal_center_hint">DGC : grands contribuables · DMC : moyens contribuables · DPMC : petits et micro contribuables</string>
+    <string name="tax_profile_vat">Assujetti à la TVA</string>
+    <string name="tax_profile_consumption_tax">Assujetti à la taxe de consommation (TC)</string>
+    <string name="tax_profile_flat_rate_withholding">Assujetti au prélèvement forfaitaire libératoire (PFL)</string>
+    <string name="yes">Oui</string>
+    <string name="no">Non</string>
+
+    <!-- Tax profile history -->
+    <string name="tax_profile_history_title">Historique du profil</string>
+    <string name="tax_profile_history_empty_title">Aucun profil enregistré</string>
+    <string name="tax_profile_history_empty_message">Chaque version enregistrée du profil fiscal apparaîtra ici.</string>
+    <string name="tax_profile_version_title">Version %1$d</string>
+    <string name="tax_profile_version_saved">Enregistrée le %1$s par %2$s</string>
+    <string name="tax_profile_version_unknown_author">un utilisateur inconnu</string>
+    <string name="tax_profile_version_not_found">Cette version du profil fiscal n\'existe pas.</string>
 </resources>

@@ -13,10 +13,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.claytonmuhoza.easybilling.access.AccessState
-import com.claytonmuhoza.easybilling.home.HomeScreen
+import com.claytonmuhoza.easybilling.domain.identity.Session
+import com.claytonmuhoza.easybilling.home.HomeRoute
 import com.claytonmuhoza.easybilling.login.LoginRoute
 import com.claytonmuhoza.easybilling.recovery.ResetPinRoute
 import com.claytonmuhoza.easybilling.setup.SetupRoute
+import com.claytonmuhoza.easybilling.taxprofile.TaxProfileHistoryRoute
+import com.claytonmuhoza.easybilling.taxprofile.TaxProfileRoute
+import com.claytonmuhoza.easybilling.taxprofile.TaxProfileVersionRoute
 
 /** The destination a section of the application starts on. */
 private fun AccessState.Ready.entryDestination(): Any = when (this) {
@@ -70,9 +74,45 @@ fun EasyBillingNavHost(
             ResetPinRoute(onClose = { navController.popBackStack() })
         }
         composable<HomeDestination> {
-            if (access is AccessState.LoggedIn) {
-                HomeScreen(userName = access.session.userName, onLogOut = onLogOut)
+            LoggedIn(access) { session ->
+                HomeRoute(
+                    userName = session.userName,
+                    onLogOut = onLogOut,
+                    onOpenTaxProfile = { navController.navigate(TaxProfileDestination) },
+                )
             }
         }
+        composable<TaxProfileDestination> {
+            LoggedIn(access) {
+                TaxProfileRoute(
+                    onClose = { navController.popBackStack() },
+                    onOpenHistory = { navController.navigate(TaxProfileHistoryDestination) },
+                )
+            }
+        }
+        composable<TaxProfileHistoryDestination> {
+            LoggedIn(access) {
+                TaxProfileHistoryRoute(
+                    onBack = { navController.popBackStack() },
+                    onOpenVersion = { number -> navController.navigate(TaxProfileVersionDestination(number)) },
+                )
+            }
+        }
+        composable<TaxProfileVersionDestination> {
+            LoggedIn(access) {
+                TaxProfileVersionRoute(onBack = { navController.popBackStack() })
+            }
+        }
+    }
+}
+
+/**
+ * Shows [content] only with an open session. During the instant between a logout and the switch
+ * to the login screen, the screens of the application are not composed at all.
+ */
+@Composable
+private fun LoggedIn(access: AccessState.Ready, content: @Composable (Session) -> Unit) {
+    if (access is AccessState.LoggedIn) {
+        content(access.session)
     }
 }
