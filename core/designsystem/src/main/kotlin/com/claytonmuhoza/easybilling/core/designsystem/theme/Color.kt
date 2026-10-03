@@ -4,7 +4,9 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
-// Material 3 tonal palette generated from the seed colour #006874 (a sober blue-green).
+// Material 3 tonal palette generated from the seed colour #006874 (a sober blue-green). The surface
+// containers are the neutral tones 100, 96, 94, 92 and 90 of that palette in the light scheme, and
+// 4, 12, 14, 17 and 22 in the dark one.
 
 internal val LightColors = lightColorScheme(
     primary = Color(0xFF006874),
@@ -34,6 +36,11 @@ internal val LightColors = lightColorScheme(
     inverseSurface = Color(0xFF2E3132),
     inverseOnSurface = Color(0xFFEFF1F1),
     inversePrimary = Color(0xFF4FD8EB),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF1F4F4),
+    surfaceContainer = Color(0xFFECEFEF),
+    surfaceContainerHigh = Color(0xFFE6E9E9),
+    surfaceContainerHighest = Color(0xFFE1E3E3),
 )
 
 internal val DarkColors = darkColorScheme(
@@ -64,4 +71,9 @@ internal val DarkColors = darkColorScheme(
     inverseSurface = Color(0xFFE1E3E3),
     inverseOnSurface = Color(0xFF2E3132),
     inversePrimary = Color(0xFF006874),
+    surfaceContainerLowest = Color(0xFF0C0F10),
+    surfaceContainerLow = Color(0xFF1D2021),
+    surfaceContainer = Color(0xFF222526),
+    surfaceContainerHigh = Color(0xFF282B2C),
+    surfaceContainerHighest = Color(0xFF333637),
 )
