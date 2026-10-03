@@ -4,6 +4,7 @@ import com.claytonmuhoza.easybilling.domain.catalog.ItemId
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.configuration.TaxId
 import com.claytonmuhoza.easybilling.domain.configuration.TaxKind
+import com.claytonmuhoza.easybilling.domain.customer.CustomerId
 import com.claytonmuhoza.easybilling.domain.identity.LogoutReason
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import java.time.Instant
@@ -138,5 +139,27 @@ sealed interface AuditEvent {
     data class ItemArchived(override val actor: UserId, val item: ItemId, val archived: Boolean) : AuditEvent {
         override val action get() = "ITEM_ARCHIVED"
         override val details get() = "item=${item.value};archived=$archived"
+    }
+
+    /** The customer [customer] was created. */
+    data class CustomerCreated(override val actor: UserId, val customer: CustomerId) : AuditEvent {
+        override val action get() = "CUSTOMER_CREATED"
+        override val details get() = "customer=${customer.value}"
+    }
+
+    /** The customer [customer] was changed. */
+    data class CustomerUpdated(override val actor: UserId, val customer: CustomerId) : AuditEvent {
+        override val action get() = "CUSTOMER_UPDATED"
+        override val details get() = "customer=${customer.value}"
+    }
+
+    /** [customer] was archived, or brought back when [archived] is false. */
+    data class CustomerArchived(
+        override val actor: UserId,
+        val customer: CustomerId,
+        val archived: Boolean,
+    ) : AuditEvent {
+        override val action get() = "CUSTOMER_ARCHIVED"
+        override val details get() = "customer=${customer.value};archived=$archived"
     }
 }

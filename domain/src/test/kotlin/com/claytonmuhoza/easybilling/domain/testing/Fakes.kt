@@ -24,6 +24,13 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileVersion
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxVersion
+import com.claytonmuhoza.easybilling.domain.customer.Customer
+import com.claytonmuhoza.easybilling.domain.customer.CustomerDetails
+import com.claytonmuhoza.easybilling.domain.customer.CustomerId
+import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
+import com.claytonmuhoza.easybilling.domain.customer.CustomerSearchText
+import com.claytonmuhoza.easybilling.domain.customer.TinLookup
+import com.claytonmuhoza.easybilling.domain.customer.TinReply
 import com.claytonmuhoza.easybilling.domain.identity.NewUser
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCode
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCodeGenerator
@@ -40,6 +47,7 @@ import com.claytonmuhoza.easybilling.domain.transmission.LoginOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.LoginTarget
 import com.claytonmuhoza.easybilling.domain.transmission.ObrAuthentication
 import com.claytonmuhoza.easybilling.domain.transmission.ObrExchange
+import com.claytonmuhoza.easybilling.domain.transmission.TokenProvider
 import java.time.Duration
 import java.time.Instant
 
@@ -270,4 +278,69 @@ class InMemoryItemRepository : ItemRepository {
 
     override suspend fun countWithoutVat(): Int =
         items.values.count { !it.archived && TaxKind.VAT !in it.details.taxes }
+}
+
+/** TIN register that answers from a map, or what the test forced, and remembers each call. */
+class FakeTinLookup : TinLookup {
+    /** The TINs the OBR knows, with the name of their owner. */
+    val known = mutableMapOf<String, String>()
+
+    /** Replies given to the next calls instead of the normal ones, oldest first. */
+    val forced = mutableListOf<TinReply>()
+
+    /** The token and the TIN of each call. */
+    val calls = mutableListOf<Pair<String, String>>()
+
+    override suspend fun check(target: LoginTarget, token: String, tin: String): TinReply {
+        calls += token to tin
+        return forced.removeFirstOrNull() ?: known[tin]?.let { TinReply.Known(it) } ?: TinReply.Unknown
+    }
+}
+
+/** Token provider that always gives the same token. */
+class FixedTokenProvider(var outcome: LoginOutcome = LoginOutcome.Success("token")) : TokenProvider {
+    override suspend fun token(): LoginOutcome = outcome
+
+    override fun invalidate() = Unit
+}
+
+/** Customers kept in a map. */
+class InMemoryCustomerRepository : CustomerRepository {
+    private val customers = LinkedHashMap<CustomerId, Customer>()
+
+    override suspend fun find(id: CustomerId): Customer? = customers[id]
+
+    override suspend fun findByTin(tin: String): Customer? =
+        customers.values.firstOrNull { it.details.tin?.number == tin }
+
+    override suspend fun counter(): Customer =
+        customers.values.firstOrNull { it.counter } ?: stored(Customer.counterDetails(), counter = true)
+
+    override suspend fun create(details: CustomerDetails): Customer = stored(details, counter = false)
+
+    override suspend fun update(id: CustomerId, details: CustomerDetails) {
+        customers[id] = customers.getValue(id).copy(details = details)
+    }
+
+    override suspend fun setArchived(id: CustomerId, archived: Boolean) {
+        customers[id] = customers.getValue(id).copy(archived = archived)
+    }
+
+    override suspend fun search(query: String, archived: Boolean, limit: Int): List<Customer> {
+        val wanted = SearchText.normalize(query)
+        return customers.values
+            .filter { !it.counter && it.archived == archived }
+            .filter { wanted in CustomerSearchText.of(it.details) }
+            .sortedBy { SearchText.normalize(it.details.name) }
+            .take(limit)
+    }
+
+    override suspend fun count(archived: Boolean): Int =
+        customers.values.count { !it.counter && it.archived == archived }
+
+    private fun stored(details: CustomerDetails, counter: Boolean): Customer {
+        val customer = Customer(CustomerId(customers.size + 1L), details, counter = counter)
+        customers[customer.id] = customer
+        return customer
+    }
 }
