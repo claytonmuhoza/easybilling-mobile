@@ -1,5 +1,6 @@
 package com.claytonmuhoza.easybilling.domain.audit
 
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.identity.LogoutReason
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import java.time.Instant
@@ -54,6 +55,38 @@ sealed interface AuditEvent {
     /** The PIN was replaced with the recovery code. */
     data class PinReset(override val actor: UserId) : AuditEvent {
         override val action get() = "PIN_RESET"
+    }
+
+    /** The address and the credentials of [environment] were saved. No secret is kept here. */
+    data class EbmsConnectionSaved(override val actor: UserId, val environment: EbmsEnvironment) : AuditEvent {
+        override val action get() = "EBMS_CONNECTION_SAVED"
+        override val details get() = "environment=$environment"
+    }
+
+    /** The calls to the EBMS now go to [to] instead of [from]. */
+    data class EbmsEnvironmentChanged(
+        override val actor: UserId,
+        val from: EbmsEnvironment,
+        val to: EbmsEnvironment,
+    ) : AuditEvent {
+        override val action get() = "EBMS_ENVIRONMENT_CHANGED"
+        override val details get() = "from=$from;to=$to"
+    }
+
+    /** The connection to [environment] was tested; [outcome] is the code of the result. */
+    data class EbmsConnectionTested(
+        override val actor: UserId,
+        val environment: EbmsEnvironment,
+        val outcome: String,
+    ) : AuditEvent {
+        override val action get() = "EBMS_CONNECTION_TESTED"
+        override val details get() = "environment=$environment;outcome=$outcome"
+    }
+
+    /** The exchanges with the OBR are now kept [days] days. */
+    data class ExchangeRetentionChanged(override val actor: UserId, val days: Int) : AuditEvent {
+        override val action get() = "EXCHANGE_RETENTION_CHANGED"
+        override val details get() = "days=$days"
     }
 
     /** Version [version] of the tax profile was saved. */

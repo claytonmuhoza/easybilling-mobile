@@ -5,6 +5,11 @@ import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.audit.AuditStore
 import com.claytonmuhoza.easybilling.domain.audit.AuditVerification
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentials
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialsVault
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettings
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileVersion
 import com.claytonmuhoza.easybilling.domain.identity.NewUser
@@ -17,6 +22,11 @@ import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.identity.UserRepository
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
+import com.claytonmuhoza.easybilling.domain.transmission.ExchangeLog
+import com.claytonmuhoza.easybilling.domain.transmission.LoginOutcome
+import com.claytonmuhoza.easybilling.domain.transmission.LoginTarget
+import com.claytonmuhoza.easybilling.domain.transmission.ObrAuthentication
+import com.claytonmuhoza.easybilling.domain.transmission.ObrExchange
 import java.time.Duration
 import java.time.Instant
 
@@ -108,6 +118,57 @@ class InMemoryTaxProfileRepository : TaxProfileRepository {
     override suspend fun append(version: TaxProfileVersion) {
         require(versions.none { it.number == version.number }) { "Version ${version.number} already exists" }
         versions += version
+    }
+}
+
+/** EBMS settings kept in a field. */
+class InMemoryEbmsSettingsRepository(var settings: EbmsSettings = EbmsSettings()) : EbmsSettingsRepository {
+    override suspend fun read(): EbmsSettings = settings
+
+    override suspend fun write(settings: EbmsSettings) {
+        this.settings = settings
+    }
+}
+
+/** EBMS credentials kept in a map. */
+class InMemoryCredentialsVault : EbmsCredentialsVault {
+    val credentials = mutableMapOf<EbmsEnvironment, EbmsCredentials>()
+
+    override suspend fun read(environment: EbmsEnvironment): EbmsCredentials? = credentials[environment]
+
+    override suspend fun write(environment: EbmsEnvironment, credentials: EbmsCredentials) {
+        this.credentials[environment] = credentials
+    }
+}
+
+/** OBR login that answers what the test chose, and remembers each call. */
+class FakeObrAuthentication(var outcome: LoginOutcome = LoginOutcome.Success("token-1")) : ObrAuthentication {
+    val calls = mutableListOf<LoginTarget>()
+
+    override suspend fun login(target: LoginTarget): LoginOutcome {
+        calls += target
+        return outcome
+    }
+}
+
+/** Exchanges kept in a list. */
+class InMemoryExchangeLog : ExchangeLog {
+    val exchanges = mutableListOf<ObrExchange>()
+
+    override suspend fun record(exchange: ObrExchange): Long {
+        val id = exchanges.size + 1L
+        exchanges += exchange.copy(id = id)
+        return id
+    }
+
+    override suspend fun recent(limit: Int): List<ObrExchange> = exchanges.reversed().take(limit)
+
+    override suspend fun find(id: Long): ObrExchange? = exchanges.firstOrNull { it.id == id }
+
+    override suspend fun deleteBefore(instant: Instant): Int {
+        val before = exchanges.size
+        exchanges.removeAll { it.startedAt < instant }
+        return before - exchanges.size
     }
 }
 

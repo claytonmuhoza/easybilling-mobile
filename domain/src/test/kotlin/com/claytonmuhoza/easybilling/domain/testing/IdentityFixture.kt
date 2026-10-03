@@ -18,7 +18,7 @@ class IdentityFixture {
 
     private val hasher = FakeSecretHasher()
     private val codes = SequentialRecoveryCodes()
-    private val guard = SecretGuard(users, hasher, FixedLockoutPolicy(), time, audit, DirectTransactionRunner)
+    val guard = SecretGuard(users, hasher, FixedLockoutPolicy(), time, audit, DirectTransactionRunner)
 
     val createAdministrator = CreateAdministrator(users, hasher, codes, audit, DirectTransactionRunner)
     val logIn = LogIn(users, guard, sessions)
