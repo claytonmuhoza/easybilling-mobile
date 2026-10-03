@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
@@ -13,6 +14,7 @@ import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
 import mockwebserver3.SocketEffect
 import java.io.Closeable
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
@@ -22,7 +24,10 @@ import java.util.concurrent.atomic.AtomicInteger
  * Fake EBMS server for the tests. Its answers follow the OBR specification V0.7: same paths, same
  * HTTP codes, same messages. Tests can force the next answers to reproduce failures.
  *
- * Only `login/` is served for now; the other services arrive with the steps that use them.
+ * `login/` and `checkTIN/` are served for now; the other services arrive with the steps that use
+ * them. The specification does not say how long a token lives on the server side nor what an
+ * expired token gets: here a token is accepted until [expireTokens], and any call without an
+ * accepted token gets the 403 of a missing token.
  *
  * @param username the user name the server accepts.
  * @param password the password the server accepts.
@@ -38,8 +43,12 @@ class ObrSimulator(
     /** Every request received, oldest first. */
     val requests: MutableList<RecordedRequest> = CopyOnWriteArrayList()
 
+    /** The TINs the server knows, with the name of their owner (`tp_name`). */
+    val taxpayers: MutableMap<String, String> = ConcurrentHashMap(mapOf(KNOWN_TIN to KNOWN_TAXPAYER))
+
     private val forced = ConcurrentLinkedQueue<MockResponse>()
     private val issuedTokens = AtomicInteger()
+    private val acceptedTokens: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     /** Number of tokens given so far. */
     val loginCount: Int get() = issuedTokens.get()
@@ -76,9 +85,37 @@ class ObrSimulator(
     /** The next request reaches the server, then the connection is cut: the answer is lost. */
     fun dropNext() = forceNext(MockResponse.Builder().onResponseStart(SocketEffect.CloseSocket()).build())
 
+    /** Every token given so far is now refused: the next authenticated call needs a new login. */
+    fun expireTokens() = acceptedTokens.clear()
+
     private fun answer(request: RecordedRequest): MockResponse = when (request.url.encodedPath) {
         "${API_PATH}login/" -> login(request)
+        "${API_PATH}checkTIN/" -> checkTin(request)
         else -> MockResponse.Builder().code(NOT_FOUND).build()
+    }
+
+    private fun checkTin(request: RecordedRequest): MockResponse {
+        val body = if (request.method == "POST") parse(request.body?.utf8().orEmpty()) else null
+        val tin = (body?.get("tp_TIN") as? JsonPrimitive)?.content.orEmpty()
+        val token = request.headers["Authorization"].orEmpty().removePrefix(BEARER)
+        val owner = taxpayers[tin]
+        return when {
+            request.method != "POST" -> json(BAD_REQUEST, failure(MESSAGE_USE_POST))
+            token !in acceptedTokens -> json(FORBIDDEN, failure(MESSAGE_NO_API_KEY))
+            body == null -> json(BAD_REQUEST, failure(MESSAGE_INVALID_JSON))
+            tin.isEmpty() -> json(BAD_REQUEST, failure(MESSAGE_NO_TIN))
+            owner == null -> json(BAD_REQUEST, failure(MESSAGE_UNKNOWN_TIN))
+            else -> json(
+                OK,
+                buildJsonObject {
+                    put("success", true)
+                    put("msg", MESSAGE_SUCCESS)
+                    putJsonObject("result") {
+                        putJsonArray("taxpayer") { add(buildJsonObject { put("tp_name", owner) }) }
+                    }
+                },
+            )
+        }
     }
 
     private fun login(request: RecordedRequest): MockResponse {
@@ -95,30 +132,14 @@ class ObrSimulator(
                 OK,
                 buildJsonObject {
                     put("success", true)
-                    put("msg", "Opération réussie")
-                    putJsonObject("result") { put("token", "simulated-token-${issuedTokens.incrementAndGet()}") }
+                    put("msg", MESSAGE_SUCCESS)
+                    putJsonObject("result") {
+                        put("token", "simulated-token-${issuedTokens.incrementAndGet()}".also { acceptedTokens += it })
+                    }
                 },
             )
         }
     }
-
-    private fun parse(body: String): JsonObject? =
-        try {
-            Json.parseToJsonElement(body) as? JsonObject
-        } catch (_: SerializationException) {
-            null
-        }
-
-    private fun failure(message: String) = buildJsonObject {
-        put("success", false)
-        put("msg", message)
-    }
-
-    private fun json(code: Int, body: JsonObject) = MockResponse.Builder()
-        .code(code)
-        .setHeader("Content-Type", "application/json")
-        .body(body.toString())
-        .build()
 
     /** Values of the specification and of the simulator. */
     companion object {
@@ -149,9 +170,51 @@ class ObrSimulator(
         /** Message of a body that is not JSON (400), page 16 of the specification. */
         const val MESSAGE_INVALID_JSON = "Le format de la chaine de caractère JSON est invalide."
 
+        /** A TIN the server knows unless a test changes [taxpayers]. */
+        const val KNOWN_TIN = "4000202020"
+
+        /** The owner of [KNOWN_TIN], as in the example of page 28 of the specification. */
+        const val KNOWN_TAXPAYER = "NDIKUMANA Jean Marie"
+
+        /** Message of a success (200), pages 16 and 28 of the specification. */
+        const val MESSAGE_SUCCESS = "Opération réussie"
+
+        /** Message of a call without a token (403), page 28 of the specification. */
+        const val MESSAGE_NO_API_KEY = "La clé API est manquante."
+
+        /** Message of `checkTIN/` without a TIN (400), page 28 of the specification. */
+        const val MESSAGE_NO_TIN = "Veuillez fournir le NIF du contribuable."
+
+        /** Message of `checkTIN/` for a TIN the OBR does not know (400), page 28 of the specification. */
+        const val MESSAGE_UNKNOWN_TIN = "NIF du contribuable inconnu."
+
+        /** Message of `checkTIN/` when the request is not a POST (400), page 28 of the specification. */
+        const val MESSAGE_USE_POST = "Veuillez utiliser la méthode POST pour envoyer les données."
+
+        private const val BEARER = "Bearer "
+
         private const val OK = 200
         private const val BAD_REQUEST = 400
         private const val UNAUTHORIZED = 401
+        private const val FORBIDDEN = 403
         private const val NOT_FOUND = 404
     }
 }
+
+private fun parse(body: String): JsonObject? =
+    try {
+        Json.parseToJsonElement(body) as? JsonObject
+    } catch (_: SerializationException) {
+        null
+    }
+
+private fun failure(message: String) = buildJsonObject {
+    put("success", false)
+    put("msg", message)
+}
+
+private fun json(code: Int, body: JsonObject) = MockResponse.Builder()
+    .code(code)
+    .setHeader("Content-Type", "application/json")
+    .body(body.toString())
+    .build()

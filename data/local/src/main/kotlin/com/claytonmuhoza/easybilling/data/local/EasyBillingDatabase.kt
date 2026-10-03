@@ -17,6 +17,8 @@ import com.claytonmuhoza.easybilling.data.local.configuration.TaxEntity
 import com.claytonmuhoza.easybilling.data.local.configuration.TaxProfileDao
 import com.claytonmuhoza.easybilling.data.local.configuration.TaxProfileVersionEntity
 import com.claytonmuhoza.easybilling.data.local.configuration.TaxVersionEntity
+import com.claytonmuhoza.easybilling.data.local.customer.CustomerDao
+import com.claytonmuhoza.easybilling.data.local.customer.CustomerEntity
 import com.claytonmuhoza.easybilling.data.local.identity.UserDao
 import com.claytonmuhoza.easybilling.data.local.identity.UserEntity
 import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeDao
@@ -31,7 +33,7 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeEntity
  *
  * History: 1 users and audit (step 02); 2 tax profile versions (step 03); 3 EBMS settings and
  * exchanges with the OBR (step 04); 4 taxes and their dated rates (step 05); 5 numbering and its
- * counters (step 06); 6 items of the catalogue (step 07).
+ * counters (step 06); 6 items of the catalogue (step 07); 7 customers (step 08).
  */
 @Database(
     entities = [
@@ -45,8 +47,9 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeEntity
         NumberingSettingsEntity::class,
         NumberCounterEntity::class,
         ItemEntity::class,
+        CustomerEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 internal abstract class EasyBillingDatabase : RoomDatabase() {
@@ -65,6 +68,8 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
     abstract fun numberingDao(): NumberingDao
 
     abstract fun itemDao(): ItemDao
+
+    abstract fun customerDao(): CustomerDao
 }
 
 /**

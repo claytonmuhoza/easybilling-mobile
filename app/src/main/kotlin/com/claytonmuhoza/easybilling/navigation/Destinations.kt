@@ -93,3 +93,21 @@ data class ItemEditorDestination(val id: Long = NEW_ITEM) {
         const val NEW_ITEM = 0L
     }
 }
+
+/** The list of the customers. */
+@Serializable
+data object CustomersDestination
+
+/**
+ * Creation or change of a customer.
+ *
+ * @property id identifier of the customer, or [NEW_CUSTOMER] for a new one.
+ */
+@Serializable
+data class CustomerEditorDestination(val id: Long = NEW_CUSTOMER) {
+    /** Identifiers of the destination. */
+    companion object {
+        /** The identifier meaning "a new customer". */
+        const val NEW_CUSTOMER = 0L
+    }
+}

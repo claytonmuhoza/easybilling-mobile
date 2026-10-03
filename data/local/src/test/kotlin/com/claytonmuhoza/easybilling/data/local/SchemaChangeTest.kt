@@ -52,6 +52,7 @@ class SchemaChangeTest {
         assertEquals(0, opened.users.count())
         assertNull(opened.taxProfiles.current())
         assertEquals(emptyList(), opened.auditStore.readAll())
+        assertEquals(0, opened.customers.count(archived = false))
     }
 
     @Test
