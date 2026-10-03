@@ -1,5 +1,6 @@
 package com.claytonmuhoza.easybilling.domain.audit
 
+import com.claytonmuhoza.easybilling.domain.catalog.ItemId
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.configuration.TaxId
 import com.claytonmuhoza.easybilling.domain.configuration.TaxKind
@@ -119,5 +120,23 @@ sealed interface AuditEvent {
     /** The numbering of the documents was saved. */
     data class NumberingSaved(override val actor: UserId) : AuditEvent {
         override val action get() = "NUMBERING_SAVED"
+    }
+
+    /** The item [item] was created with the code [code]. */
+    data class ItemCreated(override val actor: UserId, val item: ItemId, val code: String) : AuditEvent {
+        override val action get() = "ITEM_CREATED"
+        override val details get() = "item=${item.value};code=$code"
+    }
+
+    /** The item [item] was changed. */
+    data class ItemUpdated(override val actor: UserId, val item: ItemId) : AuditEvent {
+        override val action get() = "ITEM_UPDATED"
+        override val details get() = "item=${item.value}"
+    }
+
+    /** [item] was archived, or brought back when [archived] is false. */
+    data class ItemArchived(override val actor: UserId, val item: ItemId, val archived: Boolean) : AuditEvent {
+        override val action get() = "ITEM_ARCHIVED"
+        override val details get() = "item=${item.value};archived=$archived"
     }
 }
