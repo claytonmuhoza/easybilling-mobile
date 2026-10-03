@@ -49,3 +49,25 @@ data object ExchangeLogDestination
  */
 @Serializable
 data class ExchangeDestination(val id: Long)
+
+/** The list of the taxes. */
+@Serializable
+data object TaxesDestination
+
+/**
+ * Creation of a tax, or the rates of an existing one.
+ *
+ * @property id identifier of the tax, or [NEW_TAX] for a new one.
+ */
+@Serializable
+data class TaxEditorDestination(val id: Long = NEW_TAX) {
+    /** Identifiers of the destination. */
+    companion object {
+        /** The identifier meaning "a new tax". */
+        const val NEW_TAX = 0L
+    }
+}
+
+/** Preview of the calculation of a line. */
+@Serializable
+data object LinePreviewDestination

@@ -66,6 +66,112 @@
     <string name="home_ebms_never_tested">%1$s · jamais testée</string>
     <string name="home_ebms_connected">%1$s · connectée le %2$s</string>
 
+    <string name="home_taxes_none">Aucune taxe</string>
+    <plurals name="home_taxes_active">
+        <item quantity="one">%1$d taxe active</item>
+        <item quantity="many">%1$d taxes actives</item>
+        <item quantity="other">%1$d taxes actives</item>
+    </plurals>
+
+    <!-- Taxes -->
+    <string name="taxes_title">Taxes</string>
+    <string name="taxes_preview">Aperçu d\'une ligne</string>
+    <string name="taxes_new">Nouvelle taxe</string>
+    <string name="taxes_empty_title">Aucune taxe</string>
+    <string name="taxes_empty_message">Créez la TVA et les autres taxes que votre entreprise applique.</string>
+    <string name="taxes_load_error">Les taxes n\'ont pas pu être lues.</string>
+    <string name="taxes_archived">Archivée</string>
+    <string name="taxes_next_rate">À partir du %1$s : %2$s</string>
+    <string name="taxes_not_yet">S\'applique à partir du %1$s</string>
+    <string name="tax_kind_vat">TVA</string>
+    <string name="tax_kind_ct">TC</string>
+    <string name="tax_kind_pfl">PFL</string>
+    <string name="tax_kind_ott">OTT</string>
+    <string name="tax_kind_tsce">TSCE</string>
+    <string name="tax_kind_vat_long">Taxe sur la valeur ajoutée (TVA)</string>
+    <string name="tax_kind_ct_long">Taxe de consommation (TC)</string>
+    <string name="tax_kind_pfl_long">Prélèvement forfaitaire libératoire (PFL)</string>
+    <string name="tax_kind_ott_long">Taxe Over The Top (OTT)</string>
+    <string name="tax_kind_tsce_long">Taxe spécifique des services à valeur ajoutée des communications électroniques (TSCE)</string>
+    <string name="tax_rate_percentage">%1$s %%</string>
+    <string name="tax_rate_percentage_of">%1$s %% du %2$s</string>
+    <string name="tax_rate_per_unit">%1$s par unité</string>
+    <string name="tax_rate_free">Montant saisi sur chaque ligne</string>
+    <string name="tax_base_price">prix × quantité</string>
+    <string name="tax_base_price_without_vat">prix hors TVA</string>
+    <string name="tax_base_price_with_vat">prix TVA comprise</string>
+
+    <!-- Tax editor -->
+    <string name="tax_editor_new_title">Nouvelle taxe</string>
+    <string name="tax_field_kind">Taxe</string>
+    <string name="tax_field_name">Nom</string>
+    <string name="tax_field_mode">Calculée en</string>
+    <string name="tax_mode_percentage">Pourcentage</string>
+    <string name="tax_mode_per_unit">Par unité</string>
+    <string name="tax_mode_free">Saisie libre</string>
+    <string name="tax_field_rate">Taux en pourcentage</string>
+    <string name="tax_field_amount">Montant par unité</string>
+    <string name="tax_field_base">Pourcentage du</string>
+    <string name="tax_base_price_short">PU × Q</string>
+    <string name="tax_base_price_without_vat_short">HTVA</string>
+    <string name="tax_base_price_with_vat_short">TVAC</string>
+    <string name="tax_field_valid_from">À partir du (JJ/MM/AAAA)</string>
+    <string name="tax_vat_hint">La TVA est toujours un pourcentage du prix hors TVA.</string>
+    <string name="tax_create">Créer la taxe</string>
+    <string name="tax_rates">Taux</string>
+    <string name="tax_rate_from">À partir du %1$s</string>
+    <string name="tax_rate_current">en vigueur</string>
+    <string name="tax_rate_upcoming">à venir</string>
+    <string name="tax_new_rate">Nouveau taux</string>
+    <string name="tax_new_rate_hint">Un nouveau taux commence après le dernier et jamais dans le passé : chaque facture garde le taux de son jour.</string>
+    <string name="tax_schedule">Programmer ce taux</string>
+    <string name="tax_scheduled">Taux programmé.</string>
+    <string name="tax_archive">Archiver la taxe</string>
+    <string name="tax_unarchive">Utiliser de nouveau la taxe</string>
+    <string name="tax_archived_hint">Cette taxe est archivée : elle ne peut plus être choisie.</string>
+    <string name="tax_not_found">Cette taxe n\'existe pas.</string>
+    <string name="tax_save_error">La taxe n\'a pas pu être enregistrée. Réessayez.</string>
+    <string name="tax_problem_name_missing">Obligatoire</string>
+    <string name="tax_problem_name_too_long">50 caractères au plus</string>
+    <string name="tax_problem_kind_missing">Choisissez une taxe</string>
+    <string name="tax_problem_mode_missing">Choisissez le mode de calcul</string>
+    <string name="tax_problem_mode_not_allowed">Interdit pour cette taxe</string>
+    <string name="tax_problem_value_missing">Obligatoire</string>
+    <string name="tax_problem_value_invalid">Un nombre positif ou nul, deux décimales au plus</string>
+    <string name="tax_problem_rate_above_100" formatted="false">100 % au plus</string>
+    <string name="tax_problem_base_missing">Choisissez la base du pourcentage</string>
+    <string name="tax_problem_date_missing">Saisissez une date au format JJ/MM/AAAA</string>
+    <string name="tax_problem_date_in_past">Un taux ne commence jamais dans le passé</string>
+    <string name="tax_problem_date_not_after_latest">Doit être après le début du dernier taux</string>
+
+    <!-- Line preview -->
+    <string name="preview_title">Aperçu d\'une ligne</string>
+    <string name="preview_section_line">Ligne</string>
+    <string name="preview_unit_price">Prix unitaire</string>
+    <string name="preview_quantity">Quantité</string>
+    <string name="preview_price_mode">Le prix</string>
+    <string name="preview_excluding_taxes">Hors taxes</string>
+    <string name="preview_including_taxes">Taxes comprises</string>
+    <string name="preview_currency">Devise</string>
+    <string name="preview_section_taxes">Taxes de la ligne</string>
+    <string name="preview_no_tax">Aucune</string>
+    <string name="preview_free_amount">Montant %1$s de la ligne</string>
+    <string name="preview_section_result">Montants envoyés à l\'OBR</string>
+    <string name="preview_invalid_number">Saisissez des nombres, avec un point ou une virgule</string>
+    <string name="preview_not_covered">Le prix taxes comprises ne couvre pas les taxes fixes.</string>
+    <string name="preview_no_profile">Pas encore de profil fiscal : toutes les taxes sont appliquées.</string>
+    <string name="preview_not_registered">Votre entreprise n\'est pas assujettie à : %1$s. Ces taxes sont nulles.</string>
+    <string name="amount_unit_price">Prix unitaire HT (item_price)</string>
+    <string name="amount_price">PU × Q</string>
+    <string name="amount_ct">TC (item_ct)</string>
+    <string name="amount_ott">OTT (item_ott_tax)</string>
+    <string name="amount_tsce">TSCE (item_tsce_tax)</string>
+    <string name="amount_nvat">Prix HTVA (item_price_nvat)</string>
+    <string name="amount_vat">TVA (vat)</string>
+    <string name="amount_wvat">Prix TVAC (item_price_wvat)</string>
+    <string name="amount_pfl">PFL (item_tl)</string>
+    <string name="amount_total">Total (item_total_amount)</string>
+
     <!-- EBMS connection -->
     <string name="ebms_title">Connexion EBMS</string>
     <string name="ebms_exchanges">Échanges</string>

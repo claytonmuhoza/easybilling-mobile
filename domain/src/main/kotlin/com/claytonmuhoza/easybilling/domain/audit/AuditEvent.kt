@@ -1,9 +1,12 @@
 package com.claytonmuhoza.easybilling.domain.audit
 
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
+import com.claytonmuhoza.easybilling.domain.configuration.TaxId
+import com.claytonmuhoza.easybilling.domain.configuration.TaxKind
 import com.claytonmuhoza.easybilling.domain.identity.LogoutReason
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import java.time.Instant
+import java.time.LocalDate
 
 /**
  * Something worth tracing: who did what. The time is added by the [AuditLog].
@@ -87,6 +90,24 @@ sealed interface AuditEvent {
     data class ExchangeRetentionChanged(override val actor: UserId, val days: Int) : AuditEvent {
         override val action get() = "EXCHANGE_RETENTION_CHANGED"
         override val details get() = "days=$days"
+    }
+
+    /** The tax [tax], of kind [kind], was created. */
+    data class TaxCreated(override val actor: UserId, val tax: TaxId, val kind: TaxKind) : AuditEvent {
+        override val action get() = "TAX_CREATED"
+        override val details get() = "tax=${tax.value};kind=$kind"
+    }
+
+    /** A new rate of [tax] applies from [validFrom]. */
+    data class TaxRateScheduled(override val actor: UserId, val tax: TaxId, val validFrom: LocalDate) : AuditEvent {
+        override val action get() = "TAX_RATE_SCHEDULED"
+        override val details get() = "tax=${tax.value};from=$validFrom"
+    }
+
+    /** [tax] was archived, or brought back when [archived] is false. */
+    data class TaxArchived(override val actor: UserId, val tax: TaxId, val archived: Boolean) : AuditEvent {
+        override val action get() = "TAX_ARCHIVED"
+        override val details get() = "tax=${tax.value};archived=$archived"
     }
 
     /** Version [version] of the tax profile was saved. */

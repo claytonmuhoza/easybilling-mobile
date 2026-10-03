@@ -1,11 +1,6 @@
 package com.claytonmuhoza.easybilling
 
 import android.app.Application
-import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onRoot
-import com.claytonmuhoza.easybilling.core.designsystem.theme.EasyBillingTheme
 import com.claytonmuhoza.easybilling.domain.identity.PinProblem
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsConnectionForm
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialField
@@ -36,6 +31,7 @@ import com.claytonmuhoza.easybilling.ebms.PinPrompt
 import com.claytonmuhoza.easybilling.home.EbmsStatus
 import com.claytonmuhoza.easybilling.home.HomeActions
 import com.claytonmuhoza.easybilling.home.HomeScreen
+import com.claytonmuhoza.easybilling.home.TaxesStatus
 import com.claytonmuhoza.easybilling.home.TaxProfileStatus
 import com.claytonmuhoza.easybilling.login.LoginScreen
 import com.claytonmuhoza.easybilling.login.LoginUiState
@@ -46,6 +42,8 @@ import com.claytonmuhoza.easybilling.recovery.ResetPinUiState
 import com.claytonmuhoza.easybilling.setup.NameError
 import com.claytonmuhoza.easybilling.setup.SetupScreen
 import com.claytonmuhoza.easybilling.setup.SetupUiState
+import com.claytonmuhoza.easybilling.testing.ScreenshotTest
+import com.claytonmuhoza.easybilling.testing.ScreenshotVariant
 import com.claytonmuhoza.easybilling.taxprofile.TaxProfileActions
 import com.claytonmuhoza.easybilling.taxprofile.TaxProfileHistoryScreen
 import com.claytonmuhoza.easybilling.taxprofile.TaxProfileHistoryUiState
@@ -54,43 +52,21 @@ import com.claytonmuhoza.easybilling.taxprofile.TaxProfileUiState
 import com.claytonmuhoza.easybilling.taxprofile.TaxProfileVersionScreen
 import com.claytonmuhoza.easybilling.taxprofile.TaxProfileVersionUiState
 import com.claytonmuhoza.easybilling.taxprofile.VersionSummary
-import com.github.takahirom.roborazzi.captureRoboImage
-import org.junit.Rule
-import org.junit.rules.ExternalResource
-import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.time.Instant
 import kotlin.test.Test
 
 /**
- * Screenshots of the first launch, login, home and tax profile screens in every supported language,
- * theme and screen size. The screens are rendered from a fixed state, without view model nor database.
- *
- * References live in `src/test/screenshots`. Record them with `./gradlew recordRoborazziDebug`.
- *
- * The emulated Android version is pinned for the reason given in the design system screenshot
- * test: on Android 17 Robolectric renders asynchronously and the capture sometimes comes out blank.
+ * Screenshots of the first launch, login, home, tax profile and EBMS screens, rendered from a
+ * fixed state, without view model nor database, in every [ScreenshotVariant].
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], application = Application::class)
-class ScreensScreenshotTest(private val variant: Variant) {
-
-    private val composeRule = createComposeRule()
-
-    /** The qualifiers must be set before the compose rule creates its activity. */
-    @get:Rule
-    val rules: RuleChain = RuleChain
-        .outerRule(
-            object : ExternalResource() {
-                override fun before() = RuntimeEnvironment.setQualifiers(variant.qualifiers)
-            },
-        )
-        .around(composeRule)
+class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant) {
 
     @Test
     fun setupForm() = capture("setup_form") {
@@ -194,6 +170,7 @@ class ScreensScreenshotTest(private val variant: Variant) {
             userName = "Alice",
             taxProfileStatus = TaxProfileStatus.ToComplete,
             ebmsStatus = EbmsStatus.ToConfigure,
+            taxesStatus = TaxesStatus.Defined(0),
             actions = HomeActions(),
         )
     }
@@ -204,6 +181,7 @@ class ScreensScreenshotTest(private val variant: Variant) {
             userName = "Alice",
             taxProfileStatus = TaxProfileStatus.Saved(2),
             ebmsStatus = EbmsStatus.Configured(EbmsEnvironment.TEST, Instant.parse("2026-10-03T12:30:00Z")),
+            taxesStatus = TaxesStatus.Defined(3),
             actions = HomeActions(),
         )
     }
@@ -424,67 +402,11 @@ class ScreensScreenshotTest(private val variant: Variant) {
         fiscalCenter = FiscalCenter.DMC,
     )
 
-    /**
-     * Renders [content] and compares it with (or records) its reference image.
-     *
-     * @param animated true for content that animates forever: the clock is then driven by hand to
-     * a fixed instant, so the captured frame is always the same.
-     */
-    private fun capture(
-        name: String,
-        animated: Boolean = false,
-        content: @Composable () -> Unit,
-    ) {
-        composeRule.mainClock.autoAdvance = !animated
-        composeRule.setContent {
-            // The surface is the one the application root puts behind every screen.
-            EasyBillingTheme {
-                Surface { content() }
-            }
-        }
-        if (animated) {
-            composeRule.mainClock.advanceTimeByFrame()
-            composeRule.mainClock.advanceTimeBy(ANIMATION_INSTANT_MILLIS)
-        }
-        composeRule.waitForIdle()
-        val path = "src/test/screenshots/${name}_${variant.name}.png"
-        composeRule.onRoot().captureRoboImage(path)
-    }
-
-    /**
-     * One rendering configuration.
-     *
-     * @property name suffix of the screenshot file.
-     * @property qualifiers Robolectric resource qualifiers: language, screen size, theme, density.
-     */
-    data class Variant(val name: String, val qualifiers: String) {
-        override fun toString() = name
-    }
-
+    /** The configurations of the screenshots. */
     companion object {
-        /** Instant of an endless animation at which its frame is captured. */
-        private const val ANIMATION_INSTANT_MILLIS = 500L
-
-        /** Device name, screen size qualifier, density qualifier. */
-        private val devices = listOf(
-            Triple("phone", "w360dp-h640dp", "xhdpi"),
-            Triple("tablet", "w800dp-h1280dp", "mdpi"),
-        )
-        private val themes = mapOf("light" to "notnight", "dark" to "night")
-        private val languages = listOf("en", "fr")
-
         /** @return every combination of screen size, theme and language. */
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
-        fun variants(): List<Variant> = devices.flatMap { (deviceName, size, density) ->
-            themes.flatMap { (themeName, night) ->
-                languages.map { language ->
-                    Variant(
-                        name = "${deviceName}_${themeName}_$language",
-                        qualifiers = "$language-$size-$night-$density",
-                    )
-                }
-            }
-        }
+        fun variants(): List<ScreenshotVariant> = ScreenshotVariant.all()
     }
 }
