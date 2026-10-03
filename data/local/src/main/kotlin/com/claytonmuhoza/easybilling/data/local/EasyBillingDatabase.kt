@@ -28,10 +28,12 @@ import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceStatusEntity
 import com.claytonmuhoza.easybilling.data.local.invoicing.SaleDraftDao
 import com.claytonmuhoza.easybilling.data.local.invoicing.SaleDraftEntity
 import com.claytonmuhoza.easybilling.data.local.invoicing.SaleDraftLineEntity
+import com.claytonmuhoza.easybilling.data.local.transmission.InvoiceReceiptEntity
 import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeDao
 import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeEntity
 import com.claytonmuhoza.easybilling.data.local.transmission.OutboxDao
 import com.claytonmuhoza.easybilling.data.local.transmission.OutboxEntryEntity
+import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
 
 /**
  * The local database.
@@ -43,7 +45,8 @@ import com.claytonmuhoza.easybilling.data.local.transmission.OutboxEntryEntity
  * History: 1 users and audit (step 02); 2 tax profile versions (step 03); 3 EBMS settings and
  * exchanges with the OBR (step 04); 4 taxes and their dated rates (step 05); 5 numbering and its
  * counters (step 06); 6 items of the catalogue (step 07); 7 customers (step 08); 8 sales that are not
- * issued, issued invoices with their status, and send queue (step 09).
+ * issued, issued invoices with their status, and send queue (step 09); 9 state of the send queue and
+ * acknowledgements of the OBR (step 10).
  */
 @Database(
     entities = [
@@ -64,8 +67,9 @@ import com.claytonmuhoza.easybilling.data.local.transmission.OutboxEntryEntity
         InvoiceLineEntity::class,
         InvoiceStatusEntity::class,
         OutboxEntryEntity::class,
+        InvoiceReceiptEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 // One accessor per DAO: the list grows with the schema.
@@ -94,6 +98,8 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
     abstract fun invoiceDao(): InvoiceDao
 
     abstract fun outboxDao(): OutboxDao
+
+    abstract fun receiptDao(): ReceiptDao
 }
 
 /**
@@ -103,7 +109,7 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
  */
 internal object AppendOnlyTables : RoomDatabase.Callback() {
     private val tables =
-        listOf("audit_entries", "tax_profile_versions", "tax_versions", "invoices", "invoice_lines")
+        listOf("audit_entries", "tax_profile_versions", "tax_versions", "invoices", "invoice_lines", "invoice_receipts")
 
     override fun onOpen(db: SupportSQLiteDatabase) {
         for (table in tables) {

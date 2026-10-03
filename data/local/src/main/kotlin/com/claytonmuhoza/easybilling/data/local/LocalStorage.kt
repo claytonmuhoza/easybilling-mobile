@@ -15,6 +15,7 @@ import com.claytonmuhoza.easybilling.data.local.invoicing.RoomInvoiceRepository
 import com.claytonmuhoza.easybilling.data.local.invoicing.RoomSaleDraftRepository
 import com.claytonmuhoza.easybilling.data.local.transmission.RoomExchangeLog
 import com.claytonmuhoza.easybilling.data.local.transmission.RoomOutboxRepository
+import com.claytonmuhoza.easybilling.data.local.transmission.RoomReceiptArchive
 import com.claytonmuhoza.easybilling.domain.audit.AuditStore
 import com.claytonmuhoza.easybilling.domain.catalog.ItemRepository
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
@@ -28,6 +29,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
 import com.claytonmuhoza.easybilling.domain.transmission.ExchangeLog
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
+import com.claytonmuhoza.easybilling.domain.transmission.ReceiptArchive
 
 /**
  * Entry point of the local storage: gives access to the domain ports backed by the database and
@@ -61,6 +63,9 @@ class LocalStorage private constructor(internal val database: EasyBillingDatabas
 
     /** The operations to send to the OBR. */
     val outbox: OutboxRepository = RoomOutboxRepository(database.outboxDao())
+
+    /** The acknowledgements of the OBR. */
+    val receipts: ReceiptArchive = RoomReceiptArchive(database.receiptDao())
 
     /** The numbering of the documents and its counters. */
     val numbering: NumberingRepository = RoomNumberingRepository(database.numberingDao())
