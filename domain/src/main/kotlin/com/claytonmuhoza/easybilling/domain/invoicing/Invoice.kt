@@ -171,4 +171,10 @@ interface InvoiceRepository {
 
     /** @return how many invoices were issued. */
     suspend fun count(): Int
+
+    /**
+     * @param environment an EBMS environment.
+     * @return how many invoices were issued for it.
+     */
+    suspend fun countIn(environment: EbmsEnvironment): Int
 }

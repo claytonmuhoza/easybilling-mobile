@@ -557,4 +557,8 @@
     <string name="invoice_status_registered">Enregistrée par l\'OBR</string>
     <string name="invoice_status_rejected">Rejetée par l\'OBR : %1$s</string>
     <string name="invoice_status_cancelled">Annulée</string>
+    <string name="invoice_registered_number">Numéro d\'enregistrement OBR</string>
+    <string name="invoice_registered_date">Enregistrée le</string>
+    <string name="ebms_switch_refused_pending">Des documents attendent d\'être envoyés à l\'OBR. L\'environnement pourra changer une fois qu\'ils seront envoyés.</string>
+    <string name="ebms_switch_refused_production">Des factures réelles ont été émises en production : le retour en test n\'est plus possible.</string>
 </resources>

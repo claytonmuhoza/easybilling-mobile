@@ -124,6 +124,9 @@ internal interface InvoiceDao {
 
     @Query("SELECT COUNT(*) FROM invoices")
     suspend fun count(): Int
+
+    @Query("SELECT COUNT(*) FROM invoices WHERE environment = :environment")
+    suspend fun countIn(environment: String): Int
 }
 
 /** [InvoiceRepository] backed by the local database. */
@@ -152,6 +155,8 @@ internal class RoomInvoiceRepository(private val database: EasyBillingDatabase) 
     }
 
     override suspend fun count(): Int = dao.count()
+
+    override suspend fun countIn(environment: EbmsEnvironment): Int = dao.countIn(environment.name)
 
     private fun InvoiceContent.toEntity() = InvoiceEntity(
         id = 0,

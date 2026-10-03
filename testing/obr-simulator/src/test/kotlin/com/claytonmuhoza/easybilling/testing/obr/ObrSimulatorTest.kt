@@ -8,7 +8,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** The simulator answers `login/` and `checkTIN/` as the specification describes (pages 16 and 28). */
+/**
+ * The simulator answers `login/`, `checkTIN/`, `addInvoice_confirm/` and `getInvoice/` as the
+ * specification describes (pages 16 to 28).
+ */
 class ObrSimulatorTest {
 
     private val simulator = ObrSimulator()
@@ -98,6 +101,65 @@ class ObrSimulatorTest {
         simulator.expireTokens()
         assertEquals(403, post("checkTIN/", """{"tp_TIN":"4000202020"}""", token = token).first)
         assertEquals(200, post("checkTIN/", """{"tp_TIN":"4000202020"}""", token = token()).first)
+    }
+
+    /** A complete invoice, as short as the mandatory fields allow. */
+    private fun invoice(number: String, customerTin: String = "") = """
+        {"invoice_number":"$number","invoice_date":"2026-10-03 10:15:42","tp_type":"2","tp_name":"Boutique",
+        "tp_TIN":"4000000001","tp_trade_number":"RC 1","tp_phone_number":"22","tp_address_commune":"Mukaza",
+        "tp_address_quartier":"Rohero","vat_taxpayer":"1","ct_taxpayer":"0","tl_taxpayer":"0",
+        "tp_fiscal_center":"DMC","tp_activity_sector":"Commerce","tp_legal_form":"SPRL","payment_type":"1",
+        "customer_name":"Client comptoir","customer_TIN":"$customerTin","invoice_identifier":"id/$number",
+        "invoice_items":[{"item_designation":"Savon","item_quantity":"1","item_price":"1000"}]}
+    """.trimIndent()
+
+    @Test
+    fun `an invoice is acknowledged with a registered number and a signature, then found by its identifier`() {
+        val token = token()
+
+        val (code, body) = post("addInvoice_confirm/", invoice("FN-1"), token = token)
+
+        assertEquals(200, code)
+        assertTrue(ObrSimulator.MESSAGE_INVOICE_ADDED in body, body)
+        assertTrue(""""invoice_registered_number":"4530253"""" in body, body)
+        assertTrue(""""electronic_signature":"signature-1"""" in body, body)
+        assertEquals(setOf("id/FN-1"), simulator.invoices.keys)
+
+        val (found, invoices) = post("getInvoice/", """{"invoice_identifier":"id/FN-1"}""", token = token)
+        assertEquals(200, found)
+        assertTrue(""""invoices":[{"invoice_number":"FN-1"""" in invoices, invoices)
+        val unknown = post("getInvoice/", """{"invoice_identifier":"x"}""", token = token)
+        assertTrue(ObrSimulator.MESSAGE_UNKNOWN_IDENTIFIER in unknown.second, unknown.second)
+        assertTrue(ObrSimulator.MESSAGE_NO_IDENTIFIER in post("getInvoice/", """{}""", token = token).second)
+    }
+
+    @Test
+    fun `an invoice that is incomplete, known already or for an unknown customer TIN is refused with 400`() {
+        val token = token()
+        post("addInvoice_confirm/", invoice("FN-1"), token = token)
+
+        val duplicate = post("addInvoice_confirm/", invoice("FN-1"), token = token)
+        assertEquals(400, duplicate.first)
+        assertTrue(ObrSimulator.MESSAGE_DUPLICATE_NUMBER in duplicate.second, duplicate.second)
+        val incomplete = post("addInvoice_confirm/", invoice("FN-2").replace("\"RC 1\"", "\"\""), token = token)
+        assertTrue(ObrSimulator.MESSAGE_MISSING_FIELDS in incomplete.second, incomplete.second)
+        val unknown = post("addInvoice_confirm/", invoice("FN-2", customerTin = "999"), token = token)
+        assertTrue(ObrSimulator.MESSAGE_UNKNOWN_CUSTOMER_TIN in unknown.second, unknown.second)
+        assertEquals(200, post("addInvoice_confirm/", invoice("FN-2", customerTin = "4000202020"), token = token).first)
+        assertEquals(403, post("addInvoice_confirm/", invoice("FN-3")).first)
+        assertEquals(setOf("id/FN-1", "id/FN-2"), simulator.invoices.keys)
+    }
+
+    @Test
+    fun `a lost acknowledgement leaves the invoice on the server`() {
+        val token = token()
+        simulator.loseNextAcknowledgement()
+
+        // The sender gets no answer; the Java client used here may even send the request again.
+        runCatching { post("addInvoice_confirm/", invoice("FN-1"), token = token) }
+
+        assertEquals(setOf("id/FN-1"), simulator.invoices.keys)
+        assertEquals(200, post("getInvoice/", """{"invoice_identifier":"id/FN-1"}""", token = token).first)
     }
 
     @Test

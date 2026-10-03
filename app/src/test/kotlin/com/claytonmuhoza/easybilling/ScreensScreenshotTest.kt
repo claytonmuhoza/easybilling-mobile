@@ -1,6 +1,7 @@
 package com.claytonmuhoza.easybilling
 
 import android.app.Application
+import com.claytonmuhoza.easybilling.domain.configuration.EnvironmentRefusal
 import com.claytonmuhoza.easybilling.domain.identity.PinProblem
 import com.claytonmuhoza.easybilling.domain.configuration.BillingReadiness
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsConnectionForm
@@ -363,6 +364,19 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
                 ),
                 urlProblem = UrlProblem.NOT_HTTPS,
                 testOutcome = LoginOutcome.WrongCredentials,
+            ),
+            actions = EbmsConnectionActions(),
+        )
+    }
+
+    @Test
+    fun ebmsSwitchRefused() = capture("ebms_switch_refused") {
+        EbmsConnectionScreen(
+            state = EbmsConnectionUiState.Ready(
+                activeEnvironment = EbmsEnvironment.TEST,
+                form = sampleConnection(),
+                hasStoredPassword = true,
+                switchRefusal = EnvironmentRefusal.PENDING_TRANSMISSIONS,
             ),
             actions = EbmsConnectionActions(),
         )

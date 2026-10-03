@@ -16,6 +16,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.PricedSale
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleLineForm
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleLineProblem
+import com.claytonmuhoza.easybilling.transmission.TransmissionRunner
 import com.claytonmuhoza.easybilling.ui.storageCall
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.StateFlow
@@ -119,6 +120,7 @@ class SaleViewModel @Inject constructor(
     items: ItemRepository,
     drafts: SaleDraftRepository,
     private val sessions: SessionManager,
+    private val transmission: TransmissionRunner,
 ) : ViewModel() {
 
     private val holder = SaleStateHolder(viewModelScope, useCases, items, drafts)
@@ -171,7 +173,9 @@ class SaleViewModel @Inject constructor(
         viewModelScope.launch {
             holder.state.value = storageCall {
                 when (val result = holder.useCases.issue(shown.sale.draft.id, actor)) {
-                    is IssueSale.Result.Issued -> SaleUiState.Issued(result.invoice.id.value)
+                    // The invoice is stored: it is sent without making the cashier wait.
+                    is IssueSale.Result.Issued ->
+                        SaleUiState.Issued(result.invoice.id.value).also { transmission.kick() }
                     is IssueSale.Result.NotReady -> SaleUiState.NotReady(result.readiness)
                     is IssueSale.Result.Invalid -> idle.copy(sale = result.sale)
                     IssueSale.Result.NumbersExhausted -> idle.copy(refusal = IssueRefusal.NUMBERS_EXHAUSTED)

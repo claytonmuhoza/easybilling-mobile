@@ -34,6 +34,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.AppIconImage
 import com.claytonmuhoza.easybilling.core.designsystem.component.ErrorState
 import com.claytonmuhoza.easybilling.core.designsystem.component.FormColumn
 import com.claytonmuhoza.easybilling.core.designsystem.component.LoadingState
+import com.claytonmuhoza.easybilling.core.designsystem.component.StatusBanner
 import com.claytonmuhoza.easybilling.core.designsystem.component.StatusChip
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
 import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
@@ -45,7 +46,10 @@ import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatus
 import com.claytonmuhoza.easybilling.domain.shared.Money
+import com.claytonmuhoza.easybilling.domain.transmission.ObrReceipt
+import com.claytonmuhoza.easybilling.domain.transmission.ReceiptArchive
 import com.claytonmuhoza.easybilling.navigation.InvoiceIssuedDestination
+import com.claytonmuhoza.easybilling.transmission.TransmissionRunner
 import com.claytonmuhoza.easybilling.ui.MoneyText
 import com.claytonmuhoza.easybilling.ui.dateTimeText
 import com.claytonmuhoza.easybilling.ui.storageCall
@@ -70,15 +74,27 @@ sealed interface InvoiceIssuedUiState {
     /** There is no invoice with that identifier. */
     data object NotFound : InvoiceIssuedUiState
 
-    /** The invoice [invoice] and where it stands with the OBR. */
-    data class Ready(val invoice: Invoice, val status: InvoiceStatus) : InvoiceIssuedUiState
+    /**
+     * The invoice is shown.
+     *
+     * @property invoice the invoice.
+     * @property status where it stands with the OBR.
+     * @property receipt the acknowledgement of the OBR, or null while there is none.
+     */
+    data class Ready(
+        val invoice: Invoice,
+        val status: InvoiceStatus,
+        val receipt: ObrReceipt? = null,
+    ) : InvoiceIssuedUiState
 }
 
-/** Reads the invoice that was just issued. */
+/** Reads the invoice that was just issued, and follows its transmission to the OBR. */
 @HiltViewModel
 class InvoiceIssuedViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val invoices: InvoiceRepository,
+    private val receipts: ReceiptArchive,
+    private val transmission: TransmissionRunner,
 ) : ViewModel() {
 
     private val id = InvoiceId(savedStateHandle.toRoute<InvoiceIssuedDestination>().id)
@@ -89,7 +105,9 @@ class InvoiceIssuedViewModel @Inject constructor(
     val state: StateFlow<InvoiceIssuedUiState> = mutableState.asStateFlow()
 
     init {
-        load()
+        transmission.kick()
+        // The status is read again each time a pass over the send queue ends.
+        viewModelScope.launch { transmission.passes.collect { load() } }
     }
 
     /** Reads the invoice. Also used to retry. */
@@ -99,7 +117,7 @@ class InvoiceIssuedViewModel @Inject constructor(
                 val invoice = invoices.find(id)
                 val status = invoices.statusOf(id)
                 if (invoice != null && status != null) {
-                    InvoiceIssuedUiState.Ready(invoice, status)
+                    InvoiceIssuedUiState.Ready(invoice, status, receipts.find(id))
                 } else {
                     InvoiceIssuedUiState.NotFound
                 }
@@ -164,6 +182,10 @@ fun InvoiceIssuedScreen(state: InvoiceIssuedUiState, actions: InvoiceIssuedActio
                         modifier = Modifier.padding(Spacing.medium),
                         verticalArrangement = Arrangement.spacedBy(Spacing.small),
                     ) {
+                        state.receipt?.let {
+                            Fact(stringResource(R.string.invoice_registered_number), it.registeredNumber)
+                            Fact(stringResource(R.string.invoice_registered_date), it.registeredDate)
+                        }
                         Fact(stringResource(R.string.sale_customer), invoice.customer.name)
                         Fact(stringResource(R.string.sale_payment), invoice.paymentType.label())
                         Fact(stringResource(R.string.invoice_issued_date), dateTimeText(invoice.issuedAt))
@@ -209,7 +231,8 @@ private fun Outcome(status: InvoiceStatus, number: String, total: Money) {
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center,
         )
-        StatusChip(tone, status.label())
+        // A refusal carries the message of the OBR: it needs the width of a banner.
+        if (status is InvoiceStatus.Rejected) StatusBanner(tone, status.label()) else StatusChip(tone, status.label())
         MoneyText(total, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
     }
 }

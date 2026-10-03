@@ -7,6 +7,7 @@ import com.claytonmuhoza.easybilling.domain.transmission.ObrExchange
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.EventListener
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -24,8 +25,14 @@ internal sealed interface ObrReply {
     /** The server answered with [code] and [body]. */
     data class Answered(val code: Int, val body: String) : ObrReply
 
-    /** No answer; [certificate] tells whether the certificate of the server was refused. */
-    data class Failed(val certificate: Boolean, val cause: String) : ObrReply
+    /**
+     * No answer.
+     *
+     * @property certificate whether the certificate of the server was refused.
+     * @property cause what happened, for the log of the exchanges.
+     * @property requestSent whether the request began to leave: the server may then have received it.
+     */
+    data class Failed(val certificate: Boolean, val cause: String, val requestSent: Boolean = false) : ObrReply
 }
 
 /**
@@ -58,7 +65,9 @@ internal class ObrTransport(
             .build()
         val startedAt = time.now()
         val start = System.nanoTime()
-        val reply = execute(http.newCall(request))
+        val departure = Departure()
+        val sent = execute(http.newBuilder().eventListener(departure).build().newCall(request))
+        val reply = if (sent is ObrReply.Failed) sent.copy(requestSent = departure.started) else sent
         recorder.record(
             ObrExchange(
                 startedAt = startedAt,
@@ -107,6 +116,16 @@ internal class ObrTransport(
     private fun Throwable.related(): List<Throwable> = generateSequence(this) { it.cause }
         .flatMap { sequenceOf(it) + it.suppressed.flatMap { suppressed -> suppressed.related() } }
         .toList()
+
+    /** Notes whether a call began to send its request, which tells a lost answer from a lost request. */
+    private class Departure : EventListener() {
+        @Volatile
+        var started = false
+
+        override fun requestHeadersStart(call: Call) {
+            started = true
+        }
+    }
 
     private companion object {
         val JSON = "application/json; charset=utf-8".toMediaType()

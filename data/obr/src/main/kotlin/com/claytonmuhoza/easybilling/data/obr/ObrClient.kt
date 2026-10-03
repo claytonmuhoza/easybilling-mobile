@@ -1,12 +1,18 @@
 package com.claytonmuhoza.easybilling.data.obr
 
+import com.claytonmuhoza.easybilling.domain.configuration.TaxProfile
 import com.claytonmuhoza.easybilling.domain.customer.TinLookup
 import com.claytonmuhoza.easybilling.domain.customer.TinReply
+import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.transmission.ExchangeRecorder
 import com.claytonmuhoza.easybilling.domain.transmission.LoginOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.LoginTarget
+import com.claytonmuhoza.easybilling.domain.transmission.LookupOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.ObrAuthentication
+import com.claytonmuhoza.easybilling.domain.transmission.ObrGateway
+import com.claytonmuhoza.easybilling.domain.transmission.ObrReceipt
+import com.claytonmuhoza.easybilling.domain.transmission.SendOutcome
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -50,7 +56,8 @@ object ObrHttp {
  */
 class ObrClient(http: OkHttpClient, recorder: ExchangeRecorder, time: TimeProvider) :
     ObrAuthentication,
-    TinLookup {
+    TinLookup,
+    ObrGateway {
 
     private val transport = ObrTransport(http, recorder, time)
 
@@ -96,9 +103,59 @@ class ObrClient(http: OkHttpClient, recorder: ExchangeRecorder, time: TimeProvid
         }
     }
 
+    override suspend fun addInvoice(
+        target: LoginTarget,
+        token: String,
+        invoice: Invoice,
+        seller: TaxProfile,
+    ): SendOutcome {
+        val body = InvoiceJson.of(invoice, seller).toString()
+        return when (val reply = transport.post(target, ADD_INVOICE, body, token)) {
+            // A request that never left can be sent again; one that left may have been received.
+            is ObrReply.Failed ->
+                if (reply.requestSent) SendOutcome.Uncertain(reply.cause) else SendOutcome.NotDelivered(reply.cause)
+            is ObrReply.Answered -> sendOutcome(reply)
+        }
+    }
+
+    private fun sendOutcome(reply: ObrReply.Answered): SendOutcome {
+        val json = parse(reply.body)
+        return when (reply.code) {
+            // The OBR answered "yes" in a way that cannot be read: it has the invoice, or may have it.
+            HTTP_OK -> json?.receipt(reply.body)?.let { SendOutcome.Accepted(it) }
+                ?: SendOutcome.Uncertain("HTTP $HTTP_OK without an acknowledgement")
+            HTTP_UNAUTHORIZED, HTTP_FORBIDDEN -> SendOutcome.TokenRefused
+            HTTP_BAD_REQUEST -> SendOutcome.Rejected(json?.text("msg").orEmpty())
+            else -> SendOutcome.NotDelivered("HTTP ${reply.code}")
+        }
+    }
+
+    override suspend fun getInvoice(target: LoginTarget, token: String, identifier: String): LookupOutcome {
+        val body = buildJsonObject { put("invoice_identifier", identifier) }
+        return when (val reply = transport.post(target, GET_INVOICE, body.toString(), token)) {
+            is ObrReply.Failed -> LookupOutcome.Unavailable(reply.cause)
+            is ObrReply.Answered -> lookupOutcome(reply, identifier)
+        }
+    }
+
+    private fun lookupOutcome(reply: ObrReply.Answered, identifier: String): LookupOutcome {
+        val json = parse(reply.body)
+        return when {
+            reply.code == HTTP_OK && json?.hasInvoice(identifier) == true -> LookupOutcome.Found
+            reply.code == HTTP_UNAUTHORIZED || reply.code == HTTP_FORBIDDEN -> LookupOutcome.TokenRefused
+            reply.code == HTTP_BAD_REQUEST && json?.text("msg") == UNKNOWN_IDENTIFIER -> LookupOutcome.NotFound
+            else -> LookupOutcome.Unavailable("HTTP ${reply.code}")
+        }
+    }
+
     private companion object {
         const val LOGIN = "login/"
         const val CHECK_TIN = "checkTIN/"
+        const val ADD_INVOICE = "addInvoice_confirm/"
+        const val GET_INVOICE = "getInvoice/"
+
+        /** The only refusal of `getInvoice/` that means the OBR does not have the invoice (page 19). */
+        const val UNKNOWN_IDENTIFIER = "Identifiant de la facture inconnu."
 
         /** The only refusal of `checkTIN/` that means the TIN does not exist (page 28). */
         const val UNKNOWN_TIN = "NIF du contribuable inconnu."
@@ -128,6 +185,31 @@ private fun JsonObject.taxpayerName(): String? {
     val taxpayers = (this["result"] as? JsonObject)?.get("taxpayer") as? JsonArray
     val name = (taxpayers?.firstOrNull() as? JsonObject)?.text("tp_name")
     return name?.takeIf { success == true && it.isNotEmpty() }
+}
+
+/**
+ * @param raw the body the acknowledgement was read from, kept as the proof.
+ * @return the acknowledgement of an invoice, or null if the body is not one. Both spellings of
+ * the signature found in the specification are read.
+ */
+private fun JsonObject.receipt(raw: String): ObrReceipt? {
+    val success = (this["success"] as? JsonPrimitive)?.booleanOrNull
+    val result = this["result"] as? JsonObject
+    val number = result?.text("invoice_registered_number")
+    val signature = text("electronic_signature") ?: text("electronique_signature")
+    return if (success == true && !number.isNullOrEmpty()) {
+        ObrReceipt(number, result.text("invoice_registered_date").orEmpty(), signature.orEmpty(), raw)
+    } else {
+        null
+    }
+}
+
+/** @return whether this answer of `getInvoice/` holds the invoice with [identifier]. */
+private fun JsonObject.hasInvoice(identifier: String): Boolean {
+    val success = (this["success"] as? JsonPrimitive)?.booleanOrNull
+    val invoices = (this["result"] as? JsonObject)?.get("invoices") as? JsonArray
+    return success == true &&
+        invoices.orEmpty().any { (it as? JsonObject)?.text("invoice_identifier") == identifier }
 }
 
 private fun JsonObject.text(name: String): String? = (this[name] as? JsonPrimitive)?.content?.trim()

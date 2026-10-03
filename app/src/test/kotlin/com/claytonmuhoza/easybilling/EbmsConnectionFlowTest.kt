@@ -13,12 +13,36 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.claytonmuhoza.easybilling.domain.audit.AuditStore
+import com.claytonmuhoza.easybilling.domain.catalog.ItemId
+import com.claytonmuhoza.easybilling.domain.configuration.Address
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentials
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialsVault
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
+import com.claytonmuhoza.easybilling.domain.configuration.FiscalCenter
+import com.claytonmuhoza.easybilling.domain.configuration.TaxProfile
+import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
+import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileVersion
+import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
+import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
+import com.claytonmuhoza.easybilling.domain.customer.CustomerId
 import com.claytonmuhoza.easybilling.domain.identity.CreateAdministrator
 import com.claytonmuhoza.easybilling.domain.identity.SessionManager
+import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.invoicing.DocumentType
+import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceContent
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCustomer
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceLine
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
+import com.claytonmuhoza.easybilling.domain.invoicing.LineAmounts
+import com.claytonmuhoza.easybilling.domain.invoicing.PaymentType
+import com.claytonmuhoza.easybilling.domain.invoicing.PriceMode
+import com.claytonmuhoza.easybilling.domain.shared.Currency
+import com.claytonmuhoza.easybilling.domain.shared.Money
+import com.claytonmuhoza.easybilling.domain.shared.Quantity
+import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
+import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
 import com.claytonmuhoza.easybilling.testing.TestCertificates
 import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
 import com.claytonmuhoza.easybilling.testing.pressInForm
@@ -29,6 +53,7 @@ import com.claytonmuhoza.easybilling.testing.obr.ObrSimulator
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
+import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
@@ -68,6 +93,15 @@ class EbmsConnectionFlowTest {
 
     @Inject
     lateinit var auditStore: AuditStore
+
+    @Inject
+    lateinit var invoices: InvoiceRepository
+
+    @Inject
+    lateinit var outbox: OutboxRepository
+
+    @Inject
+    lateinit var profiles: TaxProfileRepository
 
     private val simulator: ObrSimulator = TestCertificates.startSimulator()
     private lateinit var scenario: ActivityScenario<MainActivity>
@@ -222,6 +256,93 @@ class EbmsConnectionFlowTest {
         composeRule.waitUntil(10_000) {
             composeRule.onAllNodes(hasText("Production") and isSelected()).fetchSemanticsNodes().isNotEmpty()
         }
+        assertEquals(EbmsEnvironment.PRODUCTION, runBlocking { settings.read().activeEnvironment })
+    }
+
+    /** Stores an invoice issued for [environment], as a sale would. */
+    private fun issuedInvoice(environment: EbmsEnvironment): Invoice = runBlocking {
+        val amount = Money.of("1000", Currency.BIF)
+        val line = InvoiceLine(
+            itemId = ItemId(1),
+            itemCode = "ART-0001",
+            designation = "Savon de Marseille",
+            unit = "piece",
+            stockTracked = true,
+            quantity = Quantity.of("1"),
+            listUnitPrice = amount,
+            priceMode = PriceMode.EXCLUDING_TAXES,
+            discount = null,
+            vatRate = null,
+            amounts = LineAmounts(
+                amount, amount, Money.zero(Currency.BIF), Money.zero(Currency.BIF), Money.zero(Currency.BIF),
+                amount, Money.zero(Currency.BIF), amount, Money.zero(Currency.BIF), amount,
+            ),
+        )
+        invoices.create(
+            InvoiceContent(
+                type = DocumentType.FN,
+                number = "FN-00001/2026",
+                identifier = "4000000001/ws400000000100001/20261003101542/FN-00001/2026",
+                issuedAt = Instant.parse("2026-10-03T08:15:42Z"),
+                profileVersion = 1,
+                environment = environment,
+                customer = InvoiceCustomer(CustomerId(1), "Client comptoir", null, "", false),
+                paymentType = PaymentType.CASH,
+                currency = Currency.BIF,
+                lines = listOf(line),
+                issuedBy = UserId(1),
+            ),
+        )
+    }
+
+    @Test
+    fun `the environment does not change while an invoice waits to be sent`() {
+        val invoice = issuedInvoice(EbmsEnvironment.TEST)
+        runBlocking {
+            // The tax profile the invoice was issued with: without it the invoice could not be sent at all.
+            val profile = TaxProfile(
+                taxpayerType = TaxpayerType.LEGAL_PERSON,
+                name = "Boutique Umuco SPRL",
+                tin = "4000000001",
+                tradeNumber = "RC 12345",
+                postalNumber = "",
+                phoneNumber = "+257 22 22 22 22",
+                address = Address("Bujumbura Mairie", "Mukaza", "Rohero", "Avenue de l'Industrie", "", ""),
+                taxes = TaxRegistrations(),
+                fiscalCenter = FiscalCenter.DMC,
+                activitySector = "Commerce general",
+                legalForm = "SPRL",
+            )
+            profiles.append(TaxProfileVersion(1, profile, invoice.content.issuedAt, UserId(1)))
+            outbox.enqueue(OutboxOperation.SendInvoice(invoice.id), invoice.content.issuedAt)
+        }
+        openScreen()
+
+        composeRule.onNodeWithText("Production").performClick()
+        composeRule.waitForText("Enter your PIN to confirm.")
+        composeRule.typeInForm("PIN", "123456")
+        composeRule.pressInForm("Confirm")
+
+        composeRule
+            .waitForText("Documents are waiting to be sent to the OBR. The environment can change once they are sent.")
+            .performScrollTo()
+            .assertIsDisplayed()
+        assertEquals(EbmsEnvironment.TEST, runBlocking { settings.read().activeEnvironment })
+        assertEquals(1, runBlocking { outbox.pending() }.size)
+    }
+
+    @Test
+    fun `going back to test is refused once a real invoice was issued in production`() {
+        issuedInvoice(EbmsEnvironment.PRODUCTION)
+        runBlocking { settings.write(settings.read().copy(activeEnvironment = EbmsEnvironment.PRODUCTION)) }
+        openScreen()
+
+        composeRule.onNodeWithText("Test").performClick()
+
+        composeRule
+            .waitForText("Real invoices were issued in production: going back to test is no longer possible.")
+            .performScrollTo()
+            .assertIsDisplayed()
         assertEquals(EbmsEnvironment.PRODUCTION, runBlocking { settings.read().activeEnvironment })
     }
 

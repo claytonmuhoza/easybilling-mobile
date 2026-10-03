@@ -164,6 +164,20 @@ sealed interface AuditEvent {
         override val details get() = "customer=${customer.value};archived=$archived"
     }
 
+    /** The OBR acknowledged the invoice [invoice] under [registeredNumber]; empty after a lost answer. */
+    data class InvoiceRegistered(val invoice: InvoiceId, val registeredNumber: String) : AuditEvent {
+        override val actor: UserId? get() = null
+        override val action get() = "INVOICE_REGISTERED"
+        override val details get() = "invoice=${invoice.value};registered=$registeredNumber"
+    }
+
+    /** The OBR refused the invoice [invoice]; its message is kept with the status of the invoice. */
+    data class InvoiceRejected(val invoice: InvoiceId) : AuditEvent {
+        override val actor: UserId? get() = null
+        override val action get() = "INVOICE_REJECTED"
+        override val details get() = "invoice=${invoice.value}"
+    }
+
     /** The invoice [invoice] was issued with the number [number]. */
     data class InvoiceIssued(override val actor: UserId, val invoice: InvoiceId, val number: String) : AuditEvent {
         override val action get() = "INVOICE_ISSUED"

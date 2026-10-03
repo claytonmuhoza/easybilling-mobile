@@ -58,6 +58,25 @@ class SaveEbmsConnection(
         }
 }
 
+/** Why fiscal documents prevent a change of environment. */
+enum class EnvironmentRefusal {
+    /** Documents wait to be sent to the current environment: they must be sent first. */
+    PENDING_TRANSMISSIONS,
+
+    /** Real invoices were issued in production: going back to test is no longer possible (UC-A04). */
+    PRODUCTION_IN_USE,
+}
+
+/** Tells whether fiscal documents prevent a change of environment. */
+fun interface EnvironmentLock {
+    /**
+     * @param from the active environment.
+     * @param to the environment asked for.
+     * @return why the change is refused, or null if nothing prevents it.
+     */
+    suspend fun refusal(from: EbmsEnvironment, to: EbmsEnvironment): EnvironmentRefusal?
+}
+
 /**
  * Chooses the environment every call goes to (UC-A04). Going to production is confirmed with the
  * PIN of the user, through the same guard as the login: a wrong PIN counts as a failed attempt.
@@ -72,6 +91,7 @@ class SwitchEbmsEnvironment(
     private val users: UserRepository,
     private val guard: SecretGuard,
     private val auditLog: AuditLog,
+    private val lock: EnvironmentLock = EnvironmentLock { _, _ -> null },
 ) {
     /** Outcome of a switch. */
     sealed interface Result {
@@ -89,6 +109,9 @@ class SwitchEbmsEnvironment(
 
         /** The actor is not a known user. */
         data object UnknownUser : Result
+
+        /** Fiscal documents prevent the switch: [reason] says which. */
+        data class Refused(val reason: EnvironmentRefusal) : Result
     }
 
     /**
@@ -99,8 +122,10 @@ class SwitchEbmsEnvironment(
      */
     suspend operator fun invoke(target: EbmsEnvironment, actor: UserId, pin: String?): Result {
         val current = settings.read()
+        val locked = lock.refusal(current.activeEnvironment, target)
         val refusal = when {
             current.activeEnvironment == target -> Result.Unchanged
+            locked != null -> Result.Refused(locked)
             target == EbmsEnvironment.PRODUCTION -> confirmPin(actor, pin.orEmpty())
             else -> null
         }
