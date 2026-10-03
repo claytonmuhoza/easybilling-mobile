@@ -7,6 +7,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialField
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialsVault
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
+import com.claytonmuhoza.easybilling.domain.configuration.EnvironmentRefusal
 import com.claytonmuhoza.easybilling.domain.configuration.FieldProblem
 import com.claytonmuhoza.easybilling.domain.configuration.SaveEbmsConnection
 import com.claytonmuhoza.easybilling.domain.configuration.SwitchEbmsEnvironment
@@ -70,6 +71,7 @@ sealed interface EbmsConnectionUiState {
      * @property testing true while the connection is being tested.
      * @property testOutcome result of the last test, or null.
      * @property pinPrompt the PIN asked to go to production, or null when not asked.
+     * @property switchRefusal why fiscal documents prevented the last change of environment, or null.
      */
     data class Ready(
         val activeEnvironment: EbmsEnvironment,
@@ -83,6 +85,7 @@ sealed interface EbmsConnectionUiState {
         val testing: Boolean = false,
         val testOutcome: LoginOutcome? = null,
         val pinPrompt: PinPrompt? = null,
+        val switchRefusal: EnvironmentRefusal? = null,
     ) : EbmsConnectionUiState
 }
 
@@ -186,7 +189,8 @@ class EbmsConnectionViewModel @Inject constructor(
         val ready = mutableState.value as? EbmsConnectionUiState.Ready ?: return
         when {
             environment == ready.activeEnvironment -> Unit
-            environment == EbmsEnvironment.PRODUCTION -> mutableState.value = ready.copy(pinPrompt = PinPrompt())
+            environment == EbmsEnvironment.PRODUCTION ->
+                mutableState.value = ready.copy(pinPrompt = PinPrompt(), switchRefusal = null)
             else -> switch(environment, pin = null)
         }
     }
@@ -214,6 +218,8 @@ class EbmsConnectionViewModel @Inject constructor(
                     copy(pinPrompt = PinPrompt(remainingAttempts = result.remainingAttempts))
                 }
                 is SwitchEbmsEnvironment.Result.Locked -> edit { copy(pinPrompt = PinPrompt(locked = true)) }
+                is SwitchEbmsEnvironment.Result.Refused ->
+                    edit { copy(pinPrompt = null, switchRefusal = result.reason) }
                 SwitchEbmsEnvironment.Result.UnknownUser, null -> edit { copy(pinPrompt = null) }
             }
         }

@@ -551,4 +551,8 @@
     <string name="invoice_status_registered">Registered by the OBR</string>
     <string name="invoice_status_rejected">Rejected by the OBR: %1$s</string>
     <string name="invoice_status_cancelled">Cancelled</string>
+    <string name="invoice_registered_number">OBR registration number</string>
+    <string name="invoice_registered_date">Registered on</string>
+    <string name="ebms_switch_refused_pending">Documents are waiting to be sent to the OBR. The environment can change once they are sent.</string>
+    <string name="ebms_switch_refused_production">Real invoices were issued in production: going back to test is no longer possible.</string>
 </resources>

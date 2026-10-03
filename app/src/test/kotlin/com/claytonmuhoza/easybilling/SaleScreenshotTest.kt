@@ -46,6 +46,7 @@ import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.ObrRoundingPolicy
 import com.claytonmuhoza.easybilling.domain.shared.Quantity
+import com.claytonmuhoza.easybilling.domain.transmission.ObrReceipt
 import com.claytonmuhoza.easybilling.sale.HeldSalesActions
 import com.claytonmuhoza.easybilling.sale.HeldSalesScreen
 import com.claytonmuhoza.easybilling.sale.HeldSalesUiState
@@ -262,8 +263,7 @@ class SaleScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant) {
         HeldSalesScreen(HeldSalesUiState.Failed, HeldSalesActions())
     }
 
-    @Test
-    fun invoiceIssued() = capture("invoice_issued") {
+    private fun issuedInvoice(): Invoice {
         val content = InvoiceContent(
             type = DocumentType.FN,
             number = "FN-00042/2026",
@@ -291,7 +291,26 @@ class SaleScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant) {
             },
             issuedBy = UserId(1),
         )
-        val state = InvoiceIssuedUiState.Ready(Invoice(InvoiceId(42), content), InvoiceStatus.Pending)
+        return Invoice(InvoiceId(42), content)
+    }
+
+    @Test
+    fun invoiceIssued() = capture("invoice_issued") {
+        val state = InvoiceIssuedUiState.Ready(issuedInvoice(), InvoiceStatus.Pending)
+        InvoiceIssuedScreen(state, InvoiceIssuedActions())
+    }
+
+    @Test
+    fun invoiceRegistered() = capture("invoice_registered") {
+        val receipt = ObrReceipt("4530253", "2026-10-03 10:15:44", "9a2a3f27dd833f6f4a069235ce165723be1b7340", "{}")
+        val state = InvoiceIssuedUiState.Ready(issuedInvoice(), InvoiceStatus.Registered, receipt)
+        InvoiceIssuedScreen(state, InvoiceIssuedActions())
+    }
+
+    @Test
+    fun invoiceRejected() = capture("invoice_rejected") {
+        val refusal = "Le NIF du client n'est pas connu par l'OBR. Veuillez fournir un NIF valide"
+        val state = InvoiceIssuedUiState.Ready(issuedInvoice(), InvoiceStatus.Rejected(refusal))
         InvoiceIssuedScreen(state, InvoiceIssuedActions())
     }
 

@@ -17,6 +17,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.DocumentType
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.BusinessCalendar
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
+import com.claytonmuhoza.easybilling.transmission.TransmissionRunner
 import com.claytonmuhoza.easybilling.ui.storageCall
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -210,6 +211,7 @@ class HomeStatusReader @Inject constructor(
 class HomeViewModel @Inject constructor(
     private val reader: HomeStatusReader,
     private val checkReadiness: CheckBillingReadiness,
+    private val transmission: TransmissionRunner,
 ) : ViewModel() {
 
     private val mutableTaxProfileStatus = MutableStateFlow<TaxProfileStatus>(TaxProfileStatus.Loading)
@@ -247,6 +249,8 @@ class HomeViewModel @Inject constructor(
 
     /** Reads the state of the settings, of the catalogue and of the customers. Called each time the screen is shown. */
     fun load() {
+        // Whatever waits in the send queue is tried again each time the home screen is shown.
+        transmission.kick()
         viewModelScope.launch {
             // Read first: its sentence is the only text whose height changes once loaded.
             mutableReadiness.value = storageCall { ReadinessStatus.Known(checkReadiness()) }

@@ -37,12 +37,15 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.FormColumn
 import com.claytonmuhoza.easybilling.core.designsystem.component.LoadingState
 import com.claytonmuhoza.easybilling.core.designsystem.component.PinField
 import com.claytonmuhoza.easybilling.core.designsystem.component.SectionHeader
+import com.claytonmuhoza.easybilling.core.designsystem.component.StatusBanner
 import com.claytonmuhoza.easybilling.core.designsystem.component.TextAction
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
 import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
+import com.claytonmuhoza.easybilling.core.designsystem.theme.StatusTone
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialField
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
+import com.claytonmuhoza.easybilling.domain.configuration.EnvironmentRefusal
 import com.claytonmuhoza.easybilling.domain.identity.Pin
 import com.claytonmuhoza.easybilling.domain.transmission.LoginOutcome
 import com.claytonmuhoza.easybilling.ui.message
@@ -135,6 +138,12 @@ fun EbmsConnectionScreen(state: EbmsConnectionUiState, actions: EbmsConnectionAc
     }
 }
 
+/** The message of each reason fiscal documents prevent a change of environment. */
+internal val SWITCH_REFUSAL_MESSAGES = mapOf(
+    EnvironmentRefusal.PENDING_TRANSMISSIONS to R.string.ebms_switch_refused_pending,
+    EnvironmentRefusal.PRODUCTION_IN_USE to R.string.ebms_switch_refused_production,
+)
+
 @Composable
 private fun ColumnScope.ConnectionContent(state: EbmsConnectionUiState.Ready, actions: EbmsConnectionActions) {
     ChoiceField(
@@ -144,6 +153,7 @@ private fun ColumnScope.ConnectionContent(state: EbmsConnectionUiState.Ready, ac
         onSelect = actions.onEnvironmentSelected,
     )
     Hint(stringResource(R.string.ebms_environment_hint))
+    state.switchRefusal?.let { StatusBanner(StatusTone.ERROR, stringResource(SWITCH_REFUSAL_MESSAGES.getValue(it))) }
     state.pinPrompt?.let { PinConfirmation(it, actions) }
 
     SectionHeader(stringResource(R.string.ebms_section_settings))

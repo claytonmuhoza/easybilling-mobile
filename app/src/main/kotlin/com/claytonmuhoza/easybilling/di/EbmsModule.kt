@@ -5,6 +5,7 @@ import com.claytonmuhoza.easybilling.data.local.configuration.SecretStoreCredent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialsVault
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
+import com.claytonmuhoza.easybilling.domain.configuration.EnvironmentLock
 import com.claytonmuhoza.easybilling.domain.configuration.SaveEbmsConnection
 import com.claytonmuhoza.easybilling.domain.configuration.SwitchEbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.configuration.TestEbmsConnection
@@ -74,7 +75,8 @@ object EbmsModule {
         users: UserRepository,
         guard: SecretGuard,
         auditLog: AuditLog,
-    ): SwitchEbmsEnvironment = SwitchEbmsEnvironment(settings, users, guard, auditLog)
+        lock: EnvironmentLock,
+    ): SwitchEbmsEnvironment = SwitchEbmsEnvironment(settings, users, guard, auditLog, lock)
 
     /** @return the use case testing the connection to the active environment. */
     @Provides

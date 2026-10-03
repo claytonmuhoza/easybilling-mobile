@@ -38,6 +38,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
 import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
 import com.claytonmuhoza.easybilling.domain.customer.Customer
 import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
+import com.claytonmuhoza.easybilling.domain.customer.VerifiedTin
 import com.claytonmuhoza.easybilling.domain.identity.CreateAdministrator
 import com.claytonmuhoza.easybilling.domain.identity.SessionManager
 import com.claytonmuhoza.easybilling.domain.identity.User
@@ -53,7 +54,10 @@ import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.Quantity
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
+import com.claytonmuhoza.easybilling.domain.transmission.ReceiptArchive
+import com.claytonmuhoza.easybilling.testing.TestCertificates
 import com.claytonmuhoza.easybilling.testing.TestClock
+import com.claytonmuhoza.easybilling.testing.obr.ObrSimulator
 import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
 import com.claytonmuhoza.easybilling.testing.pressInForm
 import com.claytonmuhoza.easybilling.testing.replaceInForm
@@ -62,7 +66,12 @@ import com.claytonmuhoza.easybilling.testing.waitForText
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
+import java.net.ServerSocket
+import java.time.Duration
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -77,8 +86,9 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 
 /**
- * The cash register (UC-C01 steps 1 to 5, UC-C02, UC-C03), by the administrator "Alice", already
- * logged in, on a phone: the catalogue and the sale are shown one at a time.
+ * The cash register and the transmission of its invoices (UC-C01, C02, C03, C07), by the
+ * administrator "Alice", already logged in, on a phone: the catalogue and the sale are shown one at
+ * a time. The OBR is the simulated server, over HTTPS: no test ever calls the real one.
  */
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
@@ -133,6 +143,10 @@ class SaleFlowTest {
     @Inject
     lateinit var clock: TestClock
 
+    @Inject
+    lateinit var receipts: ReceiptArchive
+
+    private val simulator: ObrSimulator = TestCertificates.startSimulator()
     private lateinit var alice: User
     private lateinit var scenario: ActivityScenario<MainActivity>
     private lateinit var vat: TaxDefinition
@@ -147,7 +161,10 @@ class SaleFlowTest {
     }
 
     @After
-    fun closeActivity() = scenario.close()
+    fun stop() {
+        scenario.close()
+        simulator.close()
+    }
 
     private fun launch() {
         scenario = ActivityScenario.launch(MainActivity::class.java)
@@ -170,11 +187,25 @@ class SaleFlowTest {
         profiles.append(TaxProfileVersion(version, profile, clock.now(), alice.id))
     }
 
-    /** Finishes the configuration: connection to the EBMS tested, numbering saved, VAT of 18 %. */
-    private fun finishConfiguration() = runBlocking {
-        vault.write(EbmsEnvironment.TEST, EbmsCredentials("ws400000000100001", "password"))
+    /** Points the test environment at [serverUrl], as saving the connection would. */
+    private fun connectTo(serverUrl: String) = runBlocking {
         val settings = ebmsSettings.read()
-        ebmsSettings.write(settings.copy(lastSuccessfulLogins = mapOf(EbmsEnvironment.TEST to clock.now())))
+        ebmsSettings.write(
+            settings.copy(
+                serverUrls = mapOf(EbmsEnvironment.TEST to serverUrl),
+                lastSuccessfulLogins = mapOf(EbmsEnvironment.TEST to clock.now()),
+            ),
+        )
+    }
+
+    /**
+     * Finishes the configuration: connection to the simulated EBMS tested, numbering saved, VAT of
+     * 18 %.
+     */
+    private fun finishConfiguration(serverUrl: String = simulator.baseUrl) = runBlocking {
+        val credentials = EbmsCredentials(ObrSimulator.DEFAULT_USERNAME, ObrSimulator.DEFAULT_PASSWORD)
+        vault.write(EbmsEnvironment.TEST, credentials)
+        connectTo(serverUrl)
         assertEquals(SaveNumbering.Result.Saved, saveNumbering(NumberingForm(), null, alice.id))
         val rate = TaxRateForm(TaxMode.PERCENTAGE, "18", validFrom = LocalDate.of(2026, 10, 2))
         vat = assertIs<CreateTax.Result.Created>(createTax(TaxForm(TaxKind.VAT, "TVA 18 %", rate), alice.id)).tax
@@ -196,9 +227,9 @@ class SaleFlowTest {
         }
 
     /** A business ready to sell soap at 1 000 without taxes and sugar at 2 360 taxes included. */
-    private fun readyToSell() {
+    private fun readyToSell(serverUrl: String = simulator.baseUrl) {
         saveProfile(vatTaxpayer = true)
-        finishConfiguration()
+        finishConfiguration(serverUrl)
         item("ART-0001", "Savon de Marseille", "1000", PriceMode.EXCLUDING_TAXES, barcode = "6001234567890")
         item("ART-0002", "Sucre 1 kg", "2360", PriceMode.INCLUDING_TAXES)
     }
@@ -234,6 +265,34 @@ class SaleFlowTest {
 
     private fun bif(amount: String) = Money.of(amount, Currency.BIF)
 
+    private fun statusOf(invoice: Invoice) = runBlocking { invoices.statusOf(invoice.id) }
+
+    private fun sentInvoices(): List<String> = simulator.requests
+        .filter { it.url.encodedPath.endsWith("addInvoice_confirm/") }
+        .map { Json.parseToJsonElement(it.body!!.utf8()).jsonObject.getValue("invoice_number") }
+        .map { (it as JsonPrimitive).content }
+
+    /** Stores a customer whose TIN was "recognised" as [tin], without asking the simulated OBR. */
+    private fun customerWithTin(name: String, tin: String): Customer = runBlocking {
+        customers.create(
+            Customer.counterDetails(name).copy(
+                personType = TaxpayerType.LEGAL_PERSON,
+                tin = VerifiedTin(tin, name.uppercase(), clock.now()),
+                address = "Bujumbura, Rohero",
+                vatPayer = true,
+            ),
+        )
+    }
+
+    /** Chooses [name] as the customer of the sale, from the sale. */
+    private fun chooseCustomer(name: String) {
+        composeRule.pressInForm("Change")
+        composeRule.waitForText("Anonymous sales")
+        composeRule.waitForText(name).performClick()
+        composeRule.waitForText("Validate the sale")
+        shown(name)
+    }
+
     @Test
     fun `the cash register stays locked until the configuration is complete`() {
         saveProfile(vatTaxpayer = true)
@@ -247,7 +306,7 @@ class SaleFlowTest {
     }
 
     @Test
-    fun `a sale at the counter is issued, pending, queued for the OBR and audited`() {
+    fun `a sale at the counter is issued, sent to the OBR and registered with its acknowledgement`() {
         readyToSell()
         launch()
         openRegister()
@@ -261,17 +320,20 @@ class SaleFlowTest {
         composeRule.pressInForm("Validate the sale")
 
         val invoice = issuedInvoice()
-        composeRule.onNodeWithText("Awaiting transmission to the OBR").assertIsDisplayed()
+        composeRule.waitForText("Registered by the OBR").assertIsDisplayed()
+        shown("4530253")
         composeRule.onNodeWithText("4000000001/ws400000000100001/20261002100000/FN-00001/2026").assertExists()
         assertEquals(bif("4720"), invoice.content.totals.total)
         assertEquals(bif("720"), invoice.content.totals.vat)
         assertEquals("Client comptoir", invoice.content.customer.name)
         assertEquals(PaymentType.CASH, invoice.content.paymentType)
         assertEquals(listOf("Savon de Marseille", "Sucre 1 kg"), invoice.content.lines.map { it.designation })
-        assertEquals(InvoiceStatus.Pending, runBlocking { invoices.statusOf(invoice.id) })
-        val queued = runBlocking { outbox.pending() }.map { it.operation }
-        assertEquals(listOf(OutboxOperation.SendInvoice(invoice.id)), queued)
-        assertEquals("INVOICE_ISSUED", runBlocking { auditStore.readAll() }.last().action)
+        assertEquals(InvoiceStatus.Registered, statusOf(invoice))
+        assertEquals(emptyList(), runBlocking { outbox.pending() })
+        assertEquals("4530253", runBlocking { receipts.find(invoice.id) }?.registeredNumber)
+        val audited = runBlocking { auditStore.readAll() }.map { it.action }
+        assertEquals(listOf("INVOICE_ISSUED", "INVOICE_REGISTERED"), audited.takeLast(2))
+        assertEquals(listOf("FN-00001/2026"), sentInvoices())
         assertNull(runBlocking { drafts.current() })
 
         composeRule.pressInForm("New sale")
@@ -279,6 +341,99 @@ class SaleFlowTest {
         viewSale("1 item · 2,360 BIF")
         composeRule.pressInForm("Validate the sale")
         assertEquals(bif("2360"), issuedInvoice("FN-00002/2026").content.totals.total)
+        composeRule.waitForText("Registered by the OBR")
+        assertEquals(listOf("FN-00001/2026", "FN-00002/2026"), sentInvoices())
+    }
+
+    @Test
+    fun `a sale made while the OBR cannot be reached waits, then is sent once at the next try`() {
+        // Nobody listens at this address: as without network.
+        val freePort = ServerSocket(0).use { it.localPort }
+        readyToSell(serverUrl = "https://127.0.0.1:$freePort/ebms_api/")
+        launch()
+        openRegister()
+        add("Savon de Marseille", inSale = "1")
+        viewSale("1 item · 1,180 BIF")
+        composeRule.pressInForm("Validate the sale")
+
+        // The sale is not held back by the network.
+        val invoice = issuedInvoice()
+        composeRule.waitForText("Awaiting transmission to the OBR").assertIsDisplayed()
+        composeRule.waitUntil(TIMEOUT_MILLIS) { runBlocking { outbox.pending() }.singleOrNull()?.attempts == 1 }
+        assertEquals(InvoiceStatus.Pending, statusOf(invoice))
+        assertEquals(OutboxOperation.SendInvoice(invoice.id), runBlocking { outbox.pending() }.single().operation)
+        assertEquals(emptyList(), simulator.requests)
+
+        // The network is back and the wait of 30 seconds is over: the home screen tries again.
+        connectTo(simulator.baseUrl)
+        clock.advance(Duration.ofSeconds(30))
+        composeRule.pressInForm("Back to home")
+
+        composeRule.waitUntil(TIMEOUT_MILLIS) { statusOf(invoice) == InvoiceStatus.Registered }
+        assertEquals(listOf("FN-00001/2026"), sentInvoices())
+        assertEquals(emptyList(), runBlocking { outbox.pending() })
+    }
+
+    @Test
+    fun `an invoice whose acknowledgement is lost is found at the OBR instead of being sent twice`() {
+        readyToSell()
+        simulator.loseNextAcknowledgement()
+        launch()
+        openRegister()
+        add("Savon de Marseille", inSale = "1")
+        viewSale("1 item · 1,180 BIF")
+        composeRule.pressInForm("Validate the sale")
+
+        val invoice = issuedInvoice()
+        composeRule.waitUntil(TIMEOUT_MILLIS) { runBlocking { outbox.pending() }.singleOrNull()?.uncertain == true }
+        assertEquals(InvoiceStatus.Pending, statusOf(invoice))
+
+        clock.advance(Duration.ofSeconds(30))
+        composeRule.pressInForm("Back to home")
+
+        composeRule.waitUntil(TIMEOUT_MILLIS) { statusOf(invoice) == InvoiceStatus.Registered }
+        assertEquals(listOf("FN-00001/2026"), sentInvoices())
+        assertEquals(setOf(invoice.content.identifier), simulator.invoices.keys)
+        // The acknowledgement was lost with the answer.
+        assertNull(runBlocking { receipts.find(invoice.id) })
+    }
+
+    @Test
+    fun `an invoice the OBR refuses shows the message of the OBR and leaves the queue`() {
+        readyToSell()
+        customerWithTin("Inconnu SA", tin = "999")
+        launch()
+        openRegister()
+        add("Savon de Marseille", inSale = "1")
+        viewSale("1 item · 1,180 BIF")
+        chooseCustomer("Inconnu SA")
+        composeRule.pressInForm("Validate the sale")
+
+        val invoice = issuedInvoice()
+        shown("Rejected by the OBR: ${ObrSimulator.MESSAGE_UNKNOWN_CUSTOMER_TIN}")
+        assertEquals(InvoiceStatus.Rejected(ObrSimulator.MESSAGE_UNKNOWN_CUSTOMER_TIN), statusOf(invoice))
+        assertEquals(emptyList(), runBlocking { outbox.pending() })
+        assertEquals(emptyMap(), simulator.invoices)
+        assertEquals("INVOICE_REJECTED", runBlocking { auditStore.readAll() }.last().action)
+    }
+
+    @Test
+    fun `a sale to a customer registered for the VAT carries its TIN to the OBR`() {
+        readyToSell()
+        customerWithTin("Brasserie du Lac SA", tin = ObrSimulator.KNOWN_TIN)
+        launch()
+        openRegister()
+        add("Savon de Marseille", inSale = "1")
+        viewSale("1 item · 1,180 BIF")
+        chooseCustomer("Brasserie du Lac SA")
+        composeRule.pressInForm("Validate the sale")
+
+        issuedInvoice()
+        composeRule.waitForText("Registered by the OBR").assertIsDisplayed()
+        val sent = simulator.invoices.values.single()
+        assertEquals("Brasserie du Lac SA", (sent["customer_name"] as JsonPrimitive).content)
+        assertEquals(ObrSimulator.KNOWN_TIN, (sent["customer_TIN"] as JsonPrimitive).content)
+        assertEquals("1", (sent["vat_customer_payer"] as JsonPrimitive).content)
     }
 
     @Test
