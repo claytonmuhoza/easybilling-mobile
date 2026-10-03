@@ -12,6 +12,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.PercentageBase
 import com.claytonmuhoza.easybilling.domain.configuration.TaxComputation
 import com.claytonmuhoza.easybilling.domain.configuration.TaxDefinition
 import com.claytonmuhoza.easybilling.domain.configuration.TaxKind
+import com.claytonmuhoza.easybilling.domain.configuration.TaxProfile
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileCheck
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileVersion
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
@@ -34,9 +35,16 @@ import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraft
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
+import com.claytonmuhoza.easybilling.domain.transmission.LoginTarget
+import com.claytonmuhoza.easybilling.domain.transmission.LookupOutcome
+import com.claytonmuhoza.easybilling.domain.transmission.ObrGateway
+import com.claytonmuhoza.easybilling.domain.transmission.ObrMessages
+import com.claytonmuhoza.easybilling.domain.transmission.ObrReceipt
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxEntry
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
+import com.claytonmuhoza.easybilling.domain.transmission.ReceiptArchive
+import com.claytonmuhoza.easybilling.domain.transmission.SendOutcome
 import java.time.Instant
 import java.time.LocalDate
 import kotlin.test.assertIs
@@ -90,6 +98,9 @@ class InMemoryInvoiceRepository : InvoiceRepository {
     }
 
     override suspend fun count(): Int = invoices.size
+
+    override suspend fun countIn(environment: EbmsEnvironment): Int =
+        invoices.values.count { it.content.environment == environment }
 }
 
 /** Send queue kept in a list. */
@@ -100,6 +111,81 @@ class InMemoryOutboxRepository : OutboxRepository {
         OutboxEntry(entries.size + 1L, operation, createdAt).also { entries += it }
 
     override suspend fun pending(): List<OutboxEntry> = entries.toList()
+
+    override suspend fun update(entry: OutboxEntry) {
+        entries.replaceAll { if (it.id == entry.id) entry else it }
+    }
+
+    override suspend fun remove(id: Long) {
+        entries.removeAll { it.id == id }
+    }
+}
+
+/** Acknowledgements kept in a map. */
+class InMemoryReceiptArchive : ReceiptArchive {
+    val receipts = mutableMapOf<InvoiceId, ObrReceipt>()
+
+    override suspend fun archive(invoice: InvoiceId, receipt: ObrReceipt, receivedAt: Instant) {
+        check(invoice !in receipts) { "Invoice ${invoice.value} already has an acknowledgement" }
+        receipts[invoice] = receipt
+    }
+
+    override suspend fun find(invoice: InvoiceId): ObrReceipt? = receipts[invoice]
+}
+
+/**
+ * OBR that keeps the invoices it accepts, answers what the test forced instead, and remembers
+ * each call with its token.
+ */
+class FakeObrGateway : ObrGateway {
+    /** The identifiers of the invoices the OBR has. */
+    val known = mutableSetOf<String>()
+
+    /** Outcomes given to the next sends instead of the normal ones, oldest first. */
+    val forcedSends = mutableListOf<SendOutcome>()
+
+    /** Outcomes given to the next lookups instead of the normal ones, oldest first. */
+    val forcedLookups = mutableListOf<LookupOutcome>()
+
+    /** Each call: the service, the token and the number or the identifier of the invoice. */
+    val calls = mutableListOf<Triple<String, String, String>>()
+
+    /** The tax profile each invoice was sent with. */
+    val sellers = mutableListOf<TaxProfile>()
+
+    /** Whether a forced [SendOutcome.Uncertain] reaches the OBR although its answer is lost. */
+    var lostAnswerReachesObr = false
+
+    override suspend fun addInvoice(
+        target: LoginTarget,
+        token: String,
+        invoice: Invoice,
+        seller: TaxProfile,
+    ): SendOutcome {
+        calls += Triple("addInvoice", token, invoice.content.number)
+        sellers += seller
+        val forced = forcedSends.removeFirstOrNull()
+        if (forced is SendOutcome.Uncertain && lostAnswerReachesObr) known += invoice.content.identifier
+        return forced ?: if (known.add(invoice.content.identifier)) {
+            SendOutcome.Accepted(receiptOf(invoice))
+        } else {
+            SendOutcome.Rejected(ObrMessages.DUPLICATE_NUMBER)
+        }
+    }
+
+    override suspend fun getInvoice(target: LoginTarget, token: String, identifier: String): LookupOutcome {
+        calls += Triple("getInvoice", token, identifier)
+        return forcedLookups.removeFirstOrNull()
+            ?: if (identifier in known) LookupOutcome.Found else LookupOutcome.NotFound
+    }
+
+    /** @return the acknowledgement this OBR gives to [invoice]. */
+    fun receiptOf(invoice: Invoice) = ObrReceipt(
+        registeredNumber = "REG-${invoice.content.number}",
+        registeredDate = "2026-10-03 10:00:00",
+        signature = "signature-of-${invoice.content.number}",
+        rawResponse = """{"success":true}""",
+    )
 }
 
 /**

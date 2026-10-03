@@ -111,6 +111,23 @@ class EbmsConnectionUseCasesTest {
     }
 
     @Test
+    fun `fiscal documents that prevent a switch refuse it before the PIN is asked`() = runTest {
+        val alice = identity.administrator().user
+        val locked = SwitchEbmsEnvironment(settings, identity.users, identity.guard, identity.audit) { from, to ->
+            EnvironmentRefusal.PENDING_TRANSMISSIONS.takeIf { from != to }
+        }
+        identity.audit.events.clear()
+
+        val result = locked(EbmsEnvironment.PRODUCTION, alice.id, "wrong")
+
+        assertEquals(SwitchEbmsEnvironment.Result.Refused(EnvironmentRefusal.PENDING_TRANSMISSIONS), result)
+        assertEquals(EbmsEnvironment.TEST, settings.read().activeEnvironment)
+        // The wrong PIN was not even looked at.
+        assertEquals(emptyList(), identity.audit.events)
+        assertEquals(SwitchEbmsEnvironment.Result.Unchanged, locked(EbmsEnvironment.TEST, alice.id, null))
+    }
+
+    @Test
     fun `switching to production requires the PIN of the user`() = runTest {
         val alice = identity.administrator().user
 
