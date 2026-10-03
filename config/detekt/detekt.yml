@@ -19,6 +19,8 @@ complexity:
 
 style:
   MagicNumber:
+    # An enum entry already names its values (for example the field sizes of the OBR).
+    ignoreEnums: true
     ignorePropertyDeclaration: true
     ignoreCompanionObjectPropertyDeclaration: true
   UnusedPrivateFunction:

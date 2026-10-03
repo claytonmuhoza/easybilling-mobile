@@ -5,6 +5,8 @@ import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.audit.AuditStore
 import com.claytonmuhoza.easybilling.domain.audit.AuditVerification
+import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
+import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileVersion
 import com.claytonmuhoza.easybilling.domain.identity.NewUser
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCode
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCodeGenerator
@@ -91,6 +93,22 @@ class InMemoryAuditStore : AuditStore {
     }
 
     override suspend fun readAll(): List<AuditEntry> = entries.toList()
+}
+
+/** Tax profile versions kept in a list. */
+class InMemoryTaxProfileRepository : TaxProfileRepository {
+    private val versions = mutableListOf<TaxProfileVersion>()
+
+    override suspend fun current(): TaxProfileVersion? = versions.lastOrNull()
+
+    override suspend fun history(): List<TaxProfileVersion> = versions.reversed()
+
+    override suspend fun find(number: Int): TaxProfileVersion? = versions.firstOrNull { it.number == number }
+
+    override suspend fun append(version: TaxProfileVersion) {
+        require(versions.none { it.number == version.number }) { "Version ${version.number} already exists" }
+        versions += version
+    }
 }
 
 /** Runs the block directly: there is nothing to roll back in memory. */
