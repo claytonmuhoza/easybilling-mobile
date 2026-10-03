@@ -5,38 +5,52 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.claytonmuhoza.easybilling.data.local.audit.AuditDao
 import com.claytonmuhoza.easybilling.data.local.audit.AuditEntryEntity
+import com.claytonmuhoza.easybilling.data.local.configuration.TaxProfileDao
+import com.claytonmuhoza.easybilling.data.local.configuration.TaxProfileVersionEntity
 import com.claytonmuhoza.easybilling.data.local.identity.UserDao
 import com.claytonmuhoza.easybilling.data.local.identity.UserEntity
 
 /**
- * The local database. Its schema changes freely until a first version is published: there is no
- * migration yet, and the version stays at 1.
+ * The local database.
+ *
+ * Until the first stable version, the version is raised at each schema change and an older
+ * database is erased on update (decision D30): there is no migration yet. Migrations become
+ * mandatory before the first stable version.
+ *
+ * History: 1 users and audit (step 02); 2 tax profile versions (step 03).
  */
 @Database(
-    entities = [UserEntity::class, AuditEntryEntity::class],
-    version = 1,
+    entities = [UserEntity::class, AuditEntryEntity::class, TaxProfileVersionEntity::class],
+    version = 2,
     exportSchema = false,
 )
 internal abstract class EasyBillingDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
 
     abstract fun auditDao(): AuditDao
+
+    abstract fun taxProfileDao(): TaxProfileDao
 }
 
 /**
- * Makes the audit table append only at the database level: even code that bypasses the
- * repositories cannot modify or delete an entry.
+ * Makes some tables append only at the database level: even code that bypasses the repositories
+ * cannot modify or delete a row. The triggers are checked at each opening, so a database
+ * recreated after a schema change gets them too.
  */
-internal object AppendOnlyAuditLog : RoomDatabase.Callback() {
-    override fun onCreate(db: SupportSQLiteDatabase) {
-        for (operation in listOf("UPDATE", "DELETE")) {
-            db.execSQL(
-                """
-                CREATE TRIGGER audit_entries_no_${operation.lowercase()}
-                BEFORE $operation ON audit_entries
-                BEGIN SELECT RAISE(ABORT, 'The audit log is append only'); END
-                """.trimIndent(),
-            )
+internal object AppendOnlyTables : RoomDatabase.Callback() {
+    private val tables = listOf("audit_entries", "tax_profile_versions")
+
+    override fun onOpen(db: SupportSQLiteDatabase) {
+        for (table in tables) {
+            for (operation in listOf("UPDATE", "DELETE")) {
+                db.execSQL(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS ${table}_no_${operation.lowercase()}
+                    BEFORE $operation ON $table
+                    BEGIN SELECT RAISE(ABORT, 'The table $table is append only'); END
+                    """.trimIndent(),
+                )
+            }
         }
     }
 }
