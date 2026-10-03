@@ -7,8 +7,11 @@ import com.claytonmuhoza.easybilling.data.local.audit.AuditDao
 import com.claytonmuhoza.easybilling.data.local.audit.AuditEntryEntity
 import com.claytonmuhoza.easybilling.data.local.configuration.EbmsSettingsDao
 import com.claytonmuhoza.easybilling.data.local.configuration.EbmsSettingsEntity
+import com.claytonmuhoza.easybilling.data.local.configuration.TaxDao
+import com.claytonmuhoza.easybilling.data.local.configuration.TaxEntity
 import com.claytonmuhoza.easybilling.data.local.configuration.TaxProfileDao
 import com.claytonmuhoza.easybilling.data.local.configuration.TaxProfileVersionEntity
+import com.claytonmuhoza.easybilling.data.local.configuration.TaxVersionEntity
 import com.claytonmuhoza.easybilling.data.local.identity.UserDao
 import com.claytonmuhoza.easybilling.data.local.identity.UserEntity
 import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeDao
@@ -22,7 +25,7 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeEntity
  * mandatory before the first stable version.
  *
  * History: 1 users and audit (step 02); 2 tax profile versions (step 03); 3 EBMS settings and
- * exchanges with the OBR (step 04).
+ * exchanges with the OBR (step 04); 4 taxes and their dated rates (step 05).
  */
 @Database(
     entities = [
@@ -31,8 +34,10 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeEntity
         TaxProfileVersionEntity::class,
         EbmsSettingsEntity::class,
         ObrExchangeEntity::class,
+        TaxEntity::class,
+        TaxVersionEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 internal abstract class EasyBillingDatabase : RoomDatabase() {
@@ -45,6 +50,8 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
     abstract fun ebmsSettingsDao(): EbmsSettingsDao
 
     abstract fun obrExchangeDao(): ObrExchangeDao
+
+    abstract fun taxDao(): TaxDao
 }
 
 /**
@@ -53,7 +60,7 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
  * recreated after a schema change gets them too.
  */
 internal object AppendOnlyTables : RoomDatabase.Callback() {
-    private val tables = listOf("audit_entries", "tax_profile_versions")
+    private val tables = listOf("audit_entries", "tax_profile_versions", "tax_versions")
 
     override fun onOpen(db: SupportSQLiteDatabase) {
         for (table in tables) {
