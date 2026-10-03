@@ -478,7 +478,7 @@
     <string name="sale_search">Search an item or scan a barcode</string>
     <string name="sale_catalogue_empty">The catalogue has no item to sell. Create the items first.</string>
     <string name="sale_in_sale">× %1$s</string>
-    <string name="sale_view_cart">View the sale · %1$s</string>
+    <string name="sale_checkout">Checkout</string>
     <string name="sale_add_items">Add items</string>
     <string name="sale_customer">Customer</string>
     <string name="sale_customer_change">Change</string>
@@ -509,7 +509,6 @@
     <string name="sale_problem_item_without_vat">This item has no VAT: complete it in the catalogue.</string>
     <string name="sale_problem_discount_too_high">The discount leaves no price.</string>
     <string name="sale_problem_price_below_taxes">The price does not cover the taxes of the line.</string>
-    <string name="sale_totals">Totals</string>
     <string name="sale_total_without_vat">Total excl. VAT</string>
     <string name="sale_total_vat">VAT</string>
     <string name="sale_total_flat_rate">PFL</string>

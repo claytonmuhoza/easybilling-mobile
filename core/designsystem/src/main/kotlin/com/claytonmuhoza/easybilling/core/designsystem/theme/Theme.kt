@@ -3,6 +3,7 @@ package com.claytonmuhoza.easybilling.core.designsystem.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 
 /**
  * Material 3 theme of the application.
@@ -18,9 +19,12 @@ fun EasyBillingTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
-        typography = EasyBillingTypography,
-        content = content,
-    )
+    CompositionLocalProvider(LocalStatusColors provides if (darkTheme) DarkStatusColors else LightStatusColors) {
+        MaterialTheme(
+            colorScheme = if (darkTheme) DarkColors else LightColors,
+            typography = EasyBillingTypography,
+            shapes = EasyBillingShapes,
+            content = content,
+        )
+    }
 }

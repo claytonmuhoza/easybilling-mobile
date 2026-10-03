@@ -4,31 +4,28 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.core.designsystem.component.AppIcon
 import com.claytonmuhoza.easybilling.core.designsystem.component.ErrorState
 import com.claytonmuhoza.easybilling.core.designsystem.component.LoadingState
+import com.claytonmuhoza.easybilling.core.designsystem.component.NavigationRow
+import com.claytonmuhoza.easybilling.core.designsystem.component.SearchField
 import com.claytonmuhoza.easybilling.core.designsystem.component.TextAction
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
@@ -215,21 +212,15 @@ private fun Customers(state: SaleCustomerUiState.Ready, actions: SaleCustomerAct
             .padding(horizontal = Spacing.large),
         verticalArrangement = Arrangement.spacedBy(Spacing.small),
     ) {
-        OutlinedTextField(
-            value = state.query,
-            onValueChange = actions.onQueryChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.customers_search)) },
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            singleLine = true,
-        )
+        SearchField(state.query, actions.onQueryChange, stringResource(R.string.customers_search))
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(Spacing.small),
             contentPadding = PaddingValues(bottom = Spacing.large),
         ) {
             if (state.query.isBlank()) {
                 item(key = state.counter.id.value) {
-                    CustomerChoice(state.counter, stringResource(R.string.customers_counter_label), actions.onChoose)
+                    val anonymous = stringResource(R.string.customers_counter_label)
+                    CustomerChoice(state.counter, anonymous, AppIcon.STORE, actions.onChoose)
                 }
             }
             if (state.customers.isEmpty() && state.query.isNotBlank()) {
@@ -242,15 +233,18 @@ private fun Customers(state: SaleCustomerUiState.Ready, actions: SaleCustomerAct
                 }
             }
             items(state.customers, key = { it.id.value }) { customer ->
-                CustomerChoice(customer, customer.summary(), actions.onChoose)
+                CustomerChoice(customer, customer.summary(), AppIcon.PERSON, actions.onChoose)
             }
         }
     }
 }
 
 @Composable
-private fun CustomerChoice(customer: Customer, summary: String, onChoose: (Long) -> Unit) {
-    OutlinedCard(onClick = { onChoose(customer.id.value) }, modifier = Modifier.fillMaxWidth()) {
-        ListItem(headlineContent = { Text(customer.details.name) }, supportingContent = { Text(summary) })
-    }
+private fun CustomerChoice(customer: Customer, summary: String, icon: AppIcon, onChoose: (Long) -> Unit) {
+    NavigationRow(
+        title = customer.details.name,
+        onClick = { onChoose(customer.id.value) },
+        supporting = summary,
+        icon = icon,
+    )
 }

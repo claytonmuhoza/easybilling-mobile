@@ -4,10 +4,8 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,6 +18,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.core.designsystem.component.CardListItem
 import com.claytonmuhoza.easybilling.core.designsystem.component.ChoiceField
 import com.claytonmuhoza.easybilling.core.designsystem.component.CountedTextField
 import com.claytonmuhoza.easybilling.core.designsystem.component.ErrorState
@@ -27,6 +26,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.FormColumn
 import com.claytonmuhoza.easybilling.core.designsystem.component.LoadingState
 import com.claytonmuhoza.easybilling.core.designsystem.component.SectionHeader
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
+import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.domain.configuration.PercentageBase
 import com.claytonmuhoza.easybilling.domain.configuration.TaxForm
 import com.claytonmuhoza.easybilling.domain.configuration.TaxKind
@@ -156,8 +156,8 @@ private fun ColumnScope.ExistingTaxContent(state: TaxEditorUiState.Editing, acti
             version.validFrom.isAfter(state.today) -> stringResource(R.string.tax_rate_upcoming)
             else -> null
         }
-        OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-            ListItem(
+        TonalCard(modifier = Modifier.fillMaxWidth()) {
+            CardListItem(
                 headlineContent = { Text(version.computation.describe(tax.kind)) },
                 supportingContent = {
                     val from = stringResource(R.string.tax_rate_from, dateText(version.validFrom))

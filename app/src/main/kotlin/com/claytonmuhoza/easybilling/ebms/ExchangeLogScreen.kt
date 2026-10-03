@@ -7,9 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,11 +23,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.core.designsystem.component.CardListItem
 import com.claytonmuhoza.easybilling.core.designsystem.component.EmptyState
 import com.claytonmuhoza.easybilling.core.designsystem.component.ErrorState
 import com.claytonmuhoza.easybilling.core.designsystem.component.FormColumn
 import com.claytonmuhoza.easybilling.core.designsystem.component.LoadingState
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
+import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
 import com.claytonmuhoza.easybilling.domain.transmission.ObrExchange
 import com.claytonmuhoza.easybilling.ui.dateTimeText
@@ -170,8 +170,8 @@ private fun Retention(days: Int, editor: RetentionEditor?, actions: ExchangeLogA
 
 @Composable
 private fun ExchangeCard(exchange: ObrExchange, onOpen: (Long) -> Unit) {
-    OutlinedCard(onClick = { onOpen(exchange.id) }, modifier = Modifier.fillMaxWidth()) {
-        ListItem(
+    TonalCard(onClick = { onOpen(exchange.id) }, modifier = Modifier.fillMaxWidth()) {
+        CardListItem(
             headlineContent = { Text("${exchange.service} · ${exchange.statusText()}") },
             supportingContent = {
                 Text(

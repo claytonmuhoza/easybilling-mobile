@@ -20,8 +20,10 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.CountedTextFiel
 import com.claytonmuhoza.easybilling.core.designsystem.component.ErrorState
 import com.claytonmuhoza.easybilling.core.designsystem.component.FormColumn
 import com.claytonmuhoza.easybilling.core.designsystem.component.LoadingState
+import com.claytonmuhoza.easybilling.core.designsystem.component.StatusBanner
 import com.claytonmuhoza.easybilling.core.designsystem.component.SwitchRow
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
+import com.claytonmuhoza.easybilling.core.designsystem.theme.StatusTone
 import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
 import com.claytonmuhoza.easybilling.domain.customer.CustomerField
 import com.claytonmuhoza.easybilling.domain.customer.CustomerForm
@@ -167,15 +169,13 @@ private fun TinStatus(state: CustomerEditorUiState.Editing) {
     when (val notice = state.tinNotice) {
         null -> when {
             state.checkingTin -> Hint(stringResource(R.string.customer_tin_checking))
-            stored != null && stored.number == state.form.tin.trim() -> Text(
+            stored != null && stored.number == state.form.tin.trim() -> StatusBanner(
+                tone = StatusTone.SUCCESS,
                 text = stringResource(R.string.customer_tin_verified, dateTimeText(stored.verifiedAt), stored.obrName),
-                color = MaterialTheme.colorScheme.primary,
             )
         }
-        is TinNotice.Recognised -> Text(
-            text = stringResource(R.string.customer_tin_recognised, notice.name),
-            color = MaterialTheme.colorScheme.primary,
-        )
+        is TinNotice.Recognised ->
+            StatusBanner(StatusTone.SUCCESS, stringResource(R.string.customer_tin_recognised, notice.name))
         TinNotice.Unknown -> ErrorText(stringResource(R.string.customer_tin_unknown))
         is TinNotice.NotChecked -> ErrorText(notice.failure.message(notice.message))
     }

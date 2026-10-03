@@ -1,9 +1,6 @@
 package com.claytonmuhoza.easybilling.home
 
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -13,10 +10,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.core.designsystem.component.AppIcon
+import com.claytonmuhoza.easybilling.core.designsystem.component.AppIconImage
 import com.claytonmuhoza.easybilling.core.designsystem.component.FormColumn
+import com.claytonmuhoza.easybilling.core.designsystem.component.NavigationRow
 import com.claytonmuhoza.easybilling.core.designsystem.component.SectionHeader
+import com.claytonmuhoza.easybilling.core.designsystem.component.StatusChip
 import com.claytonmuhoza.easybilling.core.designsystem.component.TextAction
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
+import com.claytonmuhoza.easybilling.core.designsystem.theme.StatusTone
 import com.claytonmuhoza.easybilling.domain.configuration.ReadinessStep
 
 /**
@@ -146,7 +148,14 @@ fun HomeScreen(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            SettingCard(stringResource(R.string.home_new_sale), salesStatus.text(), null, actions.onOpenSale)
+            NavigationRow(
+                title = stringResource(R.string.home_new_sale),
+                onClick = actions.onOpenSale,
+                supporting = salesStatus.text(),
+                icon = AppIcon.CART,
+                trailing = { AppIconImage(AppIcon.ARROW_FORWARD, contentDescription = null) },
+                container = MaterialTheme.colorScheme.primaryContainer,
+            )
 
             SectionHeader(stringResource(R.string.home_settings))
             ReadinessSummary(readiness)
@@ -154,31 +163,53 @@ fun HomeScreen(
                 title = stringResource(R.string.tax_profile_title),
                 status = taxProfileStatus.text(),
                 done = readiness.done(ReadinessStep.TAX_PROFILE),
+                icon = AppIcon.BUSINESS,
                 onOpen = actions.onOpenTaxProfile,
             )
             SettingCard(
                 title = stringResource(R.string.ebms_title),
                 status = ebmsStatus.text(),
                 done = readiness.done(ReadinessStep.EBMS_CONNECTION),
+                icon = AppIcon.CLOUD,
                 onOpen = actions.onOpenEbmsConnection,
             )
             SettingCard(
                 title = stringResource(R.string.taxes_title),
                 status = taxesStatus.text(),
                 done = readiness.done(ReadinessStep.VAT),
+                icon = AppIcon.TAG,
                 onOpen = actions.onOpenTaxes,
             )
             SettingCard(
                 title = stringResource(R.string.numbering_title),
                 status = numberingStatus.text(),
                 done = readiness.done(ReadinessStep.NUMBERING),
+                icon = AppIcon.TUNE,
                 onOpen = actions.onOpenNumbering,
             )
-            SectionHeader(stringResource(R.string.home_catalog))
-            SettingCard(stringResource(R.string.items_title), catalogStatus.text(), null, actions.onOpenItems)
-            SettingCard(stringResource(R.string.customers_title), customersStatus.text(), null, actions.onOpenCustomers)
+            CatalogueSection(catalogStatus, customersStatus, actions)
         }
     }
+}
+
+/** The items and the customers, which the sale picks from. */
+@Composable
+private fun CatalogueSection(catalogStatus: CatalogStatus, customersStatus: CustomersStatus, actions: HomeActions) {
+    SectionHeader(stringResource(R.string.home_catalog))
+    SettingCard(
+        title = stringResource(R.string.items_title),
+        status = catalogStatus.text(),
+        done = null,
+        icon = AppIcon.ITEMS,
+        onOpen = actions.onOpenItems,
+    )
+    SettingCard(
+        title = stringResource(R.string.customers_title),
+        status = customersStatus.text(),
+        done = null,
+        icon = AppIcon.GROUP,
+        onOpen = actions.onOpenCustomers,
+    )
 }
 
 /**
@@ -186,22 +217,21 @@ fun HomeScreen(
  * for a setting that is not required or not read yet.
  */
 @Composable
-private fun SettingCard(title: String, status: String, done: Boolean?, onOpen: () -> Unit) {
-    OutlinedCard(onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
-        ListItem(
-            headlineContent = { Text(title) },
-            supportingContent = { Text(status) },
-            trailingContent = done?.let {
-                {
-                    Text(
-                        text = stringResource(if (it) R.string.home_readiness_done else R.string.home_readiness_to_do),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = if (it) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                    )
-                }
-            },
-        )
-    }
+private fun SettingCard(title: String, status: String, done: Boolean?, icon: AppIcon, onOpen: () -> Unit) {
+    NavigationRow(
+        title = title,
+        onClick = onOpen,
+        supporting = status,
+        icon = icon,
+        trailing = done?.let {
+            {
+                StatusChip(
+                    tone = if (it) StatusTone.SUCCESS else StatusTone.PENDING,
+                    label = stringResource(if (it) R.string.home_readiness_done else R.string.home_readiness_to_do),
+                )
+            }
+        },
+    )
 }
 
 /** Whether invoices can be issued; the cards below show what is left to do. */

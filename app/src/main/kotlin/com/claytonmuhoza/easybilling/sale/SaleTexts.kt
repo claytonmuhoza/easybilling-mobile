@@ -3,6 +3,7 @@ package com.claytonmuhoza.easybilling.sale
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.core.designsystem.theme.StatusTone
 import com.claytonmuhoza.easybilling.domain.invoicing.Discount
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatus
 import com.claytonmuhoza.easybilling.domain.invoicing.PaymentType
@@ -58,6 +59,14 @@ fun Discount.label(): String = when (this) {
     is Discount.Percent -> stringResource(R.string.sale_line_discount_percent, decimalText(rate))
     is Discount.PerUnit ->
         stringResource(R.string.sale_line_discount_amount, amountText(Money.of(amount, Currency.BIF)))
+}
+
+/** @return what the status of the invoice says, which gives it its colour and its icon. */
+fun InvoiceStatus.tone(): StatusTone = when (this) {
+    InvoiceStatus.Pending -> StatusTone.PENDING
+    InvoiceStatus.Registered -> StatusTone.SUCCESS
+    is InvoiceStatus.Rejected -> StatusTone.ERROR
+    InvoiceStatus.Cancelled -> StatusTone.NEUTRAL
 }
 
 /** @return where the invoice stands with the OBR, in words. */

@@ -2,9 +2,7 @@ package com.claytonmuhoza.easybilling.numbering
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -14,6 +12,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.core.designsystem.component.CardListItem
 import com.claytonmuhoza.easybilling.core.designsystem.component.ChoiceField
 import com.claytonmuhoza.easybilling.core.designsystem.component.CountedTextField
 import com.claytonmuhoza.easybilling.core.designsystem.component.ErrorState
@@ -22,6 +21,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.LoadingState
 import com.claytonmuhoza.easybilling.core.designsystem.component.SectionHeader
 import com.claytonmuhoza.easybilling.core.designsystem.component.SwitchRow
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
+import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.domain.configuration.CounterReset
 import com.claytonmuhoza.easybilling.domain.configuration.NumberingForm
 import com.claytonmuhoza.easybilling.domain.invoicing.DocumentType
@@ -185,13 +185,13 @@ private fun LockedContent(state: NumberingUiState.Locked) {
         text = stringResource(R.string.numbering_locked, dateTimeText(state.lockedAt)),
         style = MaterialTheme.typography.bodyLarge,
     )
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-        ListItem(
+    TonalCard(modifier = Modifier.fillMaxWidth()) {
+        CardListItem(
             headlineContent = { Text(stringResource(R.string.numbering_reset)) },
             supportingContent = { Text(state.settings.reset.label()) },
         )
         if (state.settings.deviceCode.isNotEmpty()) {
-            ListItem(
+            CardListItem(
                 headlineContent = { Text(stringResource(R.string.numbering_device_code)) },
                 supportingContent = { Text(state.settings.deviceCode) },
             )
@@ -207,9 +207,9 @@ private fun PreviewContent(preview: NumberingPreview?) {
         Hint(stringResource(R.string.numbering_preview_unavailable))
         return
     }
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+    TonalCard(modifier = Modifier.fillMaxWidth()) {
         preview.numbers.forEach { (type, number) ->
-            ListItem(headlineContent = { Text(number) }, overlineContent = { Text(type.label()) })
+            CardListItem(headlineContent = { Text(number) }, overlineContent = { Text(type.label()) })
         }
     }
     SectionHeader(stringResource(R.string.numbering_identifier))
