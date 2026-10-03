@@ -18,6 +18,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.FormColumn
 import com.claytonmuhoza.easybilling.core.designsystem.component.SectionHeader
 import com.claytonmuhoza.easybilling.core.designsystem.component.TextAction
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
+import com.claytonmuhoza.easybilling.domain.configuration.ReadinessStep
 import com.claytonmuhoza.easybilling.ebms.label
 import com.claytonmuhoza.easybilling.ui.dateTimeText
 
@@ -29,6 +30,7 @@ import com.claytonmuhoza.easybilling.ui.dateTimeText
  * @param onOpenTaxProfile called when the user opens the tax profile.
  * @param onOpenEbmsConnection called when the user opens the connection to the EBMS.
  * @param onOpenTaxes called when the user opens the taxes.
+ * @param onOpenNumbering called when the user opens the numbering.
  * @param viewModel holder of the home state.
  */
 @Composable
@@ -38,11 +40,14 @@ fun HomeRoute(
     onOpenTaxProfile: () -> Unit,
     onOpenEbmsConnection: () -> Unit,
     onOpenTaxes: () -> Unit,
+    onOpenNumbering: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val taxProfileStatus by viewModel.taxProfileStatus.collectAsStateWithLifecycle()
     val ebmsStatus by viewModel.ebmsStatus.collectAsStateWithLifecycle()
     val taxesStatus by viewModel.taxesStatus.collectAsStateWithLifecycle()
+    val numberingStatus by viewModel.numberingStatus.collectAsStateWithLifecycle()
+    val readiness by viewModel.readiness.collectAsStateWithLifecycle()
 
     // Reloaded each time the screen appears: the settings may have changed on their own screens.
     LaunchedEffect(Unit) { viewModel.load() }
@@ -52,7 +57,9 @@ fun HomeRoute(
         taxProfileStatus = taxProfileStatus,
         ebmsStatus = ebmsStatus,
         taxesStatus = taxesStatus,
-        actions = HomeActions(onLogOut, onOpenTaxProfile, onOpenEbmsConnection, onOpenTaxes),
+        numberingStatus = numberingStatus,
+        readiness = readiness,
+        actions = HomeActions(onLogOut, onOpenTaxProfile, onOpenEbmsConnection, onOpenTaxes, onOpenNumbering),
     )
 }
 
@@ -63,21 +70,25 @@ fun HomeRoute(
  * @property onOpenTaxProfile called when the user opens the tax profile.
  * @property onOpenEbmsConnection called when the user opens the connection to the EBMS.
  * @property onOpenTaxes called when the user opens the taxes.
+ * @property onOpenNumbering called when the user opens the numbering.
  */
 class HomeActions(
     val onLogOut: () -> Unit = {},
     val onOpenTaxProfile: () -> Unit = {},
     val onOpenEbmsConnection: () -> Unit = {},
     val onOpenTaxes: () -> Unit = {},
+    val onOpenNumbering: () -> Unit = {},
 )
 
 /**
- * Home screen: a welcome and the settings to complete before selling.
+ * Home screen: a welcome, what is left to do before the first invoice and the settings.
  *
  * @param userName name of the logged in user.
  * @param taxProfileStatus where the tax profile stands.
  * @param ebmsStatus where the connection to the EBMS stands.
  * @param taxesStatus where the taxes stand.
+ * @param numberingStatus where the numbering stands.
+ * @param readiness what is left to configure before the first invoice.
  * @param actions what the user can do.
  * @param modifier modifier applied to the screen.
  */
@@ -87,6 +98,8 @@ fun HomeScreen(
     taxProfileStatus: TaxProfileStatus,
     ebmsStatus: EbmsStatus,
     taxesStatus: TaxesStatus,
+    numberingStatus: NumberingStatus,
+    readiness: ReadinessStatus,
     actions: HomeActions,
     modifier: Modifier = Modifier,
 ) {
@@ -102,18 +115,57 @@ fun HomeScreen(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
             SectionHeader(stringResource(R.string.home_settings))
-            SettingCard(stringResource(R.string.tax_profile_title), taxProfileStatus.text(), actions.onOpenTaxProfile)
-            SettingCard(stringResource(R.string.ebms_title), ebmsStatus.text(), actions.onOpenEbmsConnection)
-            SettingCard(stringResource(R.string.taxes_title), taxesStatus.text(), actions.onOpenTaxes)
+            ReadinessSummary(readiness)
+            SettingCard(
+                title = stringResource(R.string.tax_profile_title),
+                status = taxProfileStatus.text(),
+                done = readiness.done(ReadinessStep.TAX_PROFILE),
+                onOpen = actions.onOpenTaxProfile,
+            )
+            SettingCard(
+                title = stringResource(R.string.ebms_title),
+                status = ebmsStatus.text(),
+                done = readiness.done(ReadinessStep.EBMS_CONNECTION),
+                onOpen = actions.onOpenEbmsConnection,
+            )
+            SettingCard(
+                title = stringResource(R.string.taxes_title),
+                status = taxesStatus.text(),
+                done = readiness.done(ReadinessStep.VAT),
+                onOpen = actions.onOpenTaxes,
+            )
+            SettingCard(
+                title = stringResource(R.string.numbering_title),
+                status = numberingStatus.text(),
+                done = readiness.done(ReadinessStep.NUMBERING),
+                onOpen = actions.onOpenNumbering,
+            )
         }
     }
 }
 
+/**
+ * A setting to open. [done] tells whether it is ready for the first invoice; null shows nothing,
+ * for a setting that is not required or not read yet.
+ */
 @Composable
-private fun SettingCard(title: String, status: String, onOpen: () -> Unit) {
+private fun SettingCard(title: String, status: String, done: Boolean?, onOpen: () -> Unit) {
     OutlinedCard(onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
-        ListItem(headlineContent = { Text(title) }, supportingContent = { Text(status) })
+        ListItem(
+            headlineContent = { Text(title) },
+            supportingContent = { Text(status) },
+            trailingContent = done?.let {
+                {
+                    Text(
+                        text = stringResource(if (it) R.string.home_readiness_done else R.string.home_readiness_to_do),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (it) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+        )
     }
 }
 
@@ -145,3 +197,27 @@ private fun TaxesStatus.text(): String = when (this) {
         pluralStringResource(R.plurals.home_taxes_active, active, active)
     }
 }
+
+@Composable
+private fun NumberingStatus.text(): String = when (this) {
+    NumberingStatus.Loading -> "…"
+    NumberingStatus.Unreadable -> stringResource(R.string.home_status_unreadable)
+    NumberingStatus.ToDefine -> stringResource(R.string.home_numbering_to_define)
+    is NumberingStatus.Defined -> if (locked) stringResource(R.string.home_numbering_locked, example) else example
+}
+
+/** Whether invoices can be issued; the cards below show what is left to do. */
+@Composable
+private fun ReadinessSummary(status: ReadinessStatus) {
+    val known = status as? ReadinessStatus.Known ?: return
+    val ready = known.readiness.ready
+    Text(
+        text = stringResource(if (ready) R.string.home_readiness_ready else R.string.home_readiness_not_ready),
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (ready) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+    )
+}
+
+/** @return whether [step] is done, or null when it does not apply or is not known yet. */
+private fun ReadinessStatus.done(step: ReadinessStep): Boolean? =
+    (this as? ReadinessStatus.Known)?.readiness?.steps?.get(step)

@@ -99,7 +99,7 @@ class TaxesFlowTest {
     }
 
     private fun openTaxes() {
-        composeRule.waitForText("Taxes").performClick()
+        composeRule.waitForText("Taxes").performScrollTo().performClick()
         composeRule.waitForText("Line preview")
     }
 
@@ -107,7 +107,7 @@ class TaxesFlowTest {
     fun `the home screen shows that no tax exists yet`() {
         launch()
 
-        composeRule.waitForText("No tax").assertIsDisplayed()
+        composeRule.waitForText("No tax").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -255,7 +255,7 @@ class TaxesFlowTest {
     @Config(qualifiers = "fr")
     fun `the taxes are translated in French`() {
         launch()
-        composeRule.waitForText("Taxes").performClick()
+        composeRule.waitForText("Taxes").performScrollTo().performClick()
 
         composeRule.waitForText("Aucune taxe").assertIsDisplayed()
         composeRule.onNodeWithText("Nouvelle taxe").assertIsDisplayed()
