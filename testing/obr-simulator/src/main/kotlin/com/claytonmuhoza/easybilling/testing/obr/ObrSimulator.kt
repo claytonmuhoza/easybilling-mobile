@@ -1,41 +1,40 @@
 package com.claytonmuhoza.easybilling.testing.obr
 
-import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
-import kotlinx.serialization.json.putJsonObject
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
 import mockwebserver3.SocketEffect
 import java.io.Closeable
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Fake EBMS server for the tests. Its answers follow the OBR specification V0.7: same paths, same
  * HTTP codes, same messages. Tests can force the next answers to reproduce failures.
  *
- * `login/` and `checkTIN/` are served for now; the other services arrive with the steps that use
- * them. The specification does not say how long a token lives on the server side nor what an
- * expired token gets: here a token is accepted until [expireTokens], and any call without an
- * accepted token gets the 403 of a missing token.
+ * `login/`, `checkTIN/`, `addInvoice_confirm/` and `getInvoice/` are served for now; the other
+ * services arrive with the steps that use them. The specification does not say how long a token
+ * lives on the server side nor what an expired token gets: here a token is accepted until
+ * [expireTokens], and any call without an accepted token gets the 403 of a missing token.
  *
  * @param username the user name the server accepts.
  * @param password the password the server accepts.
  */
 class ObrSimulator(
-    var username: String = DEFAULT_USERNAME,
-    var password: String = DEFAULT_PASSWORD,
+    username: String = DEFAULT_USERNAME,
+    password: String = DEFAULT_PASSWORD,
 ) : Closeable {
+
+    private val services = ObrServices(username, password)
+
+    /** The user name the server accepts. */
+    var username: String by services::username
+
+    /** The password the server accepts. */
+    var password: String by services::password
 
     /** The underlying server, for settings a test needs (HTTPS, for example) before [start]. */
     val server = MockWebServer()
@@ -44,14 +43,18 @@ class ObrSimulator(
     val requests: MutableList<RecordedRequest> = CopyOnWriteArrayList()
 
     /** The TINs the server knows, with the name of their owner (`tp_name`). */
-    val taxpayers: MutableMap<String, String> = ConcurrentHashMap(mapOf(KNOWN_TIN to KNOWN_TAXPAYER))
+    val taxpayers: MutableMap<String, String> get() = services.taxpayers
+
+    /** The invoices the server accepted, by `invoice_identifier`, as they were sent. */
+    val invoices: Map<String, JsonObject> get() = services.invoices
+
+    /** Whether the acknowledgements spell the signature `electronique_signature`, as some examples do. */
+    var alternateSignatureName: Boolean by services::alternateSignatureName
 
     private val forced = ConcurrentLinkedQueue<MockResponse>()
-    private val issuedTokens = AtomicInteger()
-    private val acceptedTokens: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     /** Number of tokens given so far. */
-    val loginCount: Int get() = issuedTokens.get()
+    val loginCount: Int get() = services.loginCount
 
     /** Address of the API, ending with `/`, as configured in the application. */
     val baseUrl: String get() = server.url(API_PATH).toString()
@@ -60,7 +63,7 @@ class ObrSimulator(
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 requests += request
-                return forced.poll() ?: answer(request)
+                return forced.poll() ?: services.answer(request)
             }
         }
     }
@@ -76,70 +79,25 @@ class ObrSimulator(
     }
 
     /** The next request gets an HTTP [code] with the OBR body `{"success":false,"msg":...}`. */
-    fun failNext(code: Int, message: String) = forceNext(json(code, failure(message)))
+    fun failNext(code: Int, message: String) = forceNext(jsonResponse(code, failure(message)))
 
     /** The next request waits [seconds] before any answer. */
     fun delayNext(seconds: Long) =
-        forceNext(json(OK, failure("")).newBuilder().headersDelay(seconds, TimeUnit.SECONDS).build())
+        forceNext(jsonResponse(HTTP_OK, failure("")).newBuilder().headersDelay(seconds, TimeUnit.SECONDS).build())
 
     /** The next request reaches the server, then the connection is cut: the answer is lost. */
     fun dropNext() = forceNext(MockResponse.Builder().onResponseStart(SocketEffect.CloseSocket()).build())
 
+    /**
+     * The next invoice is accepted and kept by the server, but the connection is cut before the
+     * acknowledgement leaves: the sender cannot know whether the invoice was received.
+     */
+    fun loseNextAcknowledgement() {
+        services.loseNextAcknowledgement = true
+    }
+
     /** Every token given so far is now refused: the next authenticated call needs a new login. */
-    fun expireTokens() = acceptedTokens.clear()
-
-    private fun answer(request: RecordedRequest): MockResponse = when (request.url.encodedPath) {
-        "${API_PATH}login/" -> login(request)
-        "${API_PATH}checkTIN/" -> checkTin(request)
-        else -> MockResponse.Builder().code(NOT_FOUND).build()
-    }
-
-    private fun checkTin(request: RecordedRequest): MockResponse {
-        val body = if (request.method == "POST") parse(request.body?.utf8().orEmpty()) else null
-        val tin = (body?.get("tp_TIN") as? JsonPrimitive)?.content.orEmpty()
-        val token = request.headers["Authorization"].orEmpty().removePrefix(BEARER)
-        val owner = taxpayers[tin]
-        return when {
-            request.method != "POST" -> json(BAD_REQUEST, failure(MESSAGE_USE_POST))
-            token !in acceptedTokens -> json(FORBIDDEN, failure(MESSAGE_NO_API_KEY))
-            body == null -> json(BAD_REQUEST, failure(MESSAGE_INVALID_JSON))
-            tin.isEmpty() -> json(BAD_REQUEST, failure(MESSAGE_NO_TIN))
-            owner == null -> json(BAD_REQUEST, failure(MESSAGE_UNKNOWN_TIN))
-            else -> json(
-                OK,
-                buildJsonObject {
-                    put("success", true)
-                    put("msg", MESSAGE_SUCCESS)
-                    putJsonObject("result") {
-                        putJsonArray("taxpayer") { add(buildJsonObject { put("tp_name", owner) }) }
-                    }
-                },
-            )
-        }
-    }
-
-    private fun login(request: RecordedRequest): MockResponse {
-        val body = if (request.method == "POST") parse(request.body?.utf8().orEmpty()) else null
-        val user = (body?.get("username") as? JsonPrimitive)?.content.orEmpty()
-        val secret = (body?.get("password") as? JsonPrimitive)?.content.orEmpty()
-        return when {
-            request.method != "POST" -> json(BAD_REQUEST, failure(MESSAGE_NOT_POST))
-            body == null -> json(BAD_REQUEST, failure(MESSAGE_INVALID_JSON))
-            user.isEmpty() -> json(BAD_REQUEST, failure(MESSAGE_NO_USERNAME))
-            secret.isEmpty() -> json(BAD_REQUEST, failure(MESSAGE_NO_PASSWORD))
-            user != username || secret != password -> json(UNAUTHORIZED, failure(MESSAGE_WRONG_CREDENTIALS))
-            else -> json(
-                OK,
-                buildJsonObject {
-                    put("success", true)
-                    put("msg", MESSAGE_SUCCESS)
-                    putJsonObject("result") {
-                        put("token", "simulated-token-${issuedTokens.incrementAndGet()}".also { acceptedTokens += it })
-                    }
-                },
-            )
-        }
-    }
+    fun expireTokens() = services.expireTokens()
 
     /** Values of the specification and of the simulator. */
     companion object {
@@ -188,33 +146,29 @@ class ObrSimulator(
         /** Message of `checkTIN/` for a TIN the OBR does not know (400), page 28 of the specification. */
         const val MESSAGE_UNKNOWN_TIN = "NIF du contribuable inconnu."
 
-        /** Message of `checkTIN/` when the request is not a POST (400), page 28 of the specification. */
+        /** Message of a request that is not a POST (400), pages 19 and 28 of the specification. */
         const val MESSAGE_USE_POST = "Veuillez utiliser la méthode POST pour envoyer les données."
 
-        private const val BEARER = "Bearer "
+        /** Message of an accepted invoice (200), page 21 of the specification. */
+        const val MESSAGE_INVOICE_ADDED = "La facture a été ajoutée avec succès!"
 
-        private const val OK = 200
-        private const val BAD_REQUEST = 400
-        private const val UNAUTHORIZED = 401
-        private const val FORBIDDEN = 403
-        private const val NOT_FOUND = 404
+        /** Message of an invoice without one of its mandatory fields (400), page 22 of the specification. */
+        const val MESSAGE_MISSING_FIELDS = "Veuillez fournir tous les champs obligatoires."
+
+        /** Message of an invoice whose number the OBR already has (400), page 26 of the specification. */
+        const val MESSAGE_DUPLICATE_NUMBER = "Une facture avec le même numéro de facture existe déjà."
+
+        /** Message of an invoice dated after the clock of the OBR (400), page 22 of the specification. */
+        const val MESSAGE_DATE_IN_FUTURE = "La date de facturation fournie est supérieur à la date actuelle."
+
+        /** Message of an invoice whose customer TIN the OBR does not know (400), page 25 of the specification. */
+        const val MESSAGE_UNKNOWN_CUSTOMER_TIN =
+            "Le NIF du client n'est pas connu par l'OBR. Veuillez fournir un NIF valide"
+
+        /** Message of `getInvoice/` without an identifier (400), page 19 of the specification. */
+        const val MESSAGE_NO_IDENTIFIER = "Veuillez fournir un identifiant de la facture."
+
+        /** Message of `getInvoice/` for an identifier the OBR does not know (400), page 19 of the specification. */
+        const val MESSAGE_UNKNOWN_IDENTIFIER = "Identifiant de la facture inconnu."
     }
 }
-
-private fun parse(body: String): JsonObject? =
-    try {
-        Json.parseToJsonElement(body) as? JsonObject
-    } catch (_: SerializationException) {
-        null
-    }
-
-private fun failure(message: String) = buildJsonObject {
-    put("success", false)
-    put("msg", message)
-}
-
-private fun json(code: Int, body: JsonObject) = MockResponse.Builder()
-    .code(code)
-    .setHeader("Content-Type", "application/json")
-    .body(body.toString())
-    .build()

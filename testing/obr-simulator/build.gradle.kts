@@ -5,5 +5,6 @@ plugins {
 
 dependencies {
     api(libs.okhttp.mockwebserver)
-    implementation(libs.kotlinx.serialization.json)
+    // The invoices the server accepted are read by the tests as JSON: part of the API.
+    api(libs.kotlinx.serialization.json)
 }
