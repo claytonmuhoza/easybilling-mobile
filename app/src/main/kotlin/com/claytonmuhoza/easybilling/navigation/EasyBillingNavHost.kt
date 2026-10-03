@@ -22,6 +22,9 @@ import com.claytonmuhoza.easybilling.home.HomeRoute
 import com.claytonmuhoza.easybilling.login.LoginRoute
 import com.claytonmuhoza.easybilling.recovery.ResetPinRoute
 import com.claytonmuhoza.easybilling.setup.SetupRoute
+import com.claytonmuhoza.easybilling.taxes.LinePreviewRoute
+import com.claytonmuhoza.easybilling.taxes.TaxEditorRoute
+import com.claytonmuhoza.easybilling.taxes.TaxListRoute
 import com.claytonmuhoza.easybilling.taxprofile.TaxProfileHistoryRoute
 import com.claytonmuhoza.easybilling.taxprofile.TaxProfileRoute
 import com.claytonmuhoza.easybilling.taxprofile.TaxProfileVersionRoute
@@ -84,11 +87,13 @@ fun EasyBillingNavHost(
                     onLogOut = onLogOut,
                     onOpenTaxProfile = { navController.navigate(TaxProfileDestination) },
                     onOpenEbmsConnection = { navController.navigate(EbmsConnectionDestination) },
+                    onOpenTaxes = { navController.navigate(TaxesDestination) },
                 )
             }
         }
         taxProfileScreens(access, navController)
         ebmsScreens(access, navController)
+        taxScreens(access, navController)
     }
 }
 
@@ -113,6 +118,30 @@ private fun NavGraphBuilder.taxProfileScreens(access: AccessState.Ready, navCont
     composable<TaxProfileVersionDestination> {
         LoggedIn(access) {
             TaxProfileVersionRoute(onBack = { navController.popBackStack() })
+        }
+    }
+}
+
+/** The taxes and the preview of a line (UC-A07). */
+private fun NavGraphBuilder.taxScreens(access: AccessState.Ready, navController: NavHostController) {
+    composable<TaxesDestination> {
+        LoggedIn(access) {
+            TaxListRoute(
+                onBack = { navController.popBackStack() },
+                onOpenTax = { id -> navController.navigate(TaxEditorDestination(id)) },
+                onNewTax = { navController.navigate(TaxEditorDestination()) },
+                onOpenPreview = { navController.navigate(LinePreviewDestination) },
+            )
+        }
+    }
+    composable<TaxEditorDestination> {
+        LoggedIn(access) {
+            TaxEditorRoute(onClose = { navController.popBackStack() })
+        }
+    }
+    composable<LinePreviewDestination> {
+        LoggedIn(access) {
+            LinePreviewRoute(onBack = { navController.popBackStack() })
         }
     }
 }

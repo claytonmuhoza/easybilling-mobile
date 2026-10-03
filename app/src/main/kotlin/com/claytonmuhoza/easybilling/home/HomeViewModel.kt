@@ -6,6 +6,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialsVault
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
+import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
 import com.claytonmuhoza.easybilling.domain.configuration.activeLoginTarget
 import com.claytonmuhoza.easybilling.ui.storageCall
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -51,22 +52,39 @@ sealed interface EbmsStatus {
     data class Configured(val environment: EbmsEnvironment, val lastSuccess: Instant?) : EbmsStatus
 }
 
+/** Where the taxes stand, as summed up on the home screen. */
+sealed interface TaxesStatus {
+    /** The taxes are being read. */
+    data object Loading : TaxesStatus
+
+    /** The taxes could not be read. */
+    data object Unreadable : TaxesStatus
+
+    /** [active] taxes may be chosen: not archived. */
+    data class Defined(val active: Int) : TaxesStatus
+}
+
 /** Drives the home screen. */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val profiles: TaxProfileRepository,
     private val ebmsSettings: EbmsSettingsRepository,
     private val vault: EbmsCredentialsVault,
+    private val taxes: TaxRepository,
 ) : ViewModel() {
 
     private val mutableTaxProfileStatus = MutableStateFlow<TaxProfileStatus>(TaxProfileStatus.Loading)
     private val mutableEbmsStatus = MutableStateFlow<EbmsStatus>(EbmsStatus.Loading)
+    private val mutableTaxesStatus = MutableStateFlow<TaxesStatus>(TaxesStatus.Loading)
 
     /** Where the tax profile stands. */
     val taxProfileStatus: StateFlow<TaxProfileStatus> = mutableTaxProfileStatus.asStateFlow()
 
     /** Where the connection to the EBMS stands. */
     val ebmsStatus: StateFlow<EbmsStatus> = mutableEbmsStatus.asStateFlow()
+
+    /** Where the taxes stand. */
+    val taxesStatus: StateFlow<TaxesStatus> = mutableTaxesStatus.asStateFlow()
 
     /** Reads the state of the settings. Called each time the screen is shown. */
     fun load() {
@@ -83,6 +101,8 @@ class HomeViewModel @Inject constructor(
                     EbmsStatus.Configured(target.environment, lastSuccess)
                 } ?: EbmsStatus.ToConfigure
             }.getOrElse { EbmsStatus.Unreadable }
+            mutableTaxesStatus.value = storageCall { TaxesStatus.Defined(taxes.all().count { !it.archived }) }
+                .getOrElse { TaxesStatus.Unreadable }
         }
     }
 }

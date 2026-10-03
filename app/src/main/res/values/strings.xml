@@ -65,6 +65,111 @@
     <string name="home_ebms_never_tested">%1$s · never tested</string>
     <string name="home_ebms_connected">%1$s · connected on %2$s</string>
 
+    <string name="home_taxes_none">No tax</string>
+    <plurals name="home_taxes_active">
+        <item quantity="one">%1$d active tax</item>
+        <item quantity="other">%1$d active taxes</item>
+    </plurals>
+
+    <!-- Taxes -->
+    <string name="taxes_title">Taxes</string>
+    <string name="taxes_preview">Line preview</string>
+    <string name="taxes_new">New tax</string>
+    <string name="taxes_empty_title">No tax yet</string>
+    <string name="taxes_empty_message">Create the VAT and the other taxes your business charges.</string>
+    <string name="taxes_load_error">The taxes could not be read.</string>
+    <string name="taxes_archived">Archived</string>
+    <string name="taxes_next_rate">From %1$s: %2$s</string>
+    <string name="taxes_not_yet">Applies from %1$s</string>
+    <string name="tax_kind_vat">VAT</string>
+    <string name="tax_kind_ct">TC</string>
+    <string name="tax_kind_pfl">PFL</string>
+    <string name="tax_kind_ott">OTT</string>
+    <string name="tax_kind_tsce">TSCE</string>
+    <string name="tax_kind_vat_long">Value added tax (VAT)</string>
+    <string name="tax_kind_ct_long">Consumption tax (TC)</string>
+    <string name="tax_kind_pfl_long">Flat-rate withholding (PFL)</string>
+    <string name="tax_kind_ott_long">Over the top tax (OTT)</string>
+    <string name="tax_kind_tsce_long">Tax on value added services of electronic communications (TSCE)</string>
+    <string name="tax_rate_percentage">%1$s %%</string>
+    <string name="tax_rate_percentage_of">%1$s %% of %2$s</string>
+    <string name="tax_rate_per_unit">%1$s per unit</string>
+    <string name="tax_rate_free">Amount typed on each line</string>
+    <string name="tax_base_price">price × quantity</string>
+    <string name="tax_base_price_without_vat">price without VAT</string>
+    <string name="tax_base_price_with_vat">price with VAT</string>
+
+    <!-- Tax editor -->
+    <string name="tax_editor_new_title">New tax</string>
+    <string name="tax_field_kind">Tax</string>
+    <string name="tax_field_name">Name</string>
+    <string name="tax_field_mode">Computed as</string>
+    <string name="tax_mode_percentage">Percent</string>
+    <string name="tax_mode_per_unit">Per unit</string>
+    <string name="tax_mode_free">Free amount</string>
+    <string name="tax_field_rate">Rate in percent</string>
+    <string name="tax_field_amount">Amount per unit</string>
+    <string name="tax_field_base">Percent of</string>
+    <string name="tax_base_price_short">PU × Q</string>
+    <string name="tax_base_price_without_vat_short">HTVA</string>
+    <string name="tax_base_price_with_vat_short">TVAC</string>
+    <string name="tax_field_valid_from">Applies from (DD/MM/YYYY)</string>
+    <string name="tax_vat_hint">The VAT is always a percent of the price without VAT.</string>
+    <string name="tax_create">Create the tax</string>
+    <string name="tax_rates">Rates</string>
+    <string name="tax_rate_from">From %1$s</string>
+    <string name="tax_rate_current">in force</string>
+    <string name="tax_rate_upcoming">upcoming</string>
+    <string name="tax_new_rate">New rate</string>
+    <string name="tax_new_rate_hint">A new rate starts after the latest one and never in the past: invoices keep the rate of their day.</string>
+    <string name="tax_schedule">Schedule this rate</string>
+    <string name="tax_scheduled">Rate scheduled.</string>
+    <string name="tax_archive">Archive the tax</string>
+    <string name="tax_unarchive">Use the tax again</string>
+    <string name="tax_archived_hint">This tax is archived: it can no longer be chosen.</string>
+    <string name="tax_not_found">This tax does not exist.</string>
+    <string name="tax_save_error">The tax could not be saved. Try again.</string>
+    <string name="tax_problem_name_missing">Required</string>
+    <string name="tax_problem_name_too_long">At most 50 characters</string>
+    <string name="tax_problem_kind_missing">Choose a tax</string>
+    <string name="tax_problem_mode_missing">Choose how it is computed</string>
+    <string name="tax_problem_mode_not_allowed">Not allowed for this tax</string>
+    <string name="tax_problem_value_missing">Required</string>
+    <string name="tax_problem_value_invalid">A number of zero or more, two decimals at most</string>
+    <string name="tax_problem_rate_above_100" formatted="false">At most 100 %</string>
+    <string name="tax_problem_base_missing">Choose what the percent applies to</string>
+    <string name="tax_problem_date_missing">Enter a date as DD/MM/YYYY</string>
+    <string name="tax_problem_date_in_past">A rate never starts in the past</string>
+    <string name="tax_problem_date_not_after_latest">Must be after the start of the latest rate</string>
+
+    <!-- Line preview -->
+    <string name="preview_title">Line preview</string>
+    <string name="preview_section_line">Line</string>
+    <string name="preview_unit_price">Unit price</string>
+    <string name="preview_quantity">Quantity</string>
+    <string name="preview_price_mode">The price</string>
+    <string name="preview_excluding_taxes">Excludes taxes</string>
+    <string name="preview_including_taxes">Includes taxes</string>
+    <string name="preview_currency">Currency</string>
+    <string name="preview_section_taxes">Taxes of the line</string>
+    <string name="preview_no_tax">None</string>
+    <string name="preview_free_amount">%1$s amount of the line</string>
+    <string name="preview_section_result">Amounts sent to the OBR</string>
+    <string name="preview_invalid_number">Enter numbers, with a dot or a comma</string>
+    <string name="preview_not_covered">The price including taxes does not cover the fixed taxes.</string>
+    <string name="preview_no_profile">No tax profile yet: every tax is applied.</string>
+    <string name="preview_not_registered">Your business is not registered for: %1$s. These taxes are zero.</string>
+    <string name="amount_unit_price">Unit price excl. taxes (item_price)</string>
+    <string name="amount_price">PU × Q</string>
+    <string name="amount_ct">TC (item_ct)</string>
+    <string name="amount_ott">OTT (item_ott_tax)</string>
+    <string name="amount_tsce">TSCE (item_tsce_tax)</string>
+    <string name="amount_nvat">Price without VAT (item_price_nvat)</string>
+    <string name="amount_vat">VAT (vat)</string>
+    <string name="amount_wvat">Price with VAT (item_price_wvat)</string>
+    <string name="amount_pfl">PFL (item_tl)</string>
+    <string name="amount_total">Total (item_total_amount)</string>
+
     <!-- EBMS connection -->
     <string name="ebms_title">EBMS connection</string>
     <string name="ebms_exchanges">Exchanges</string>
