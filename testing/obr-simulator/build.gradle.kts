@@ -5,4 +5,5 @@ plugins {
 
 dependencies {
     api(libs.okhttp.mockwebserver)
+    implementation(libs.kotlinx.serialization.json)
 }

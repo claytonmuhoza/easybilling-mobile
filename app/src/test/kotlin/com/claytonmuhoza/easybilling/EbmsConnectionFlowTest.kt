@@ -1,0 +1,288 @@
+package com.claytonmuhoza.easybilling
+
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isSelected
+import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.performTextInput
+import androidx.test.core.app.ActivityScenario
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.claytonmuhoza.easybilling.domain.audit.AuditStore
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentials
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialsVault
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
+import com.claytonmuhoza.easybilling.domain.identity.CreateAdministrator
+import com.claytonmuhoza.easybilling.domain.identity.SessionManager
+import com.claytonmuhoza.easybilling.testing.TestCertificates
+import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
+import com.claytonmuhoza.easybilling.testing.pressInForm
+import com.claytonmuhoza.easybilling.testing.replaceInForm
+import com.claytonmuhoza.easybilling.testing.typeInForm
+import com.claytonmuhoza.easybilling.testing.waitForText
+import com.claytonmuhoza.easybilling.testing.obr.ObrSimulator
+import dagger.hilt.android.testing.HiltAndroidRule
+import dagger.hilt.android.testing.HiltAndroidTest
+import dagger.hilt.android.testing.HiltTestApplication
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Before
+import org.junit.Rule
+import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
+import javax.inject.Inject
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertIs
+
+/** Connection to the EBMS (UC-A03 to A05, UC-D08) against the simulated OBR server, over HTTPS. */
+@HiltAndroidTest
+@RunWith(AndroidJUnit4::class)
+@Config(application = HiltTestApplication::class, qualifiers = "en")
+class EbmsConnectionFlowTest {
+
+    @get:Rule(order = 0)
+    val hiltRule = HiltAndroidRule(this)
+
+    @get:Rule(order = 1)
+    val composeRule = createEmptyComposeRule()
+
+    @Inject
+    lateinit var createAdministrator: CreateAdministrator
+
+    @Inject
+    lateinit var sessions: SessionManager
+
+    @Inject
+    lateinit var settings: EbmsSettingsRepository
+
+    @Inject
+    lateinit var vault: EbmsCredentialsVault
+
+    @Inject
+    lateinit var auditStore: AuditStore
+
+    private val simulator: ObrSimulator = TestCertificates.startSimulator()
+    private lateinit var scenario: ActivityScenario<MainActivity>
+
+    @Before
+    fun logInAliceThenLaunch() {
+        hiltRule.inject()
+        runBlocking {
+            val alice = assertIs<CreateAdministrator.Result.Created>(createAdministrator("Alice", "123456", "123456"))
+            sessions.open(alice.user)
+        }
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+    }
+
+    @After
+    fun stop() {
+        scenario.close()
+        simulator.close()
+    }
+
+    private fun openScreen() {
+        composeRule.waitForText("EBMS connection").performClick()
+        composeRule.waitForText("Test the connection")
+    }
+
+    private fun fillAndSave(password: String = ObrSimulator.DEFAULT_PASSWORD) {
+        composeRule.replaceInForm("Server address", simulator.baseUrl)
+        composeRule.typeInForm("System identifier", ObrSimulator.DEFAULT_USERNAME)
+        composeRule.typeInForm("Password", password)
+        composeRule.pressInForm("Save")
+        composeRule.waitForText("Settings saved.")
+    }
+
+    private fun testConnection(expected: String) {
+        composeRule.pressInForm("Test the connection")
+        composeRule.waitForText(expected).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `the home screen asks for the connection while it is not configured`() {
+        composeRule.waitForText("EBMS connection").assertIsDisplayed()
+        composeRule.waitForText("To configure").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a new device starts on the test environment with the address of the specification`() {
+        openScreen()
+
+        composeRule.onNodeWithText("Test").assertIsSelected()
+        composeRule.onNodeWithText("https://ebms.obr.gov.bi:9443/ebms_api/").assertIsDisplayed()
+    }
+
+    @Test
+    fun `saved credentials are encrypted apart and a successful test is remembered`() {
+        openScreen()
+        fillAndSave()
+
+        testConnection("Connection succeeded.")
+
+        assertEquals(
+            EbmsCredentials(ObrSimulator.DEFAULT_USERNAME, ObrSimulator.DEFAULT_PASSWORD),
+            runBlocking { vault.read(EbmsEnvironment.TEST) },
+        )
+        assertNotNull(runBlocking { settings.read().lastSuccessfulLogin(EbmsEnvironment.TEST) })
+        assertEquals(1, simulator.loginCount)
+        assertEquals("EBMS_CONNECTION_TESTED", runBlocking { auditStore.readAll().last().action })
+    }
+
+    @Test
+    fun `the home screen shows a tested connection`() {
+        openScreen()
+        fillAndSave()
+        testConnection("Connection succeeded.")
+
+        scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+
+        composeRule.waitForText("Test · connected on", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `wrong credentials have their own message`() {
+        openScreen()
+        fillAndSave(password = "not-the-password")
+
+        testConnection("The OBR refused the user name or the password.")
+        assertNull(runBlocking { settings.read().lastSuccessfulLogin(EbmsEnvironment.TEST) })
+    }
+
+    @Test
+    fun `a server error has its own message`() {
+        openScreen()
+        fillAndSave()
+        simulator.failNext(500, ObrSimulator.MESSAGE_SERVER_ERROR)
+
+        testConnection("The OBR server had an error. Try again later.")
+    }
+
+    @Test
+    fun `an unreachable server has its own message`() {
+        openScreen()
+        fillAndSave()
+        simulator.close()
+
+        testConnection("The server cannot be reached. Check the Internet connection.")
+    }
+
+    @Test
+    fun `a refusal shows the message of the OBR`() {
+        openScreen()
+        fillAndSave()
+        simulator.failNext(400, ObrSimulator.MESSAGE_NO_PASSWORD)
+
+        testConnection("The OBR refused the request: ${ObrSimulator.MESSAGE_NO_PASSWORD}")
+    }
+
+    @Test
+    fun `an address that is not https is refused`() {
+        openScreen()
+        composeRule.replaceInForm("Server address", "http://ebms.obr.gov.bi/ebms_api/")
+
+        composeRule.pressInForm("Save")
+
+        composeRule.waitForText("The address must start with https://").performScrollTo().assertIsDisplayed()
+        assertNull(runBlocking { vault.read(EbmsEnvironment.TEST) })
+    }
+
+    @Test
+    fun `the saved password is never shown again and an empty field keeps it`() {
+        openScreen()
+        fillAndSave()
+        scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+
+        openScreen()
+
+        composeRule.onNodeWithText("Leave empty to keep the saved password").performScrollTo().assertIsDisplayed()
+        assertEquals(0, composeRule.onAllNodesWithTextCount(ObrSimulator.DEFAULT_PASSWORD, substring = true))
+        composeRule.pressInForm("Save")
+        composeRule.waitForText("Settings saved.")
+        assertEquals(ObrSimulator.DEFAULT_PASSWORD, runBlocking { vault.read(EbmsEnvironment.TEST)?.password })
+    }
+
+    @Test
+    fun `switching to production asks for the PIN`() {
+        openScreen()
+
+        composeRule.onNodeWithText("Production").performClick()
+        composeRule.waitForText("Enter your PIN to confirm.")
+        composeRule.typeInForm("PIN", "123456")
+        composeRule.pressInForm("Confirm")
+
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodes(hasText("Production") and isSelected()).fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(EbmsEnvironment.PRODUCTION, runBlocking { settings.read().activeEnvironment })
+    }
+
+    @Test
+    fun `a wrong PIN keeps the test environment`() {
+        openScreen()
+
+        composeRule.onNodeWithText("Production").performClick()
+        composeRule.waitForText("Enter your PIN to confirm.")
+        composeRule.typeInForm("PIN", "000000")
+        composeRule.pressInForm("Confirm")
+
+        composeRule.waitForText("Wrong PIN. 9 attempts left.").performScrollTo().assertIsDisplayed()
+        assertEquals(EbmsEnvironment.TEST, runBlocking { settings.read().activeEnvironment })
+    }
+
+    @Test
+    fun `the exchange is in the log with its password masked`() {
+        openScreen()
+        fillAndSave()
+        testConnection("Connection succeeded.")
+
+        composeRule.onNodeWithText("Exchanges").performClick()
+        composeRule.waitForText("login/ · 200").performClick()
+
+        composeRule.waitForText("Request").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("\"password\":\"••••\"", substring = true).performScrollTo().assertIsDisplayed()
+        assertEquals(0, composeRule.onAllNodesWithTextCount(ObrSimulator.DEFAULT_PASSWORD, substring = true))
+        assertEquals(0, composeRule.onAllNodesWithTextCount("simulated-token-1", substring = true))
+    }
+
+    @Test
+    fun `the retention of the log can be changed`() {
+        openScreen()
+        composeRule.onNodeWithText("Exchanges").performClick()
+        composeRule.waitForText("Kept 90 days")
+
+        composeRule.onNodeWithText("Change").performClick()
+        composeRule.onNodeWithText("Days").performTextClearance()
+        composeRule.onNodeWithText("Days").performTextInput("30")
+        composeRule.onNodeWithText("Confirm").performClick()
+
+        composeRule.waitForText("Kept 30 days").assertIsDisplayed()
+        assertEquals(30, runBlocking { settings.read().exchangeRetentionDays })
+    }
+
+    @Test
+    fun `the log is empty before the first exchange`() {
+        openScreen()
+
+        composeRule.onNodeWithText("Exchanges").performClick()
+
+        composeRule.waitForText("No exchange yet").assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "fr")
+    fun `the screen is translated in French`() {
+        composeRule.waitForText("Connexion EBMS").performClick()
+
+        composeRule.waitForText("Tester la connexion").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Adresse du serveur").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Échanges").assertIsDisplayed()
+    }
+}

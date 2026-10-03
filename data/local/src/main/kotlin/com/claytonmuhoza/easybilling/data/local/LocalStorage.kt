@@ -4,12 +4,16 @@ import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.claytonmuhoza.easybilling.data.local.audit.RoomAuditStore
+import com.claytonmuhoza.easybilling.data.local.configuration.RoomEbmsSettingsRepository
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxProfileRepository
 import com.claytonmuhoza.easybilling.data.local.identity.RoomUserRepository
+import com.claytonmuhoza.easybilling.data.local.transmission.RoomExchangeLog
 import com.claytonmuhoza.easybilling.domain.audit.AuditStore
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.identity.UserRepository
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
+import com.claytonmuhoza.easybilling.domain.transmission.ExchangeLog
 
 /**
  * Entry point of the local storage: gives access to the domain ports backed by the database and
@@ -25,6 +29,12 @@ class LocalStorage private constructor(internal val database: EasyBillingDatabas
 
     /** The versions of the tax profile. */
     val taxProfiles: TaxProfileRepository = RoomTaxProfileRepository(database.taxProfileDao())
+
+    /** The settings of the connection to the EBMS, except the credentials. */
+    val ebmsSettings: EbmsSettingsRepository = RoomEbmsSettingsRepository(database.ebmsSettingsDao())
+
+    /** The exchanges with the OBR. */
+    val exchangeLog: ExchangeLog = RoomExchangeLog(database.obrExchangeDao())
 
     /** Runs several writes as one. */
     val transactions: TransactionRunner = RoomTransactionRunner(database)

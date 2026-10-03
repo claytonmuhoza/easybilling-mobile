@@ -26,6 +26,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
 
@@ -45,6 +46,7 @@ private val MinTouchTarget = 48.dp
  * @param hint text shown under the field when there is no error (for example "Optional"), or null.
  * @param keyboardType kind of keyboard to show.
  * @param capitalization automatic capitalization of the keyboard.
+ * @param visualTransformation how the text is drawn, for example masked for a password.
  */
 @Composable
 fun CountedTextField(
@@ -57,6 +59,7 @@ fun CountedTextField(
     hint: String? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
     capitalization: KeyboardCapitalization = KeyboardCapitalization.Sentences,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
     // Counted after trimming, like the rules of the forms.
     val length = value.trim().length
@@ -80,6 +83,7 @@ fun CountedTextField(
             }
         },
         isError = errorMessage != null,
+        visualTransformation = visualTransformation,
         keyboardOptions = KeyboardOptions(
             capitalization = capitalization,
             keyboardType = keyboardType,

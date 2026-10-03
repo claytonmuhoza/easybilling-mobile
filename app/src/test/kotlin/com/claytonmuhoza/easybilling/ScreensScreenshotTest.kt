@@ -7,6 +7,11 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import com.claytonmuhoza.easybilling.core.designsystem.theme.EasyBillingTheme
 import com.claytonmuhoza.easybilling.domain.identity.PinProblem
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsConnectionForm
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialField
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsServerAddress
+import com.claytonmuhoza.easybilling.domain.configuration.FieldProblem
 import com.claytonmuhoza.easybilling.domain.configuration.FiscalCenter
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileCheck
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileChoice
@@ -15,7 +20,21 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileForm
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileVersion
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
 import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
+import com.claytonmuhoza.easybilling.domain.configuration.UrlProblem
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.transmission.LoginOutcome
+import com.claytonmuhoza.easybilling.domain.transmission.ObrExchange
+import com.claytonmuhoza.easybilling.ebms.EbmsConnectionActions
+import com.claytonmuhoza.easybilling.ebms.EbmsConnectionScreen
+import com.claytonmuhoza.easybilling.ebms.EbmsConnectionUiState
+import com.claytonmuhoza.easybilling.ebms.ExchangeLogActions
+import com.claytonmuhoza.easybilling.ebms.ExchangeLogScreen
+import com.claytonmuhoza.easybilling.ebms.ExchangeLogUiState
+import com.claytonmuhoza.easybilling.ebms.ExchangeScreen
+import com.claytonmuhoza.easybilling.ebms.ExchangeUiState
+import com.claytonmuhoza.easybilling.ebms.PinPrompt
+import com.claytonmuhoza.easybilling.home.EbmsStatus
+import com.claytonmuhoza.easybilling.home.HomeActions
 import com.claytonmuhoza.easybilling.home.HomeScreen
 import com.claytonmuhoza.easybilling.home.TaxProfileStatus
 import com.claytonmuhoza.easybilling.login.LoginScreen
@@ -174,8 +193,8 @@ class ScreensScreenshotTest(private val variant: Variant) {
         HomeScreen(
             userName = "Alice",
             taxProfileStatus = TaxProfileStatus.ToComplete,
-            onLogOut = {},
-            onOpenTaxProfile = {},
+            ebmsStatus = EbmsStatus.ToConfigure,
+            actions = HomeActions(),
         )
     }
 
@@ -184,8 +203,8 @@ class ScreensScreenshotTest(private val variant: Variant) {
         HomeScreen(
             userName = "Alice",
             taxProfileStatus = TaxProfileStatus.Saved(2),
-            onLogOut = {},
-            onOpenTaxProfile = {},
+            ebmsStatus = EbmsStatus.Configured(EbmsEnvironment.TEST, Instant.parse("2026-10-03T12:30:00Z")),
+            actions = HomeActions(),
         )
     }
 
@@ -268,6 +287,123 @@ class ScreensScreenshotTest(private val variant: Variant) {
         TaxProfileVersionScreen(number = 9, state = TaxProfileVersionUiState.NotFound, onBack = {}, onRetry = {})
     }
 
+    @Test
+    fun ebmsConnectionEmpty() = capture("ebms_connection_empty") {
+        EbmsConnectionScreen(
+            state = EbmsConnectionUiState.Ready(
+                activeEnvironment = EbmsEnvironment.TEST,
+                form = EbmsConnectionForm(serverUrl = EbmsServerAddress.DEFAULT_TEST),
+                hasStoredPassword = false,
+            ),
+            actions = EbmsConnectionActions(),
+        )
+    }
+
+    @Test
+    fun ebmsConnectionTested() = capture("ebms_connection_tested") {
+        EbmsConnectionScreen(
+            state = EbmsConnectionUiState.Ready(
+                activeEnvironment = EbmsEnvironment.TEST,
+                form = sampleConnection(),
+                hasStoredPassword = true,
+                lastSuccess = Instant.parse("2026-10-03T12:30:00Z"),
+                testOutcome = LoginOutcome.Success("token"),
+            ),
+            actions = EbmsConnectionActions(),
+        )
+    }
+
+    @Test
+    fun ebmsConnectionErrors() = capture("ebms_connection_errors") {
+        EbmsConnectionScreen(
+            state = EbmsConnectionUiState.Ready(
+                activeEnvironment = EbmsEnvironment.PRODUCTION,
+                form = sampleConnection().copy(serverUrl = "http://ebms.example.bi/api/", username = ""),
+                hasStoredPassword = false,
+                problems = mapOf(
+                    EbmsCredentialField.USERNAME to FieldProblem.Missing,
+                    EbmsCredentialField.PASSWORD to FieldProblem.Missing,
+                ),
+                urlProblem = UrlProblem.NOT_HTTPS,
+                testOutcome = LoginOutcome.WrongCredentials,
+            ),
+            actions = EbmsConnectionActions(),
+        )
+    }
+
+    @Test
+    fun ebmsConnectionLoading() = capture("ebms_connection_loading", animated = true) {
+        EbmsConnectionScreen(state = EbmsConnectionUiState.Loading, actions = EbmsConnectionActions())
+    }
+
+    @Test
+    fun ebmsConnectionLoadError() = capture("ebms_connection_load_error") {
+        EbmsConnectionScreen(state = EbmsConnectionUiState.LoadFailed, actions = EbmsConnectionActions())
+    }
+
+    @Test
+    fun ebmsProductionPin() = capture("ebms_production_pin") {
+        EbmsConnectionScreen(
+            state = EbmsConnectionUiState.Ready(
+                activeEnvironment = EbmsEnvironment.TEST,
+                form = sampleConnection(),
+                hasStoredPassword = true,
+                pinPrompt = PinPrompt(pin = "000000", remainingAttempts = 9),
+            ),
+            actions = EbmsConnectionActions(),
+        )
+    }
+
+    @Test
+    fun exchangeLog() = capture("exchange_log") {
+        ExchangeLogScreen(
+            state = ExchangeLogUiState.Ready(
+                exchanges = listOf(
+                    sampleExchange(id = 2, minutesAgo = 5, statusCode = 200),
+                    sampleExchange(id = 1, minutesAgo = 65, statusCode = null),
+                ),
+                retentionDays = 90,
+            ),
+            actions = ExchangeLogActions(),
+        )
+    }
+
+    @Test
+    fun exchangeLogEmpty() = capture("exchange_log_empty") {
+        ExchangeLogScreen(
+            state = ExchangeLogUiState.Ready(emptyList(), retentionDays = 90),
+            actions = ExchangeLogActions(),
+        )
+    }
+
+    @Test
+    fun exchangeDetail() = capture("exchange_detail") {
+        ExchangeScreen(
+            state = ExchangeUiState.Ready(sampleExchange(id = 2, minutesAgo = 5, statusCode = 200)),
+            onBack = {},
+            onRetry = {},
+        )
+    }
+
+    /** Connection settings made up for the screenshots; the password field is empty, as on screen. */
+    private fun sampleConnection() = EbmsConnectionForm(
+        serverUrl = EbmsServerAddress.DEFAULT_TEST,
+        username = "ws400000000100001",
+    )
+
+    /** An exchange made up for the screenshots, secrets already masked. */
+    private fun sampleExchange(id: Long, minutesAgo: Long, statusCode: Int?) = ObrExchange(
+        id = id,
+        startedAt = Instant.parse("2026-10-03T12:30:00Z").minusSeconds(minutesAgo * 60),
+        environment = EbmsEnvironment.TEST,
+        service = "login/",
+        requestBody = """{"username":"ws400000000100001","password":"••••"}""",
+        statusCode = statusCode,
+        responseBody = if (statusCode == null) "" else """{"success":true,"result":{"token":"••••"}}""",
+        durationMillis = if (statusCode == null) 15_000 else 412,
+        failure = if (statusCode == null) "SocketTimeoutException: timeout" else "",
+    )
+
     /** A complete profile, made up for the screenshots. */
     private fun sampleForm() = TaxProfileForm(
         taxpayerType = TaxpayerType.LEGAL_PERSON,
@@ -294,7 +430,11 @@ class ScreensScreenshotTest(private val variant: Variant) {
      * @param animated true for content that animates forever: the clock is then driven by hand to
      * a fixed instant, so the captured frame is always the same.
      */
-    private fun capture(name: String, animated: Boolean = false, content: @Composable () -> Unit) {
+    private fun capture(
+        name: String,
+        animated: Boolean = false,
+        content: @Composable () -> Unit,
+    ) {
         composeRule.mainClock.autoAdvance = !animated
         composeRule.setContent {
             // The surface is the one the application root puts behind every screen.
@@ -307,7 +447,8 @@ class ScreensScreenshotTest(private val variant: Variant) {
             composeRule.mainClock.advanceTimeBy(ANIMATION_INSTANT_MILLIS)
         }
         composeRule.waitForIdle()
-        composeRule.onRoot().captureRoboImage("src/test/screenshots/${name}_${variant.name}.png")
+        val path = "src/test/screenshots/${name}_${variant.name}.png"
+        composeRule.onRoot().captureRoboImage(path)
     }
 
     /**

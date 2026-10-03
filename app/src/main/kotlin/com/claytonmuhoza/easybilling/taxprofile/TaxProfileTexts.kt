@@ -1,10 +1,8 @@
 package com.claytonmuhoza.easybilling.taxprofile
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.claytonmuhoza.easybilling.R
-import com.claytonmuhoza.easybilling.domain.configuration.FieldProblem
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileField
 import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
 
@@ -27,13 +25,6 @@ fun TaxProfileField.label(): String = stringResource(
         TaxProfileField.LEGAL_FORM -> R.string.tax_profile_field_legal_form
     },
 )
-
-/** @return the message explaining why the value is refused. */
-@Composable
-fun FieldProblem.message(): String = when (this) {
-    FieldProblem.Missing -> stringResource(R.string.tax_profile_required)
-    is FieldProblem.TooLong -> pluralStringResource(R.plurals.tax_profile_too_long, maxLength, maxLength)
-}
 
 /** @return the name of the kind of taxpayer. */
 @Composable

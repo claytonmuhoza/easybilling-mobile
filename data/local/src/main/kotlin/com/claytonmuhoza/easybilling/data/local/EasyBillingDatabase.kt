@@ -5,10 +5,14 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.claytonmuhoza.easybilling.data.local.audit.AuditDao
 import com.claytonmuhoza.easybilling.data.local.audit.AuditEntryEntity
+import com.claytonmuhoza.easybilling.data.local.configuration.EbmsSettingsDao
+import com.claytonmuhoza.easybilling.data.local.configuration.EbmsSettingsEntity
 import com.claytonmuhoza.easybilling.data.local.configuration.TaxProfileDao
 import com.claytonmuhoza.easybilling.data.local.configuration.TaxProfileVersionEntity
 import com.claytonmuhoza.easybilling.data.local.identity.UserDao
 import com.claytonmuhoza.easybilling.data.local.identity.UserEntity
+import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeDao
+import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeEntity
 
 /**
  * The local database.
@@ -17,11 +21,18 @@ import com.claytonmuhoza.easybilling.data.local.identity.UserEntity
  * database is erased on update (decision D30): there is no migration yet. Migrations become
  * mandatory before the first stable version.
  *
- * History: 1 users and audit (step 02); 2 tax profile versions (step 03).
+ * History: 1 users and audit (step 02); 2 tax profile versions (step 03); 3 EBMS settings and
+ * exchanges with the OBR (step 04).
  */
 @Database(
-    entities = [UserEntity::class, AuditEntryEntity::class, TaxProfileVersionEntity::class],
-    version = 2,
+    entities = [
+        UserEntity::class,
+        AuditEntryEntity::class,
+        TaxProfileVersionEntity::class,
+        EbmsSettingsEntity::class,
+        ObrExchangeEntity::class,
+    ],
+    version = 3,
     exportSchema = false,
 )
 internal abstract class EasyBillingDatabase : RoomDatabase() {
@@ -30,6 +41,10 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
     abstract fun auditDao(): AuditDao
 
     abstract fun taxProfileDao(): TaxProfileDao
+
+    abstract fun ebmsSettingsDao(): EbmsSettingsDao
+
+    abstract fun obrExchangeDao(): ObrExchangeDao
 }
 
 /**

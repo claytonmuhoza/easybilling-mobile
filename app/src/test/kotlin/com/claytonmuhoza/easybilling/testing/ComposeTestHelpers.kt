@@ -11,10 +11,10 @@ import androidx.compose.ui.test.performTextInput
 
 private const val TIMEOUT_MILLIS = 10_000L
 
-/** Waits for work done off the main thread (database, PIN derivation) to show [text]. */
-fun ComposeTestRule.waitForText(text: String): SemanticsNodeInteraction {
-    waitUntil(TIMEOUT_MILLIS) { onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
-    return onNodeWithText(text)
+/** Waits for work done off the main thread (database, PIN derivation, network) to show [text]. */
+fun ComposeTestRule.waitForText(text: String, substring: Boolean = false): SemanticsNodeInteraction {
+    waitUntil(TIMEOUT_MILLIS) { onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty() }
+    return onNodeWithText(text, substring = substring)
 }
 
 /** Types [value] in the field labelled [label]. */

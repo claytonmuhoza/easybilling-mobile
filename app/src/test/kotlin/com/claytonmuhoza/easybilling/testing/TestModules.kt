@@ -2,20 +2,28 @@ package com.claytonmuhoza.easybilling.testing
 
 import android.content.Context
 import com.claytonmuhoza.easybilling.data.local.LocalStorage
+import com.claytonmuhoza.easybilling.data.obr.ObrHttp
+import com.claytonmuhoza.easybilling.di.ObrHttpModule
 import com.claytonmuhoza.easybilling.di.PlatformModule
 import com.claytonmuhoza.easybilling.di.StorageModule
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCode
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCodeGenerator
 import com.claytonmuhoza.easybilling.domain.identity.SecretHasher
+import com.claytonmuhoza.easybilling.domain.shared.SecretStore
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.platform.security.Pbkdf2SecretHasher
+import com.claytonmuhoza.easybilling.testing.obr.ObrSimulator
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
+import okhttp3.OkHttpClient
+import okhttp3.tls.HandshakeCertificates
+import okhttp3.tls.HeldCertificate
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -62,4 +70,50 @@ object TestStorageModule {
     @Provides
     @Singleton
     fun localStorage(@ApplicationContext context: Context): LocalStorage = LocalStorage.inMemory(context)
+
+    @Provides
+    @Singleton
+    fun secretStore(): SecretStore = InMemorySecretStore()
+}
+
+/** Secrets kept in memory: the Android Keystore does not exist on the JVM. */
+class InMemorySecretStore : SecretStore {
+    private val secrets = ConcurrentHashMap<String, ByteArray>()
+
+    override fun read(name: String): ByteArray? = secrets[name]
+
+    override fun write(name: String, value: ByteArray) {
+        secrets[name] = value
+    }
+}
+
+/** A certificate made for the tests: the simulated OBR server shows it, the test client trusts it. */
+object TestCertificates {
+    private val held: HeldCertificate = HeldCertificate.Builder()
+        .addSubjectAlternativeName("localhost")
+        .addSubjectAlternativeName("127.0.0.1")
+        .build()
+
+    /** What the simulated server presents. */
+    val server: HandshakeCertificates = HandshakeCertificates.Builder().heldCertificate(held).build()
+
+    /** What the test client trusts. */
+    val client: HandshakeCertificates = HandshakeCertificates.Builder().addTrustedCertificate(held.certificate).build()
+
+    /** @return a simulated OBR server over HTTPS, started. */
+    fun startSimulator(): ObrSimulator = ObrSimulator().apply {
+        server.useHttps(TestCertificates.server.sslSocketFactory())
+        start()
+    }
+}
+
+/** HTTP client of the tests: it trusts the test certificate and gives up after 3 seconds. */
+@Module
+@TestInstallIn(components = [SingletonComponent::class], replaces = [ObrHttpModule::class])
+object TestObrHttpModule {
+    @Provides
+    @Singleton
+    fun obrHttpClient(): OkHttpClient = ObrHttp.client(Duration.ofSeconds(3)).newBuilder()
+        .sslSocketFactory(TestCertificates.client.sslSocketFactory(), TestCertificates.client.trustManager)
+        .build()
 }
