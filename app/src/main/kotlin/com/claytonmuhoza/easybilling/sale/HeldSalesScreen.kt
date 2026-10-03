@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +27,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.ErrorState
 import com.claytonmuhoza.easybilling.core.designsystem.component.FormColumn
 import com.claytonmuhoza.easybilling.core.designsystem.component.LoadingState
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
+import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
 import com.claytonmuhoza.easybilling.domain.invoicing.DraftId
 import com.claytonmuhoza.easybilling.domain.invoicing.EditSale
@@ -166,7 +166,7 @@ fun HeldSalesScreen(state: HeldSalesUiState, actions: HeldSalesActions, modifier
 private fun HeldSaleCard(sale: PricedSale, actions: HeldSalesActions) {
     val customer = sale.customer.details.name
     val id = sale.draft.id.value
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+    TonalCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(Spacing.medium),
             verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),

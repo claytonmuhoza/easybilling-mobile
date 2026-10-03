@@ -484,7 +484,7 @@
     <string name="sale_search">Rechercher un article ou scanner un code-barres</string>
     <string name="sale_catalogue_empty">Le catalogue n\'a aucun article à vendre. Créez d\'abord les articles.</string>
     <string name="sale_in_sale">× %1$s</string>
-    <string name="sale_view_cart">Voir la vente · %1$s</string>
+    <string name="sale_checkout">Encaisser</string>
     <string name="sale_add_items">Ajouter des articles</string>
     <string name="sale_customer">Client</string>
     <string name="sale_customer_change">Changer</string>
@@ -515,7 +515,6 @@
     <string name="sale_problem_item_without_vat">Cet article n\'a pas de TVA : complétez-le dans le catalogue.</string>
     <string name="sale_problem_discount_too_high">La remise ne laisse aucun prix.</string>
     <string name="sale_problem_price_below_taxes">Le prix ne couvre pas les taxes de la ligne.</string>
-    <string name="sale_totals">Totaux</string>
     <string name="sale_total_without_vat">Total HTVA</string>
     <string name="sale_total_vat">TVA</string>
     <string name="sale_total_flat_rate">PFL</string>

@@ -9,38 +9,48 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.ListItem
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.core.designsystem.component.AppIcon
+import com.claytonmuhoza.easybilling.core.designsystem.component.AppIconImage
 import com.claytonmuhoza.easybilling.core.designsystem.component.ErrorState
 import com.claytonmuhoza.easybilling.core.designsystem.component.LoadingState
+import com.claytonmuhoza.easybilling.core.designsystem.component.SearchField
 import com.claytonmuhoza.easybilling.core.designsystem.component.TextAction
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
+import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
+import com.claytonmuhoza.easybilling.core.designsystem.theme.tabularNumbers
 import com.claytonmuhoza.easybilling.domain.catalog.Item
 import com.claytonmuhoza.easybilling.domain.catalog.ItemId
 import com.claytonmuhoza.easybilling.domain.invoicing.PaymentType
+import com.claytonmuhoza.easybilling.domain.invoicing.PricedSale
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleLineForm
-import com.claytonmuhoza.easybilling.items.summary
+import com.claytonmuhoza.easybilling.items.shortLabel
+import com.claytonmuhoza.easybilling.ui.MoneyText
 import com.claytonmuhoza.easybilling.ui.amountText
 import com.claytonmuhoza.easybilling.ui.decimalText
+
+/** Narrowest card of the grid of items: two columns on a phone, more on a wide screen. */
+private val ItemCardMinWidth = 150.dp
 
 /** From this width, the catalogue and the sale are shown side by side (tablet, cash terminal). */
 private val TwoPaneMinWidth = 720.dp
@@ -197,14 +207,11 @@ private fun CataloguePane(
         modifier = modifier.padding(horizontal = Spacing.large),
         verticalArrangement = Arrangement.spacedBy(Spacing.small),
     ) {
-        OutlinedTextField(
-            value = state.query,
-            onValueChange = actions.onQueryChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.sale_search)) },
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { actions.onSearchSubmit() }),
-            singleLine = true,
+        SearchField(
+            query = state.query,
+            onQueryChange = actions.onQueryChange,
+            label = stringResource(R.string.sale_search),
+            onSubmit = actions.onSearchSubmit,
         )
         if (state.results.isEmpty()) {
             Text(
@@ -215,9 +222,11 @@ private fun CataloguePane(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        LazyColumn(
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(ItemCardMinWidth),
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(Spacing.small),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.small),
             contentPadding = PaddingValues(bottom = Spacing.small),
         ) {
             items(state.results, key = { it.id.value }) { item ->
@@ -225,12 +234,42 @@ private fun CataloguePane(
                 CatalogueItem(item, inSale?.let { decimalText(it.value) }, actions.onAddItem)
             }
         }
-        if (narrow) {
-            Button(
-                onClick = { actions.onShowPane(SalePane.CART) },
-                modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.medium),
-            ) {
-                Text(stringResource(R.string.sale_view_cart, amountText(state.sale.totals.total)))
+        if (narrow) CartBar(state.sale, onCheckout = { actions.onShowPane(SalePane.CART) })
+    }
+}
+
+/**
+ * What the sale holds while the catalogue is shown, and the way to the sale: how many items, the
+ * total, and the button that goes on to the payment.
+ */
+@Composable
+private fun CartBar(sale: PricedSale, onCheckout: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.medium),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.primary,
+        shadowElevation = Spacing.extraSmall,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = Spacing.medium, vertical = Spacing.small),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+        ) {
+            AppIconImage(AppIcon.CART, contentDescription = null)
+            Text(
+                text = pluralStringResource(
+                    R.plurals.held_sale_summary,
+                    sale.lines.size,
+                    sale.lines.size,
+                    amountText(sale.totals.total),
+                ),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium.tabularNumbers(),
+                fontWeight = FontWeight.SemiBold,
+            )
+            FilledTonalButton(onClick = onCheckout) {
+                Text(stringResource(R.string.sale_checkout))
+                AppIconImage(AppIcon.ARROW_FORWARD, contentDescription = null)
             }
         }
     }
@@ -239,19 +278,56 @@ private fun CataloguePane(
 /** An item to add with one touch. [inSale] is the quantity already in the sale, or null. */
 @Composable
 private fun CatalogueItem(item: Item, inSale: String?, onAdd: (ItemId) -> Unit) {
-    OutlinedCard(onClick = { onAdd(item.id) }, modifier = Modifier.fillMaxWidth()) {
-        ListItem(
-            headlineContent = { Text(item.details.designation) },
-            supportingContent = { Text(item.summary()) },
-            trailingContent = inSale?.let {
-                {
+    val selected = inSale != null
+    TonalCard(
+        onClick = { onAdd(item.id) },
+        modifier = Modifier.fillMaxWidth(),
+        container = if (selected) {
+            MaterialTheme.colorScheme.secondaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.medium),
+            verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+        ) {
+            Text(
+                text = item.details.designation,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                minLines = 2,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "${item.code} · ${item.details.priceMode.shortLabel()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                MoneyText(
+                    money = item.details.price,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                if (inSale == null) {
+                    AppIconImage(AppIcon.ADD, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                } else {
                     Text(
-                        text = stringResource(R.string.sale_in_sale, it),
-                        style = MaterialTheme.typography.titleMedium,
+                        text = stringResource(R.string.sale_in_sale, inSale),
+                        style = MaterialTheme.typography.titleMedium.tabularNumbers(),
                         color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
                     )
                 }
-            },
-        )
+            }
+        }
     }
 }

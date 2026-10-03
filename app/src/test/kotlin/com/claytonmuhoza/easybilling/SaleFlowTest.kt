@@ -215,8 +215,10 @@ class SaleFlowTest {
         composeRule.waitForText("× $inSale")
     }
 
-    private fun viewSale(total: String) {
-        composeRule.waitForText("View the sale · $total").performClick()
+    /** Goes from the catalogue to the sale once the cart bar shows [summary], such as "1 item · 1,180 BIF". */
+    private fun viewSale(summary: String) {
+        composeRule.waitForText(summary).assertIsDisplayed()
+        composeRule.onNodeWithText("Checkout").performClick()
         composeRule.waitForText("Validate the sale")
     }
 
@@ -253,7 +255,7 @@ class SaleFlowTest {
         add("Savon de Marseille", inSale = "1")
         add("Savon de Marseille", inSale = "2")
         add("Sucre 1 kg", inSale = "1")
-        viewSale("4,720 BIF")
+        viewSale("2 items · 4,720 BIF")
         shown("2 × 1,000 BIF")
         shown("Client comptoir")
         composeRule.pressInForm("Validate the sale")
@@ -274,7 +276,7 @@ class SaleFlowTest {
 
         composeRule.pressInForm("New sale")
         add("Sucre 1 kg", inSale = "1")
-        viewSale("2,360 BIF")
+        viewSale("1 item · 2,360 BIF")
         composeRule.pressInForm("Validate the sale")
         assertEquals(bif("2360"), issuedInvoice("FN-00002/2026").content.totals.total)
     }
@@ -285,7 +287,7 @@ class SaleFlowTest {
         launch()
         openRegister()
         add("Savon de Marseille", inSale = "1")
-        viewSale("1,180 BIF")
+        viewSale("1 item · 1,180 BIF")
 
         pressDescribed("Modify: Savon de Marseille")
         composeRule.replaceInForm("Quantity", "0")
@@ -315,7 +317,7 @@ class SaleFlowTest {
         launch()
         openRegister()
         add("Sucre 1 kg", inSale = "1")
-        viewSale("2,360 BIF")
+        viewSale("1 item · 2,360 BIF")
 
         pressDescribed("Modify: Sucre 1 kg")
         composeRule.pressInForm("Amount")
@@ -333,7 +335,7 @@ class SaleFlowTest {
         launch()
         openRegister()
         add("Savon de Marseille", inSale = "1")
-        viewSale("1,180 BIF")
+        viewSale("1 item · 1,180 BIF")
 
         pressDescribed("One more: Savon de Marseille")
         shown("2 × 1,000 BIF")
@@ -353,7 +355,7 @@ class SaleFlowTest {
         launch()
         openRegister()
         add("Savon de Marseille", inSale = "1")
-        viewSale("1,180 BIF")
+        viewSale("1 item · 1,180 BIF")
 
         composeRule.pressInForm("Put on hold")
 
@@ -367,7 +369,7 @@ class SaleFlowTest {
         composeRule.onNodeWithText("Resume").performClick()
 
         // The soap is back at the cash register, and the sugar took its place on hold.
-        composeRule.waitForText("View the sale · 1,180 BIF")
+        composeRule.waitForText("1 item · 1,180 BIF")
         composeRule.waitForText("On hold (1)").performClick()
         composeRule.waitForText("1 item · 2,360 BIF").assertIsDisplayed()
         composeRule.onNodeWithText("Delete").performClick()
@@ -384,7 +386,7 @@ class SaleFlowTest {
         launch()
         openRegister()
         add("Savon de Marseille", inSale = "1")
-        viewSale("1,180 BIF")
+        viewSale("1 item · 1,180 BIF")
 
         composeRule.pressInForm("Change")
         composeRule.waitForText("Customer of the sale")
@@ -420,7 +422,7 @@ class SaleFlowTest {
         launch()
         openRegister()
         add("Savon de Marseille", inSale = "1")
-        viewSale("1,180 BIF")
+        viewSale("1 item · 1,180 BIF")
 
         composeRule.pressInForm("Change")
         composeRule.waitForText("Anonymous sales")
@@ -451,7 +453,7 @@ class SaleFlowTest {
         launch()
         openRegister()
         add("Ancien article", inSale = "1")
-        viewSale("500 BIF")
+        viewSale("1 item · 500 BIF")
 
         shown("This item has no VAT: complete it in the catalogue.")
         composeRule.onNodeWithText("Validate the sale").assertIsNotEnabled()
@@ -470,7 +472,7 @@ class SaleFlowTest {
 
         composeRule.waitForText("× 1")
         composeRule.waitForText("Sucre 1 kg").assertIsDisplayed()
-        composeRule.waitForText("View the sale · 1,180 BIF").assertIsDisplayed()
+        composeRule.waitForText("1 item · 1,180 BIF").assertIsDisplayed()
         assertEquals(0, composeRule.onAllNodesWithTextCount("6001234567890", substring = true))
     }
 
@@ -484,7 +486,7 @@ class SaleFlowTest {
 
         openRegister()
 
-        composeRule.waitForText("View the sale · 1,180 BIF").assertIsDisplayed()
+        composeRule.waitForText("1 item · 1,180 BIF").assertIsDisplayed()
         composeRule.onNodeWithText("× 1").assertIsDisplayed()
     }
 

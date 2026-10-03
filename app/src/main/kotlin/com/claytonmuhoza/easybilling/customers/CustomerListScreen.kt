@@ -9,27 +9,27 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.core.designsystem.component.AppIcon
+import com.claytonmuhoza.easybilling.core.designsystem.component.CardListItem
 import com.claytonmuhoza.easybilling.core.designsystem.component.ErrorState
+import com.claytonmuhoza.easybilling.core.designsystem.component.IconTile
 import com.claytonmuhoza.easybilling.core.designsystem.component.LoadingState
+import com.claytonmuhoza.easybilling.core.designsystem.component.SearchField
 import com.claytonmuhoza.easybilling.core.designsystem.component.SwitchRow
 import com.claytonmuhoza.easybilling.core.designsystem.component.TextAction
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
+import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
 import com.claytonmuhoza.easybilling.domain.customer.Customer
 
@@ -126,14 +126,7 @@ private fun CustomerListContent(state: CustomerListUiState.Ready, actions: Custo
         verticalArrangement = Arrangement.spacedBy(Spacing.small),
     ) {
         if (!none) {
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = actions.onQueryChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.customers_search)) },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                singleLine = true,
-            )
+            SearchField(state.query, actions.onQueryChange, stringResource(R.string.customers_search))
             SwitchRow(
                 label = stringResource(R.string.customers_show_archived),
                 checked = state.showArchived,
@@ -178,8 +171,9 @@ private fun Notice(text: String, small: Boolean = false) {
 
 @Composable
 private fun CounterCard(counter: Customer, onOpen: (Long) -> Unit) {
-    OutlinedCard(onClick = { onOpen(counter.id.value) }, modifier = Modifier.fillMaxWidth()) {
-        ListItem(
+    TonalCard(onClick = { onOpen(counter.id.value) }, modifier = Modifier.fillMaxWidth()) {
+        CardListItem(
+            leadingContent = { IconTile(AppIcon.STORE) },
             headlineContent = { Text(counter.details.name) },
             supportingContent = { Text(stringResource(R.string.customers_counter_label)) },
         )
@@ -188,8 +182,9 @@ private fun CounterCard(counter: Customer, onOpen: (Long) -> Unit) {
 
 @Composable
 private fun CustomerCard(customer: Customer, onOpen: (Long) -> Unit) {
-    OutlinedCard(onClick = { onOpen(customer.id.value) }, modifier = Modifier.fillMaxWidth()) {
-        ListItem(
+    TonalCard(onClick = { onOpen(customer.id.value) }, modifier = Modifier.fillMaxWidth()) {
+        CardListItem(
+            leadingContent = { IconTile(AppIcon.PERSON) },
             headlineContent = { Text(customer.details.name) },
             supportingContent = {
                 Column {

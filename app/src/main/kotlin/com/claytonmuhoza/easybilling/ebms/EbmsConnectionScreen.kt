@@ -10,7 +10,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,6 +39,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.PinField
 import com.claytonmuhoza.easybilling.core.designsystem.component.SectionHeader
 import com.claytonmuhoza.easybilling.core.designsystem.component.TextAction
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
+import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialField
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
@@ -237,7 +237,7 @@ private fun Feedback(text: String, isError: Boolean) {
 @Composable
 private fun PinConfirmation(prompt: PinPrompt, actions: EbmsConnectionActions) {
     val enabled = !prompt.checking && !prompt.locked
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+    TonalCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(Spacing.medium), verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
             Text(stringResource(R.string.ebms_production_title), style = MaterialTheme.typography.titleMedium)
             Text(stringResource(R.string.ebms_production_text), style = MaterialTheme.typography.bodyMedium)

@@ -1,8 +1,6 @@
 package com.claytonmuhoza.easybilling.taxprofile
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -11,11 +9,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.core.designsystem.component.CardListItem
 import com.claytonmuhoza.easybilling.core.designsystem.component.EmptyState
 import com.claytonmuhoza.easybilling.core.designsystem.component.ErrorState
 import com.claytonmuhoza.easybilling.core.designsystem.component.FormColumn
 import com.claytonmuhoza.easybilling.core.designsystem.component.LoadingState
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
+import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.ui.dateTimeText
 
 /**
@@ -67,8 +67,8 @@ fun TaxProfileHistoryScreen(
             } else {
                 FormColumn {
                     state.versions.forEach { version ->
-                        OutlinedCard(onClick = { onOpenVersion(version.number) }, modifier = Modifier.fillMaxWidth()) {
-                            ListItem(
+                        TonalCard(onClick = { onOpenVersion(version.number) }, modifier = Modifier.fillMaxWidth()) {
+                            CardListItem(
                                 headlineContent = {
                                     Text(stringResource(R.string.tax_profile_version_title, version.number))
                                 },

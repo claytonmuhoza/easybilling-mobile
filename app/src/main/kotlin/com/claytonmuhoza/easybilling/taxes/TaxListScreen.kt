@@ -2,8 +2,6 @@ package com.claytonmuhoza.easybilling.taxes
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -15,6 +13,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.core.designsystem.component.CardListItem
 import com.claytonmuhoza.easybilling.core.designsystem.component.EmptyState
 import com.claytonmuhoza.easybilling.core.designsystem.component.ErrorState
 import com.claytonmuhoza.easybilling.core.designsystem.component.FormColumn
@@ -23,6 +22,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.SectionHeader
 import com.claytonmuhoza.easybilling.core.designsystem.component.StateAction
 import com.claytonmuhoza.easybilling.core.designsystem.component.TextAction
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
+import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.domain.configuration.TaxDefinition
 import com.claytonmuhoza.easybilling.domain.configuration.TaxKind
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
@@ -178,8 +178,8 @@ private fun TaxCard(tax: TaxDefinition, today: LocalDate, onOpen: (Long) -> Unit
         },
         stringResource(R.string.taxes_archived).takeIf { tax.archived },
     )
-    OutlinedCard(onClick = { onOpen(tax.id.value) }, modifier = Modifier.fillMaxWidth()) {
-        ListItem(
+    TonalCard(onClick = { onOpen(tax.id.value) }, modifier = Modifier.fillMaxWidth()) {
+        CardListItem(
             headlineContent = { Text(tax.name) },
             supportingContent = { Text(lines.joinToString("\n")) },
         )

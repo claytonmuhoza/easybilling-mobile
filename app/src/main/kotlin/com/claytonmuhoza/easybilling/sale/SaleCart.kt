@@ -7,10 +7,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -24,11 +23,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.core.designsystem.component.AppIcon
+import com.claytonmuhoza.easybilling.core.designsystem.component.AppIconImage
+import com.claytonmuhoza.easybilling.core.designsystem.component.CardListItem
 import com.claytonmuhoza.easybilling.core.designsystem.component.ChoiceField
 import com.claytonmuhoza.easybilling.core.designsystem.component.FormColumn
-import com.claytonmuhoza.easybilling.core.designsystem.component.SectionHeader
+import com.claytonmuhoza.easybilling.core.designsystem.component.IconTile
+import com.claytonmuhoza.easybilling.core.designsystem.component.QuantityStepper
+import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
 import com.claytonmuhoza.easybilling.domain.configuration.TaxKind
+import com.claytonmuhoza.easybilling.domain.customer.Customer
 import com.claytonmuhoza.easybilling.domain.invoicing.DiscountKind
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceTotals
 import com.claytonmuhoza.easybilling.domain.invoicing.PaymentType
@@ -36,6 +41,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.PricedLine
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleLineProblem
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.taxes.shortLabel
+import com.claytonmuhoza.easybilling.ui.MoneyText
 import com.claytonmuhoza.easybilling.ui.amountText
 import com.claytonmuhoza.easybilling.ui.decimalText
 
@@ -53,16 +59,11 @@ internal fun SaleCart(state: SaleUiState.Ready, actions: SaleActions, narrow: Bo
     FormColumn(modifier = modifier) {
         if (narrow) {
             OutlinedButton(onClick = { actions.onShowPane(SalePane.CATALOGUE) }, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.sale_add_items))
+                AppIconImage(AppIcon.ADD, contentDescription = null)
+                Text(stringResource(R.string.sale_add_items), modifier = Modifier.padding(start = Spacing.small))
             }
         }
-        OutlinedCard(onClick = actions.onChooseCustomer, modifier = Modifier.fillMaxWidth()) {
-            ListItem(
-                overlineContent = { Text(stringResource(R.string.sale_customer)) },
-                headlineContent = { Text(sale.customer.details.name) },
-                trailingContent = { Text(stringResource(R.string.sale_customer_change)) },
-            )
-        }
+        CustomerCard(sale.customer, actions.onChooseCustomer)
         if (sale.lines.isEmpty()) {
             Text(
                 text = stringResource(R.string.sale_cart_empty),
@@ -99,8 +100,28 @@ internal fun SaleCart(state: SaleUiState.Ready, actions: SaleActions, narrow: Bo
             modifier = Modifier.fillMaxWidth(),
             enabled = sale.lines.isNotEmpty() && !state.busy,
         ) {
-            Text(stringResource(R.string.sale_hold))
+            AppIconImage(AppIcon.PAUSE, contentDescription = null)
+            Text(stringResource(R.string.sale_hold), modifier = Modifier.padding(start = Spacing.small))
         }
+    }
+}
+
+/** The customer of the sale, and the way to choose another one. */
+@Composable
+private fun CustomerCard(customer: Customer, onChoose: () -> Unit) {
+    TonalCard(onClick = onChoose, modifier = Modifier.fillMaxWidth()) {
+        CardListItem(
+            leadingContent = { IconTile(if (customer.counter) AppIcon.STORE else AppIcon.PERSON) },
+            overlineContent = { Text(stringResource(R.string.sale_customer)) },
+            headlineContent = { Text(customer.details.name) },
+            trailingContent = {
+                Text(
+                    text = stringResource(R.string.sale_customer_change),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            },
+        )
     }
 }
 
@@ -108,25 +129,24 @@ internal fun SaleCart(state: SaleUiState.Ready, actions: SaleActions, narrow: Bo
 @Composable
 private fun LineCard(line: PricedLine, busy: Boolean, actions: SaleActions) {
     val designation = line.item.details.designation
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+    TonalCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(Spacing.medium),
             verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
         ) {
             LineSummary(line)
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                val less = stringResource(R.string.sale_line_less, designation)
-                OutlinedButton(
-                    onClick = { actions.onRemoveOne(line.item.id) },
-                    modifier = Modifier.semantics { contentDescription = less },
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+            ) {
+                QuantityStepper(
+                    quantity = decimalText(line.line.quantity.value),
+                    onLess = { actions.onRemoveOne(line.item.id) },
+                    onMore = { actions.onAddItem(line.item.id) },
+                    lessDescription = stringResource(R.string.sale_line_less, designation),
+                    moreDescription = stringResource(R.string.sale_line_more, designation),
                     enabled = !busy,
-                ) { Text("−") }
-                val more = stringResource(R.string.sale_line_more, designation)
-                OutlinedButton(
-                    onClick = { actions.onAddItem(line.item.id) },
-                    modifier = Modifier.semantics { contentDescription = more },
-                    enabled = !busy,
-                ) { Text("+") }
+                )
                 val modify = stringResource(R.string.sale_line_modify, designation)
                 TextButton(
                     onClick = { actions.onOpenLine(line.item.id) },
@@ -153,7 +173,9 @@ private fun LineSummary(line: PricedLine) {
             )
             line.line.discount?.let { Text(text = it.label(), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        line.amounts?.let { Text(text = amountText(it.total), style = MaterialTheme.typography.titleMedium) }
+        line.amounts?.let {
+            MoneyText(it.total, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        }
     }
     line.problems.forEach { ErrorText(it.message()) }
 }
@@ -162,7 +184,7 @@ private fun LineSummary(line: PricedLine) {
 @Composable
 private fun LineEditorCard(line: PricedLine, editor: LineEditor, busy: Boolean, actions: SaleActions) {
     val form = editor.form
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+    TonalCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(Spacing.medium), verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
             LineSummary(line)
             NumberField(
@@ -243,25 +265,46 @@ private fun NumberField(value: String, label: String, error: String?, onChange: 
     )
 }
 
-/** The totals of the sale; the PFL only when there is one. */
+/** The totals of the sale, in the order of the formula of the OBR; the PFL only when there is one. */
 @Composable
 private fun Totals(totals: InvoiceTotals) {
-    SectionHeader(stringResource(R.string.sale_totals))
-    TotalRow(stringResource(R.string.sale_total_without_vat), totals.priceWithoutVat)
-    TotalRow(stringResource(R.string.sale_total_vat), totals.vat)
-    if (totals.flatRateWithholding.amount.signum() != 0) {
-        TotalRow(stringResource(R.string.sale_total_flat_rate), totals.flatRateWithholding)
+    TonalCard(modifier = Modifier.fillMaxWidth(), container = MaterialTheme.colorScheme.surfaceContainer) {
+        Column(
+            modifier = Modifier.padding(Spacing.medium),
+            verticalArrangement = Arrangement.spacedBy(Spacing.small),
+        ) {
+            TotalRow(stringResource(R.string.sale_total_without_vat), totals.priceWithoutVat)
+            TotalRow(stringResource(R.string.sale_total_vat), totals.vat)
+            if (totals.flatRateWithholding.amount.signum() != 0) {
+                TotalRow(stringResource(R.string.sale_total_flat_rate), totals.flatRateWithholding)
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.sale_total),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                MoneyText(
+                    money = totals.total,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
     }
-    TotalRow(stringResource(R.string.sale_total), totals.total, strong = true)
 }
 
 @Composable
-private fun TotalRow(label: String, amount: Money, strong: Boolean = false) {
-    val style = if (strong) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge
-    val weight = if (strong) FontWeight.Bold else null
+private fun TotalRow(label: String, amount: Money) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(text = label, style = style, fontWeight = weight)
-        Text(text = amountText(amount), style = style, fontWeight = weight)
+        Text(text = label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        MoneyText(amount)
     }
 }
 

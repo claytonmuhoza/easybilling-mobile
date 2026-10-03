@@ -180,6 +180,8 @@ class ItemsFlowTest {
         composeRule.pressInForm("Kept in stock")
         composeRule.pressInForm("Create the item")
 
+        // The list comes back once the item is stored: its search field replaces the empty state.
+        composeRule.waitForText("Search by code, designation or barcode", substring = true)
         composeRule.waitForText("Savon de Marseille").assertIsDisplayed()
         composeRule.onNodeWithText("ART-0001 · 1,500 BIF incl. taxes / piece", substring = true).assertIsDisplayed()
         val item = stored()!!
