@@ -31,6 +31,7 @@ import com.claytonmuhoza.easybilling.ui.dateTimeText
  * @param onOpenEbmsConnection called when the user opens the connection to the EBMS.
  * @param onOpenTaxes called when the user opens the taxes.
  * @param onOpenNumbering called when the user opens the numbering.
+ * @param onOpenItems called when the user opens the items.
  * @param viewModel holder of the home state.
  */
 @Composable
@@ -41,6 +42,7 @@ fun HomeRoute(
     onOpenEbmsConnection: () -> Unit,
     onOpenTaxes: () -> Unit,
     onOpenNumbering: () -> Unit,
+    onOpenItems: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val taxProfileStatus by viewModel.taxProfileStatus.collectAsStateWithLifecycle()
@@ -48,6 +50,7 @@ fun HomeRoute(
     val taxesStatus by viewModel.taxesStatus.collectAsStateWithLifecycle()
     val numberingStatus by viewModel.numberingStatus.collectAsStateWithLifecycle()
     val readiness by viewModel.readiness.collectAsStateWithLifecycle()
+    val catalogStatus by viewModel.catalogStatus.collectAsStateWithLifecycle()
 
     // Reloaded each time the screen appears: the settings may have changed on their own screens.
     LaunchedEffect(Unit) { viewModel.load() }
@@ -59,7 +62,15 @@ fun HomeRoute(
         taxesStatus = taxesStatus,
         numberingStatus = numberingStatus,
         readiness = readiness,
-        actions = HomeActions(onLogOut, onOpenTaxProfile, onOpenEbmsConnection, onOpenTaxes, onOpenNumbering),
+        catalogStatus = catalogStatus,
+        actions = HomeActions(
+            onLogOut = onLogOut,
+            onOpenTaxProfile = onOpenTaxProfile,
+            onOpenEbmsConnection = onOpenEbmsConnection,
+            onOpenTaxes = onOpenTaxes,
+            onOpenNumbering = onOpenNumbering,
+            onOpenItems = onOpenItems,
+        ),
     )
 }
 
@@ -71,6 +82,7 @@ fun HomeRoute(
  * @property onOpenEbmsConnection called when the user opens the connection to the EBMS.
  * @property onOpenTaxes called when the user opens the taxes.
  * @property onOpenNumbering called when the user opens the numbering.
+ * @property onOpenItems called when the user opens the items.
  */
 class HomeActions(
     val onLogOut: () -> Unit = {},
@@ -78,6 +90,7 @@ class HomeActions(
     val onOpenEbmsConnection: () -> Unit = {},
     val onOpenTaxes: () -> Unit = {},
     val onOpenNumbering: () -> Unit = {},
+    val onOpenItems: () -> Unit = {},
 )
 
 /**
@@ -89,6 +102,7 @@ class HomeActions(
  * @param taxesStatus where the taxes stand.
  * @param numberingStatus where the numbering stands.
  * @param readiness what is left to configure before the first invoice.
+ * @param catalogStatus where the catalogue stands.
  * @param actions what the user can do.
  * @param modifier modifier applied to the screen.
  */
@@ -100,6 +114,7 @@ fun HomeScreen(
     taxesStatus: TaxesStatus,
     numberingStatus: NumberingStatus,
     readiness: ReadinessStatus,
+    catalogStatus: CatalogStatus,
     actions: HomeActions,
     modifier: Modifier = Modifier,
 ) {
@@ -141,6 +156,13 @@ fun HomeScreen(
                 status = numberingStatus.text(),
                 done = readiness.done(ReadinessStep.NUMBERING),
                 onOpen = actions.onOpenNumbering,
+            )
+            SectionHeader(stringResource(R.string.home_catalog))
+            SettingCard(
+                title = stringResource(R.string.items_title),
+                status = catalogStatus.text(),
+                done = null,
+                onOpen = actions.onOpenItems,
             )
         }
     }
@@ -221,3 +243,18 @@ private fun ReadinessSummary(status: ReadinessStatus) {
 /** @return whether [step] is done, or null when it does not apply or is not known yet. */
 private fun ReadinessStatus.done(step: ReadinessStep): Boolean? =
     (this as? ReadinessStatus.Known)?.readiness?.steps?.get(step)
+
+@Composable
+private fun CatalogStatus.text(): String = when (this) {
+    CatalogStatus.Loading -> "…"
+    CatalogStatus.Unreadable -> stringResource(R.string.home_status_unreadable)
+    is CatalogStatus.Counted -> {
+        val items = if (active == 0) {
+            stringResource(R.string.home_items_none)
+        } else {
+            pluralStringResource(R.plurals.home_items_active, active, active)
+        }
+        val toComplete = pluralStringResource(R.plurals.home_items_without_vat, withoutVat, withoutVat)
+        if (withoutVat == 0) items else "$items · $toComplete"
+    }
+}

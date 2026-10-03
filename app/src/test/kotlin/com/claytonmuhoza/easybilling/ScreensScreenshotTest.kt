@@ -30,6 +30,7 @@ import com.claytonmuhoza.easybilling.ebms.ExchangeLogUiState
 import com.claytonmuhoza.easybilling.ebms.ExchangeScreen
 import com.claytonmuhoza.easybilling.ebms.ExchangeUiState
 import com.claytonmuhoza.easybilling.ebms.PinPrompt
+import com.claytonmuhoza.easybilling.home.CatalogStatus
 import com.claytonmuhoza.easybilling.home.EbmsStatus
 import com.claytonmuhoza.easybilling.home.HomeActions
 import com.claytonmuhoza.easybilling.home.HomeScreen
@@ -176,6 +177,7 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
             ebmsStatus = EbmsStatus.ToConfigure,
             taxesStatus = TaxesStatus.Defined(0),
             numberingStatus = NumberingStatus.ToDefine,
+            catalogStatus = CatalogStatus.Counted(active = 0, withoutVat = 0),
             readiness = ReadinessStatus.Known(
                 BillingReadiness(
                     mapOf(
@@ -197,6 +199,7 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
             ebmsStatus = EbmsStatus.Configured(EbmsEnvironment.TEST, Instant.parse("2026-10-03T12:30:00Z")),
             taxesStatus = TaxesStatus.Defined(3),
             numberingStatus = NumberingStatus.Defined("FN-00001/2026", locked = false),
+            catalogStatus = CatalogStatus.Counted(active = 12, withoutVat = 3),
             readiness = ReadinessStatus.Known(
                 BillingReadiness(
                     mapOf(
@@ -219,6 +222,7 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
             ebmsStatus = EbmsStatus.Configured(EbmsEnvironment.TEST, Instant.parse("2026-10-03T12:30:00Z")),
             taxesStatus = TaxesStatus.Defined(3),
             numberingStatus = NumberingStatus.Defined("FN-00001/2026", locked = true),
+            catalogStatus = CatalogStatus.Counted(active = 12, withoutVat = 0),
             readiness = ReadinessStatus.Known(
                 BillingReadiness(
                     mapOf(

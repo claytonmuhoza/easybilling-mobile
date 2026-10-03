@@ -19,6 +19,8 @@ import com.claytonmuhoza.easybilling.ebms.EbmsConnectionRoute
 import com.claytonmuhoza.easybilling.ebms.ExchangeLogRoute
 import com.claytonmuhoza.easybilling.ebms.ExchangeRoute
 import com.claytonmuhoza.easybilling.home.HomeRoute
+import com.claytonmuhoza.easybilling.items.ItemEditorRoute
+import com.claytonmuhoza.easybilling.items.ItemListRoute
 import com.claytonmuhoza.easybilling.login.LoginRoute
 import com.claytonmuhoza.easybilling.numbering.NumberingRoute
 import com.claytonmuhoza.easybilling.recovery.ResetPinRoute
@@ -90,12 +92,14 @@ fun EasyBillingNavHost(
                     onOpenEbmsConnection = { navController.navigate(EbmsConnectionDestination) },
                     onOpenTaxes = { navController.navigate(TaxesDestination) },
                     onOpenNumbering = { navController.navigate(NumberingDestination) },
+                    onOpenItems = { navController.navigate(ItemsDestination) },
                 )
             }
         }
         taxProfileScreens(access, navController)
         ebmsScreens(access, navController)
         taxScreens(access, navController)
+        itemScreens(access, navController)
         composable<NumberingDestination> {
             LoggedIn(access) {
                 NumberingRoute(onBack = { navController.popBackStack() })
@@ -149,6 +153,24 @@ private fun NavGraphBuilder.taxScreens(access: AccessState.Ready, navController:
     composable<LinePreviewDestination> {
         LoggedIn(access) {
             LinePreviewRoute(onBack = { navController.popBackStack() })
+        }
+    }
+}
+
+/** The items of the catalogue (UC-B01, UC-B04, UC-B07). */
+private fun NavGraphBuilder.itemScreens(access: AccessState.Ready, navController: NavHostController) {
+    composable<ItemsDestination> {
+        LoggedIn(access) {
+            ItemListRoute(
+                onBack = { navController.popBackStack() },
+                onOpenItem = { id -> navController.navigate(ItemEditorDestination(id)) },
+                onNewItem = { navController.navigate(ItemEditorDestination()) },
+            )
+        }
+    }
+    composable<ItemEditorDestination> {
+        LoggedIn(access) {
+            ItemEditorRoute(onClose = { navController.popBackStack() })
         }
     }
 }
