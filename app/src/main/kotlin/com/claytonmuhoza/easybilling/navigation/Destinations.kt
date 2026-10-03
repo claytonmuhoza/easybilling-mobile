@@ -111,3 +111,23 @@ data class CustomerEditorDestination(val id: Long = NEW_CUSTOMER) {
         const val NEW_CUSTOMER = 0L
     }
 }
+
+/** The cash register: the sale being typed. */
+@Serializable
+data object SaleDestination
+
+/** Choice of the customer of the sale being typed. */
+@Serializable
+data object SaleCustomerDestination
+
+/** The sales put on hold. */
+@Serializable
+data object HeldSalesDestination
+
+/**
+ * Confirmation of the issue of an invoice.
+ *
+ * @property id identifier of the invoice.
+ */
+@Serializable
+data class InvoiceIssuedDestination(val id: Long)

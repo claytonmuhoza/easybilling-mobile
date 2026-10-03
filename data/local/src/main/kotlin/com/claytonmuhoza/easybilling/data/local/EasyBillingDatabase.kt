@@ -21,8 +21,17 @@ import com.claytonmuhoza.easybilling.data.local.customer.CustomerDao
 import com.claytonmuhoza.easybilling.data.local.customer.CustomerEntity
 import com.claytonmuhoza.easybilling.data.local.identity.UserDao
 import com.claytonmuhoza.easybilling.data.local.identity.UserEntity
+import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceDao
+import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceEntity
+import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceLineEntity
+import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceStatusEntity
+import com.claytonmuhoza.easybilling.data.local.invoicing.SaleDraftDao
+import com.claytonmuhoza.easybilling.data.local.invoicing.SaleDraftEntity
+import com.claytonmuhoza.easybilling.data.local.invoicing.SaleDraftLineEntity
 import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeDao
 import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeEntity
+import com.claytonmuhoza.easybilling.data.local.transmission.OutboxDao
+import com.claytonmuhoza.easybilling.data.local.transmission.OutboxEntryEntity
 
 /**
  * The local database.
@@ -33,7 +42,8 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeEntity
  *
  * History: 1 users and audit (step 02); 2 tax profile versions (step 03); 3 EBMS settings and
  * exchanges with the OBR (step 04); 4 taxes and their dated rates (step 05); 5 numbering and its
- * counters (step 06); 6 items of the catalogue (step 07); 7 customers (step 08).
+ * counters (step 06); 6 items of the catalogue (step 07); 7 customers (step 08); 8 sales that are not
+ * issued, issued invoices with their status, and send queue (step 09).
  */
 @Database(
     entities = [
@@ -48,10 +58,18 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeEntity
         NumberCounterEntity::class,
         ItemEntity::class,
         CustomerEntity::class,
+        SaleDraftEntity::class,
+        SaleDraftLineEntity::class,
+        InvoiceEntity::class,
+        InvoiceLineEntity::class,
+        InvoiceStatusEntity::class,
+        OutboxEntryEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
+// One accessor per DAO: the list grows with the schema.
+@Suppress("TooManyFunctions")
 internal abstract class EasyBillingDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
 
@@ -70,6 +88,12 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
     abstract fun itemDao(): ItemDao
 
     abstract fun customerDao(): CustomerDao
+
+    abstract fun saleDraftDao(): SaleDraftDao
+
+    abstract fun invoiceDao(): InvoiceDao
+
+    abstract fun outboxDao(): OutboxDao
 }
 
 /**
@@ -78,7 +102,8 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
  * recreated after a schema change gets them too.
  */
 internal object AppendOnlyTables : RoomDatabase.Callback() {
-    private val tables = listOf("audit_entries", "tax_profile_versions", "tax_versions")
+    private val tables =
+        listOf("audit_entries", "tax_profile_versions", "tax_versions", "invoices", "invoice_lines")
 
     override fun onOpen(db: SupportSQLiteDatabase) {
         for (table in tables) {

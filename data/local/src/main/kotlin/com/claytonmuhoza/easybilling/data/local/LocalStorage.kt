@@ -11,7 +11,10 @@ import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxProfileRepo
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxRepository
 import com.claytonmuhoza.easybilling.data.local.customer.RoomCustomerRepository
 import com.claytonmuhoza.easybilling.data.local.identity.RoomUserRepository
+import com.claytonmuhoza.easybilling.data.local.invoicing.RoomInvoiceRepository
+import com.claytonmuhoza.easybilling.data.local.invoicing.RoomSaleDraftRepository
 import com.claytonmuhoza.easybilling.data.local.transmission.RoomExchangeLog
+import com.claytonmuhoza.easybilling.data.local.transmission.RoomOutboxRepository
 import com.claytonmuhoza.easybilling.domain.audit.AuditStore
 import com.claytonmuhoza.easybilling.domain.catalog.ItemRepository
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
@@ -20,8 +23,11 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
 import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
 import com.claytonmuhoza.easybilling.domain.identity.UserRepository
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
+import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
 import com.claytonmuhoza.easybilling.domain.transmission.ExchangeLog
+import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
 
 /**
  * Entry point of the local storage: gives access to the domain ports backed by the database and
@@ -46,6 +52,15 @@ class LocalStorage private constructor(internal val database: EasyBillingDatabas
 
     /** The customers. */
     val customers: CustomerRepository = RoomCustomerRepository(database)
+
+    /** The sales that are not issued yet. */
+    val saleDrafts: SaleDraftRepository = RoomSaleDraftRepository(database)
+
+    /** The issued invoices. */
+    val invoices: InvoiceRepository = RoomInvoiceRepository(database)
+
+    /** The operations to send to the OBR. */
+    val outbox: OutboxRepository = RoomOutboxRepository(database.outboxDao())
 
     /** The numbering of the documents and its counters. */
     val numbering: NumberingRepository = RoomNumberingRepository(database.numberingDao())

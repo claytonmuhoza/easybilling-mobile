@@ -7,6 +7,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxKind
 import com.claytonmuhoza.easybilling.domain.customer.CustomerId
 import com.claytonmuhoza.easybilling.domain.identity.LogoutReason
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import java.time.Instant
 import java.time.LocalDate
 
@@ -161,5 +162,11 @@ sealed interface AuditEvent {
     ) : AuditEvent {
         override val action get() = "CUSTOMER_ARCHIVED"
         override val details get() = "customer=${customer.value};archived=$archived"
+    }
+
+    /** The invoice [invoice] was issued with the number [number]. */
+    data class InvoiceIssued(override val actor: UserId, val invoice: InvoiceId, val number: String) : AuditEvent {
+        override val action get() = "INVOICE_ISSUED"
+        override val details get() = "invoice=${invoice.value};number=$number"
     }
 }

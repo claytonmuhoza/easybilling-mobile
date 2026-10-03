@@ -32,6 +32,7 @@ import com.claytonmuhoza.easybilling.ebms.ExchangeUiState
 import com.claytonmuhoza.easybilling.ebms.PinPrompt
 import com.claytonmuhoza.easybilling.home.CatalogStatus
 import com.claytonmuhoza.easybilling.home.CustomersStatus
+import com.claytonmuhoza.easybilling.home.SalesStatus
 import com.claytonmuhoza.easybilling.home.EbmsStatus
 import com.claytonmuhoza.easybilling.home.HomeActions
 import com.claytonmuhoza.easybilling.home.HomeScreen
@@ -180,6 +181,7 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
             numberingStatus = NumberingStatus.ToDefine,
             catalogStatus = CatalogStatus.Counted(active = 0, withoutVat = 0),
             customersStatus = CustomersStatus.Counted(active = 0),
+            salesStatus = SalesStatus.Counted(held = 0),
             readiness = ReadinessStatus.Known(
                 BillingReadiness(
                     mapOf(
@@ -203,6 +205,7 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
             numberingStatus = NumberingStatus.Defined("FN-00001/2026", locked = false),
             catalogStatus = CatalogStatus.Counted(active = 12, withoutVat = 3),
             customersStatus = CustomersStatus.Counted(active = 1),
+            salesStatus = SalesStatus.Counted(held = 0),
             readiness = ReadinessStatus.Known(
                 BillingReadiness(
                     mapOf(
@@ -227,6 +230,7 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
             numberingStatus = NumberingStatus.Defined("FN-00001/2026", locked = true),
             catalogStatus = CatalogStatus.Counted(active = 12, withoutVat = 0),
             customersStatus = CustomersStatus.Counted(active = 34),
+            salesStatus = SalesStatus.Counted(held = 2),
             readiness = ReadinessStatus.Known(
                 BillingReadiness(
                     mapOf(
