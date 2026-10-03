@@ -9,6 +9,7 @@ import com.claytonmuhoza.easybilling.data.local.configuration.RoomEbmsSettingsRe
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomNumberingRepository
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxProfileRepository
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxRepository
+import com.claytonmuhoza.easybilling.data.local.customer.RoomCustomerRepository
 import com.claytonmuhoza.easybilling.data.local.identity.RoomUserRepository
 import com.claytonmuhoza.easybilling.data.local.transmission.RoomExchangeLog
 import com.claytonmuhoza.easybilling.domain.audit.AuditStore
@@ -17,6 +18,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
 import com.claytonmuhoza.easybilling.domain.configuration.NumberingRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
+import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
 import com.claytonmuhoza.easybilling.domain.identity.UserRepository
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
 import com.claytonmuhoza.easybilling.domain.transmission.ExchangeLog
@@ -41,6 +43,9 @@ class LocalStorage private constructor(internal val database: EasyBillingDatabas
 
     /** The items of the catalogue. */
     val items: ItemRepository = RoomItemRepository(database.itemDao())
+
+    /** The customers. */
+    val customers: CustomerRepository = RoomCustomerRepository(database)
 
     /** The numbering of the documents and its counters. */
     val numbering: NumberingRepository = RoomNumberingRepository(database.numberingDao())
