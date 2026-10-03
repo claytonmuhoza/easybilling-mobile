@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.claytonmuhoza.easybilling.data.local.audit.RoomAuditStore
+import com.claytonmuhoza.easybilling.data.local.catalog.RoomItemRepository
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomEbmsSettingsRepository
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomNumberingRepository
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxProfileRepository
@@ -11,6 +12,7 @@ import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxRepository
 import com.claytonmuhoza.easybilling.data.local.identity.RoomUserRepository
 import com.claytonmuhoza.easybilling.data.local.transmission.RoomExchangeLog
 import com.claytonmuhoza.easybilling.domain.audit.AuditStore
+import com.claytonmuhoza.easybilling.domain.catalog.ItemRepository
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
 import com.claytonmuhoza.easybilling.domain.configuration.NumberingRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
@@ -36,6 +38,9 @@ class LocalStorage private constructor(internal val database: EasyBillingDatabas
 
     /** The tax definitions and their rates. */
     val taxes: TaxRepository = RoomTaxRepository(database.taxDao())
+
+    /** The items of the catalogue. */
+    val items: ItemRepository = RoomItemRepository(database.itemDao())
 
     /** The numbering of the documents and its counters. */
     val numbering: NumberingRepository = RoomNumberingRepository(database.numberingDao())
