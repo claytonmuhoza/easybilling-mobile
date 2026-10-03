@@ -8,12 +8,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.claytonmuhoza.easybilling.access.AccessState
 import com.claytonmuhoza.easybilling.domain.identity.Session
+import com.claytonmuhoza.easybilling.ebms.EbmsConnectionRoute
+import com.claytonmuhoza.easybilling.ebms.ExchangeLogRoute
+import com.claytonmuhoza.easybilling.ebms.ExchangeRoute
 import com.claytonmuhoza.easybilling.home.HomeRoute
 import com.claytonmuhoza.easybilling.login.LoginRoute
 import com.claytonmuhoza.easybilling.recovery.ResetPinRoute
@@ -79,29 +83,61 @@ fun EasyBillingNavHost(
                     userName = session.userName,
                     onLogOut = onLogOut,
                     onOpenTaxProfile = { navController.navigate(TaxProfileDestination) },
+                    onOpenEbmsConnection = { navController.navigate(EbmsConnectionDestination) },
                 )
             }
         }
-        composable<TaxProfileDestination> {
-            LoggedIn(access) {
-                TaxProfileRoute(
-                    onClose = { navController.popBackStack() },
-                    onOpenHistory = { navController.navigate(TaxProfileHistoryDestination) },
-                )
-            }
+        taxProfileScreens(access, navController)
+        ebmsScreens(access, navController)
+    }
+}
+
+/** The tax profile, its history and its versions (UC-A02). */
+private fun NavGraphBuilder.taxProfileScreens(access: AccessState.Ready, navController: NavHostController) {
+    composable<TaxProfileDestination> {
+        LoggedIn(access) {
+            TaxProfileRoute(
+                onClose = { navController.popBackStack() },
+                onOpenHistory = { navController.navigate(TaxProfileHistoryDestination) },
+            )
         }
-        composable<TaxProfileHistoryDestination> {
-            LoggedIn(access) {
-                TaxProfileHistoryRoute(
-                    onBack = { navController.popBackStack() },
-                    onOpenVersion = { number -> navController.navigate(TaxProfileVersionDestination(number)) },
-                )
-            }
+    }
+    composable<TaxProfileHistoryDestination> {
+        LoggedIn(access) {
+            TaxProfileHistoryRoute(
+                onBack = { navController.popBackStack() },
+                onOpenVersion = { number -> navController.navigate(TaxProfileVersionDestination(number)) },
+            )
         }
-        composable<TaxProfileVersionDestination> {
-            LoggedIn(access) {
-                TaxProfileVersionRoute(onBack = { navController.popBackStack() })
-            }
+    }
+    composable<TaxProfileVersionDestination> {
+        LoggedIn(access) {
+            TaxProfileVersionRoute(onBack = { navController.popBackStack() })
+        }
+    }
+}
+
+/** The connection to the EBMS and the log of the exchanges (UC-A03 to A05, UC-D08). */
+private fun NavGraphBuilder.ebmsScreens(access: AccessState.Ready, navController: NavHostController) {
+    composable<EbmsConnectionDestination> {
+        LoggedIn(access) {
+            EbmsConnectionRoute(
+                onBack = { navController.popBackStack() },
+                onOpenExchanges = { navController.navigate(ExchangeLogDestination) },
+            )
+        }
+    }
+    composable<ExchangeLogDestination> {
+        LoggedIn(access) {
+            ExchangeLogRoute(
+                onBack = { navController.popBackStack() },
+                onOpenExchange = { id -> navController.navigate(ExchangeDestination(id)) },
+            )
+        }
+    }
+    composable<ExchangeDestination> {
+        LoggedIn(access) {
+            ExchangeRoute(onBack = { navController.popBackStack() })
         }
     }
 }

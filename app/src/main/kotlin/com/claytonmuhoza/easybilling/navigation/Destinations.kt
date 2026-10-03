@@ -33,3 +33,19 @@ data object TaxProfileHistoryDestination
  */
 @Serializable
 data class TaxProfileVersionDestination(val number: Int)
+
+/** Settings and test of the connection to the EBMS. */
+@Serializable
+data object EbmsConnectionDestination
+
+/** Log of the exchanges with the OBR. */
+@Serializable
+data object ExchangeLogDestination
+
+/**
+ * One exchange with the OBR.
+ *
+ * @property id identifier of the exchange in the log.
+ */
+@Serializable
+data class ExchangeDestination(val id: Long)

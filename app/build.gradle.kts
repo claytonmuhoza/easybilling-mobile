@@ -75,5 +75,7 @@ dependencies {
 
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.hilt.android.testing)
+    testImplementation(project(":testing:obr-simulator"))
+    testImplementation(libs.okhttp.tls)
     kspTest(libs.hilt.compiler)
 }

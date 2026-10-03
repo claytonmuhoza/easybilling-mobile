@@ -29,6 +29,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileChoice
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileField
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
 import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
+import com.claytonmuhoza.easybilling.ui.message
 
 /**
  * Tax profile form wired to its view model.

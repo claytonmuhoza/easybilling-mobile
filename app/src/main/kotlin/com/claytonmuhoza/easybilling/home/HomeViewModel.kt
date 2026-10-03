@@ -2,13 +2,18 @@ package com.claytonmuhoza.easybilling.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialsVault
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
+import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
+import com.claytonmuhoza.easybilling.domain.configuration.activeLoginTarget
 import com.claytonmuhoza.easybilling.ui.storageCall
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.Instant
 import javax.inject.Inject
 
 /** Where the tax profile stands, as summed up on the home screen. */
@@ -26,24 +31,58 @@ sealed interface TaxProfileStatus {
     data class Saved(val number: Int) : TaxProfileStatus
 }
 
+/** Where the connection to the EBMS stands, as summed up on the home screen. */
+sealed interface EbmsStatus {
+    /** The settings are being read. */
+    data object Loading : EbmsStatus
+
+    /** The settings could not be read. */
+    data object Unreadable : EbmsStatus
+
+    /** The active environment has no address or no credentials. */
+    data object ToConfigure : EbmsStatus
+
+    /**
+     * The active environment is configured.
+     *
+     * @property environment the active environment.
+     * @property lastSuccess when a login last succeeded with its credentials, or null.
+     */
+    data class Configured(val environment: EbmsEnvironment, val lastSuccess: Instant?) : EbmsStatus
+}
+
 /** Drives the home screen. */
 @HiltViewModel
-class HomeViewModel @Inject constructor(private val profiles: TaxProfileRepository) : ViewModel() {
+class HomeViewModel @Inject constructor(
+    private val profiles: TaxProfileRepository,
+    private val ebmsSettings: EbmsSettingsRepository,
+    private val vault: EbmsCredentialsVault,
+) : ViewModel() {
 
-    private val mutableStatus = MutableStateFlow<TaxProfileStatus>(TaxProfileStatus.Loading)
+    private val mutableTaxProfileStatus = MutableStateFlow<TaxProfileStatus>(TaxProfileStatus.Loading)
+    private val mutableEbmsStatus = MutableStateFlow<EbmsStatus>(EbmsStatus.Loading)
 
     /** Where the tax profile stands. */
-    val taxProfileStatus: StateFlow<TaxProfileStatus> = mutableStatus.asStateFlow()
+    val taxProfileStatus: StateFlow<TaxProfileStatus> = mutableTaxProfileStatus.asStateFlow()
+
+    /** Where the connection to the EBMS stands. */
+    val ebmsStatus: StateFlow<EbmsStatus> = mutableEbmsStatus.asStateFlow()
 
     /** Reads the state of the settings. Called each time the screen is shown. */
     fun load() {
         viewModelScope.launch {
-            mutableStatus.value = storageCall { profiles.current() }.fold(
+            mutableTaxProfileStatus.value = storageCall { profiles.current() }.fold(
                 onSuccess = { current ->
                     current?.let { TaxProfileStatus.Saved(it.number) } ?: TaxProfileStatus.ToComplete
                 },
                 onFailure = { TaxProfileStatus.Unreadable },
             )
+            mutableEbmsStatus.value = storageCall {
+                ebmsSettings.activeLoginTarget(vault)?.let { target ->
+                    val lastSuccess = ebmsSettings.read().lastSuccessfulLogin(target.environment)
+                    EbmsStatus.Configured(target.environment, lastSuccess)
+                } ?: EbmsStatus.ToConfigure
+            }.getOrElse { EbmsStatus.Unreadable }
         }
     }
 }
