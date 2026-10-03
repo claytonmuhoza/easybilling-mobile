@@ -2,6 +2,7 @@ package com.claytonmuhoza.easybilling.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.claytonmuhoza.easybilling.domain.catalog.ItemRepository
 import com.claytonmuhoza.easybilling.domain.configuration.BillingReadiness
 import com.claytonmuhoza.easybilling.domain.configuration.CheckBillingReadiness
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialsVault
@@ -102,16 +103,77 @@ sealed interface ReadinessStatus {
     data class Known(val readiness: BillingReadiness) : ReadinessStatus
 }
 
-/** Drives the home screen. */
-@HiltViewModel
-class HomeViewModel @Inject constructor(
+/** Where the catalogue stands, as summed up on the home screen. */
+sealed interface CatalogStatus {
+    /** The items are being read. */
+    data object Loading : CatalogStatus
+
+    /** The items could not be read. */
+    data object Unreadable : CatalogStatus
+
+    /**
+     * The items were counted.
+     *
+     * @property active how many items can be sold: not archived.
+     * @property withoutVat how many of them miss the VAT a registered business must charge.
+     */
+    data class Counted(val active: Int, val withoutVat: Int) : CatalogStatus
+}
+
+/**
+ * Reads what the home screen sums up.
+ *
+ * @param profiles where the tax profile is kept.
+ * @param ebmsSettings where the settings of the EBMS are kept.
+ * @param vault where the EBMS credentials are kept.
+ * @param taxes where the taxes are kept.
+ * @param numbering where the numbering is kept.
+ * @param items where the items are kept.
+ * @param time source of the current year.
+ */
+class HomeStatusReader @Inject constructor(
     private val profiles: TaxProfileRepository,
     private val ebmsSettings: EbmsSettingsRepository,
     private val vault: EbmsCredentialsVault,
     private val taxes: TaxRepository,
     private val numbering: NumberingRepository,
-    private val checkReadiness: CheckBillingReadiness,
+    private val items: ItemRepository,
     private val time: TimeProvider,
+) {
+    /** @return where the tax profile stands. */
+    suspend fun taxProfile(): TaxProfileStatus =
+        profiles.current()?.let { TaxProfileStatus.Saved(it.number) } ?: TaxProfileStatus.ToComplete
+
+    /** @return where the connection to the EBMS stands. */
+    suspend fun ebms(): EbmsStatus = ebmsSettings.activeLoginTarget(vault)?.let { target ->
+        EbmsStatus.Configured(target.environment, ebmsSettings.read().lastSuccessfulLogin(target.environment))
+    } ?: EbmsStatus.ToConfigure
+
+    /** @return where the taxes stand. */
+    suspend fun taxes(): TaxesStatus = TaxesStatus.Defined(taxes.all().count { !it.archived })
+
+    /** @return where the numbering stands. */
+    suspend fun numbering(): NumberingStatus {
+        val settings = numbering.settings() ?: return NumberingStatus.ToDefine
+        val year = time.now().atZone(BusinessCalendar.ZONE).year
+        return NumberingStatus.Defined(settings.render(DocumentType.FN, year, counter = 1), settings.locked)
+    }
+
+    /** @return where the catalogue stands. */
+    suspend fun catalog(): CatalogStatus {
+        val vatRegistered = profiles.current()?.profile?.taxes?.vat == true
+        return CatalogStatus.Counted(
+            active = items.count(archived = false),
+            withoutVat = if (vatRegistered) items.countWithoutVat() else 0,
+        )
+    }
+}
+
+/** Drives the home screen. */
+@HiltViewModel
+class HomeViewModel @Inject constructor(
+    private val reader: HomeStatusReader,
+    private val checkReadiness: CheckBillingReadiness,
 ) : ViewModel() {
 
     private val mutableTaxProfileStatus = MutableStateFlow<TaxProfileStatus>(TaxProfileStatus.Loading)
@@ -119,6 +181,7 @@ class HomeViewModel @Inject constructor(
     private val mutableTaxesStatus = MutableStateFlow<TaxesStatus>(TaxesStatus.Loading)
     private val mutableNumberingStatus = MutableStateFlow<NumberingStatus>(NumberingStatus.Loading)
     private val mutableReadiness = MutableStateFlow<ReadinessStatus>(ReadinessStatus.Loading)
+    private val mutableCatalogStatus = MutableStateFlow<CatalogStatus>(CatalogStatus.Loading)
 
     /** Where the tax profile stands. */
     val taxProfileStatus: StateFlow<TaxProfileStatus> = mutableTaxProfileStatus.asStateFlow()
@@ -135,33 +198,21 @@ class HomeViewModel @Inject constructor(
     /** What is left to configure before the first invoice. */
     val readiness: StateFlow<ReadinessStatus> = mutableReadiness.asStateFlow()
 
-    /** Reads the state of the settings. Called each time the screen is shown. */
+    /** Where the catalogue stands. */
+    val catalogStatus: StateFlow<CatalogStatus> = mutableCatalogStatus.asStateFlow()
+
+    /** Reads the state of the settings and of the catalogue. Called each time the screen is shown. */
     fun load() {
         viewModelScope.launch {
             // Read first: its sentence is the only text whose height changes once loaded.
             mutableReadiness.value = storageCall { ReadinessStatus.Known(checkReadiness()) }
                 .getOrElse { ReadinessStatus.Unreadable }
-            mutableTaxProfileStatus.value = storageCall { profiles.current() }.fold(
-                onSuccess = { current ->
-                    current?.let { TaxProfileStatus.Saved(it.number) } ?: TaxProfileStatus.ToComplete
-                },
-                onFailure = { TaxProfileStatus.Unreadable },
-            )
-            mutableEbmsStatus.value = storageCall {
-                ebmsSettings.activeLoginTarget(vault)?.let { target ->
-                    val lastSuccess = ebmsSettings.read().lastSuccessfulLogin(target.environment)
-                    EbmsStatus.Configured(target.environment, lastSuccess)
-                } ?: EbmsStatus.ToConfigure
-            }.getOrElse { EbmsStatus.Unreadable }
-            mutableTaxesStatus.value = storageCall { TaxesStatus.Defined(taxes.all().count { !it.archived }) }
-                .getOrElse { TaxesStatus.Unreadable }
-            mutableNumberingStatus.value = storageCall { numberingStatus() }.getOrElse { NumberingStatus.Unreadable }
+            mutableTaxProfileStatus.value = storageCall { reader.taxProfile() }
+                .getOrElse { TaxProfileStatus.Unreadable }
+            mutableEbmsStatus.value = storageCall { reader.ebms() }.getOrElse { EbmsStatus.Unreadable }
+            mutableTaxesStatus.value = storageCall { reader.taxes() }.getOrElse { TaxesStatus.Unreadable }
+            mutableNumberingStatus.value = storageCall { reader.numbering() }.getOrElse { NumberingStatus.Unreadable }
+            mutableCatalogStatus.value = storageCall { reader.catalog() }.getOrElse { CatalogStatus.Unreadable }
         }
-    }
-
-    private suspend fun numberingStatus(): NumberingStatus {
-        val settings = numbering.settings() ?: return NumberingStatus.ToDefine
-        val year = time.now().atZone(BusinessCalendar.ZONE).year
-        return NumberingStatus.Defined(settings.render(DocumentType.FN, year, counter = 1), settings.locked)
     }
 }

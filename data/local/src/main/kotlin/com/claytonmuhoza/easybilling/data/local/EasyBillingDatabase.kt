@@ -5,6 +5,8 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.claytonmuhoza.easybilling.data.local.audit.AuditDao
 import com.claytonmuhoza.easybilling.data.local.audit.AuditEntryEntity
+import com.claytonmuhoza.easybilling.data.local.catalog.ItemDao
+import com.claytonmuhoza.easybilling.data.local.catalog.ItemEntity
 import com.claytonmuhoza.easybilling.data.local.configuration.EbmsSettingsDao
 import com.claytonmuhoza.easybilling.data.local.configuration.EbmsSettingsEntity
 import com.claytonmuhoza.easybilling.data.local.configuration.NumberCounterEntity
@@ -29,7 +31,7 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeEntity
  *
  * History: 1 users and audit (step 02); 2 tax profile versions (step 03); 3 EBMS settings and
  * exchanges with the OBR (step 04); 4 taxes and their dated rates (step 05); 5 numbering and its
- * counters (step 06).
+ * counters (step 06); 6 items of the catalogue (step 07).
  */
 @Database(
     entities = [
@@ -42,8 +44,9 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ObrExchangeEntity
         TaxVersionEntity::class,
         NumberingSettingsEntity::class,
         NumberCounterEntity::class,
+        ItemEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 internal abstract class EasyBillingDatabase : RoomDatabase() {
@@ -60,6 +63,8 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
     abstract fun taxDao(): TaxDao
 
     abstract fun numberingDao(): NumberingDao
+
+    abstract fun itemDao(): ItemDao
 }
 
 /**

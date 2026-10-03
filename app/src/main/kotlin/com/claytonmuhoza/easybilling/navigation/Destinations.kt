@@ -75,3 +75,21 @@ data object LinePreviewDestination
 /** Numbering of the documents. */
 @Serializable
 data object NumberingDestination
+
+/** The list of the items of the catalogue. */
+@Serializable
+data object ItemsDestination
+
+/**
+ * Creation or change of an item.
+ *
+ * @property id identifier of the item, or [NEW_ITEM] for a new one.
+ */
+@Serializable
+data class ItemEditorDestination(val id: Long = NEW_ITEM) {
+    /** Identifiers of the destination. */
+    companion object {
+        /** The identifier meaning "a new item". */
+        const val NEW_ITEM = 0L
+    }
+}

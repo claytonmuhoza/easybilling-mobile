@@ -5,6 +5,11 @@ import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.audit.AuditStore
 import com.claytonmuhoza.easybilling.domain.audit.AuditVerification
+import com.claytonmuhoza.easybilling.domain.catalog.Item
+import com.claytonmuhoza.easybilling.domain.catalog.ItemDetails
+import com.claytonmuhoza.easybilling.domain.catalog.ItemId
+import com.claytonmuhoza.easybilling.domain.catalog.ItemRepository
+import com.claytonmuhoza.easybilling.domain.catalog.SearchText
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentials
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialsVault
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
@@ -225,4 +230,44 @@ class InMemoryNumberingRepository : NumberingRepository {
     override suspend fun setLastCounter(type: DocumentType, period: Int, counter: Long) {
         counters[type to period] = counter
     }
+}
+
+/** Items kept in a map. */
+class InMemoryItemRepository : ItemRepository {
+    private val items = LinkedHashMap<ItemId, Item>()
+
+    override suspend fun find(id: ItemId): Item? = items[id]
+
+    override suspend fun findByCode(code: String): Item? = items.values.firstOrNull { it.code == code }
+
+    override suspend fun findByBarcode(barcode: String): Item? =
+        items.values.firstOrNull { it.details.barcode == barcode }
+
+    override suspend fun create(code: String, details: ItemDetails): Item {
+        val item = Item(ItemId(items.size + 1L), code, details)
+        items[item.id] = item
+        return item
+    }
+
+    override suspend fun update(id: ItemId, details: ItemDetails) {
+        items[id] = items.getValue(id).copy(details = details)
+    }
+
+    override suspend fun setArchived(id: ItemId, archived: Boolean) {
+        items[id] = items.getValue(id).copy(archived = archived)
+    }
+
+    override suspend fun search(query: String, archived: Boolean, limit: Int): List<Item> {
+        val wanted = SearchText.normalize(query)
+        return items.values
+            .filter { it.archived == archived }
+            .filter { wanted in SearchText.of(it.code, it.details) }
+            .sortedBy { SearchText.normalize(it.details.designation) }
+            .take(limit)
+    }
+
+    override suspend fun count(archived: Boolean): Int = items.values.count { it.archived == archived }
+
+    override suspend fun countWithoutVat(): Int =
+        items.values.count { !it.archived && TaxKind.VAT !in it.details.taxes }
 }
