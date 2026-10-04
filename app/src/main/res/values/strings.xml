@@ -10,6 +10,7 @@
     <string name="field_new_pin">New PIN</string>
     <string name="field_pin_confirmation">Confirm the PIN</string>
     <string name="field_recovery_code">Recovery code</string>
+    <string name="action_continue">Continue</string>
     <string name="pin_rule_hint">6 to 12 digits</string>
     <string name="error_name_blank">Enter a name</string>
     <string name="error_name_too_long">The name is limited to 50 characters</string>
@@ -21,17 +22,23 @@
     <!-- First launch assistant -->
     <string name="setup_title">Create the administrator account</string>
     <string name="setup_intro">This account puts the application into service and manages its settings.</string>
+    <string name="setup_pin_title">Choose your PIN</string>
     <string name="setup_submit">Create the account</string>
 
     <!-- Recovery code -->
     <string name="recovery_code_title">Your recovery code</string>
-    <string name="recovery_code_explanation">Write this code down and keep it in a safe place. It is the only way to choose a new PIN if you forget yours. It will not be shown again.</string>
+    <string name="recovery_code_explanation">Write this code down and keep it in a safe place. It is the only way to choose a new PIN if you forget yours.</string>
+    <string name="recovery_code_once">This code is shown only once.</string>
+    <string name="recovery_code_copy">Copy the code</string>
+    <string name="recovery_code_copied">Code copied</string>
     <string name="recovery_code_acknowledge">I have written it down</string>
 
     <!-- Login -->
     <string name="login_title">Hello, %1$s</string>
     <string name="login_instruction">Enter your PIN to continue</string>
     <string name="login_submit">Log in</string>
+    <string name="login_tin">TIN %1$s</string>
+    <string name="login_environment">EBMS %1$s</string>
     <string name="login_forgot_pin">Forgot your PIN?</string>
     <plurals name="login_wrong_pin">
         <item quantity="one">Wrong PIN. %1$d attempt left.</item>

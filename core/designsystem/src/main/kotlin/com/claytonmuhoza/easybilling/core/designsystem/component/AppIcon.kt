@@ -95,6 +95,12 @@ enum class AppIcon(@DrawableRes internal val drawable: Int) {
 
     /** Tries again. */
     REFRESH(R.drawable.ds_ic_refresh),
+
+    /** Takes the last typed character off. */
+    BACKSPACE(R.drawable.ds_ic_backspace),
+
+    /** Copies something to the clipboard. */
+    COPY(R.drawable.ds_ic_content_copy),
 }
 
 /** Side of the rounded square an [IconTile] draws behind its icon. */

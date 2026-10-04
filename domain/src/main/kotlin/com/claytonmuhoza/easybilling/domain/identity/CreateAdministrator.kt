@@ -41,14 +41,14 @@ class CreateAdministrator(
      * @return the created account with its recovery code, or why it was refused.
      */
     suspend operator fun invoke(name: String, pin: String, pinConfirmation: String): Result {
-        val trimmedName = name.trim()
+        val nameProblem = nameProblem(name)
         val choice = Pin.choose(pin, pinConfirmation)
         return when {
             users.count() > 0 -> Result.AlreadyExists
-            trimmedName.isEmpty() -> Result.NameBlank
-            trimmedName.length > MAX_NAME_LENGTH -> Result.NameTooLong
+            nameProblem == UserNameProblem.BLANK -> Result.NameBlank
+            nameProblem == UserNameProblem.TOO_LONG -> Result.NameTooLong
             choice is PinChoice.Refused -> Result.InvalidPin(choice.problem)
-            choice is PinChoice.Accepted -> create(trimmedName, choice.pin)
+            choice is PinChoice.Accepted -> create(name.trim(), choice.pin)
             else -> error("Unreachable: every PinChoice is handled above")
         }
     }
@@ -71,5 +71,29 @@ class CreateAdministrator(
     companion object {
         /** Longest user name accepted (internal rule). */
         const val MAX_NAME_LENGTH = 50
+
+        /**
+         * Checks a name alone, so a screen can refuse it before the PIN is chosen.
+         *
+         * @param name the name as typed; the spaces around it do not count.
+         * @return the rule the name breaks, or null if it is acceptable.
+         */
+        fun nameProblem(name: String): UserNameProblem? {
+            val trimmed = name.trim()
+            return when {
+                trimmed.isEmpty() -> UserNameProblem.BLANK
+                trimmed.length > MAX_NAME_LENGTH -> UserNameProblem.TOO_LONG
+                else -> null
+            }
+        }
     }
+}
+
+/** A rule broken by the name of a user. */
+enum class UserNameProblem {
+    /** The name is empty. */
+    BLANK,
+
+    /** The name is longer than [CreateAdministrator.MAX_NAME_LENGTH]. */
+    TOO_LONG,
 }

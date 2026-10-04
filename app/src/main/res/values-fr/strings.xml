@@ -8,6 +8,7 @@
     <string name="field_new_pin">Nouveau code PIN</string>
     <string name="field_pin_confirmation">Confirmer le code PIN</string>
     <string name="field_recovery_code">Code de secours</string>
+    <string name="action_continue">Continuer</string>
     <string name="pin_rule_hint">6 à 12 chiffres</string>
     <string name="error_name_blank">Saisissez un nom</string>
     <string name="error_name_too_long">Le nom est limité à 50 caractères</string>
@@ -19,17 +20,23 @@
     <!-- First launch assistant -->
     <string name="setup_title">Créer le compte administrateur</string>
     <string name="setup_intro">Ce compte met l\'application en service et gère ses réglages.</string>
+    <string name="setup_pin_title">Choisissez votre code PIN</string>
     <string name="setup_submit">Créer le compte</string>
 
     <!-- Recovery code -->
     <string name="recovery_code_title">Votre code de secours</string>
-    <string name="recovery_code_explanation">Notez ce code et gardez-le en lieu sûr. C\'est le seul moyen de choisir un nouveau code PIN si vous oubliez le vôtre. Il ne sera plus affiché.</string>
+    <string name="recovery_code_explanation">Notez ce code et gardez-le en lieu sûr. C\'est le seul moyen de choisir un nouveau code PIN si vous oubliez le vôtre.</string>
+    <string name="recovery_code_once">Ce code n\'est affiché qu\'une seule fois.</string>
+    <string name="recovery_code_copy">Copier le code</string>
+    <string name="recovery_code_copied">Code copié</string>
     <string name="recovery_code_acknowledge">Je l\'ai noté</string>
 
     <!-- Login -->
     <string name="login_title">Bonjour, %1$s</string>
     <string name="login_instruction">Saisissez votre code PIN pour continuer</string>
     <string name="login_submit">Se connecter</string>
+    <string name="login_tin">NIF %1$s</string>
+    <string name="login_environment">EBMS %1$s</string>
     <string name="login_forgot_pin">Code PIN oublié ?</string>
     <plurals name="login_wrong_pin">
         <item quantity="one">Code PIN incorrect. Il reste %1$d tentative.</item>
