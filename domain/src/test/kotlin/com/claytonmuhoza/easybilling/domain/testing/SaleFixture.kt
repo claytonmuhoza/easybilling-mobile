@@ -44,6 +44,7 @@ import com.claytonmuhoza.easybilling.domain.transmission.OutboxEntry
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
 import com.claytonmuhoza.easybilling.domain.transmission.ReceiptArchive
+import com.claytonmuhoza.easybilling.domain.transmission.RejectedDocument
 import com.claytonmuhoza.easybilling.domain.transmission.SendOutcome
 import java.time.Instant
 import java.time.LocalDate
@@ -77,6 +78,7 @@ class InMemorySaleDraftRepository : SaleDraftRepository {
 class InMemoryInvoiceRepository : InvoiceRepository {
     private val invoices = LinkedHashMap<InvoiceId, Invoice>()
     private val statuses = mutableMapOf<InvoiceId, InvoiceStatus>()
+    private val changes = mutableMapOf<InvoiceId, Instant>()
 
     override suspend fun create(content: InvoiceContent): Invoice {
         val invoice = Invoice(InvoiceId(invoices.size + 1L), content)
@@ -95,7 +97,16 @@ class InMemoryInvoiceRepository : InvoiceRepository {
     override suspend fun setStatus(id: InvoiceId, status: InvoiceStatus, at: Instant) {
         check(statuses.getValue(id).canBecome(status)) { "${statuses[id]} cannot become $status" }
         statuses[id] = status
+        changes[id] = at
     }
+
+    override suspend fun rejected(): List<RejectedDocument> = statuses
+        .mapNotNull { (id, status) -> (status as? InvoiceStatus.Rejected)?.let { id to it.message } }
+        .sortedByDescending { (id, _) -> changes.getValue(id) }
+        .map { (id, message) -> RejectedDocument(invoices.getValue(id), message) }
+
+    override suspend fun countRegisteredSince(since: Instant): Int =
+        statuses.count { (id, status) -> status == InvoiceStatus.Registered && changes.getValue(id) >= since }
 
     override suspend fun count(): Int = invoices.size
 

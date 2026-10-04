@@ -7,6 +7,7 @@ import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.Quantity
+import com.claytonmuhoza.easybilling.domain.transmission.RejectedDocument
 import java.math.BigDecimal
 import java.time.Instant
 
@@ -177,4 +178,13 @@ interface InvoiceRepository {
      * @return how many invoices were issued for it.
      */
     suspend fun countIn(environment: EbmsEnvironment): Int
+
+    /** @return the invoices the OBR refused, with its message, the most recently refused first. */
+    suspend fun rejected(): List<RejectedDocument>
+
+    /**
+     * @param since a moment.
+     * @return how many invoices the OBR acknowledged at [since] or later.
+     */
+    suspend fun countRegisteredSince(since: Instant): Int
 }
