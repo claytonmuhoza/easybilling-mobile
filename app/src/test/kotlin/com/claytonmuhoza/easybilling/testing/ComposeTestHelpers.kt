@@ -1,8 +1,11 @@
 package com.claytonmuhoza.easybilling.testing
 
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -54,4 +57,16 @@ fun ComposeTestRule.onAllNodesWithTextCount(text: String, substring: Boolean = f
 fun ComposeTestRule.pressOnHome(text: String, banner: String = "Synchronised with the OBR") {
     waitForText(banner)
     waitForText(text).performScrollTo().performClick()
+}
+
+/** Types [pin] on the on-screen PIN pad, one key after the other; the pad may be under the fold. */
+fun ComposeTestRule.enterPin(pin: String) {
+    pin.forEach { digit ->
+        onNode(hasText(digit.toString()) and hasClickAction()).performScrollTo().performClick()
+    }
+}
+
+/** Scrolls to the key of the PIN pad that [description] describes, then presses it. */
+fun ComposeTestRule.pressKey(description: String) {
+    onNodeWithContentDescription(description).performScrollTo().performClick()
 }

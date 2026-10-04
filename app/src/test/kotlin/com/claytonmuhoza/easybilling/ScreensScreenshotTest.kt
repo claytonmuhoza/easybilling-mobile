@@ -20,6 +20,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
 import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
 import com.claytonmuhoza.easybilling.domain.configuration.UrlProblem
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.identity.UserNameProblem
 import com.claytonmuhoza.easybilling.domain.transmission.LoginOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.ObrExchange
 import com.claytonmuhoza.easybilling.ebms.EbmsConnectionActions
@@ -41,14 +42,18 @@ import com.claytonmuhoza.easybilling.home.NumberingStatus
 import com.claytonmuhoza.easybilling.home.ReadinessStatus
 import com.claytonmuhoza.easybilling.home.TaxesStatus
 import com.claytonmuhoza.easybilling.home.TaxProfileStatus
+import com.claytonmuhoza.easybilling.login.BusinessIdentity
 import com.claytonmuhoza.easybilling.login.LoginScreen
 import com.claytonmuhoza.easybilling.login.LoginUiState
 import com.claytonmuhoza.easybilling.recovery.RecoveryCodeError
 import com.claytonmuhoza.easybilling.recovery.RecoveryCodeScreen
+import com.claytonmuhoza.easybilling.recovery.ResetPinActions
 import com.claytonmuhoza.easybilling.recovery.ResetPinScreen
+import com.claytonmuhoza.easybilling.recovery.ResetPinStep
 import com.claytonmuhoza.easybilling.recovery.ResetPinUiState
-import com.claytonmuhoza.easybilling.setup.NameError
+import com.claytonmuhoza.easybilling.setup.SetupActions
 import com.claytonmuhoza.easybilling.setup.SetupScreen
+import com.claytonmuhoza.easybilling.setup.SetupStep
 import com.claytonmuhoza.easybilling.setup.SetupUiState
 import com.claytonmuhoza.easybilling.testing.ScreenshotTest
 import com.claytonmuhoza.easybilling.testing.ScreenshotVariant
@@ -77,29 +82,46 @@ import kotlin.test.Test
 class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant) {
 
     @Test
-    fun setupForm() = capture("setup_form") {
+    fun setupName() = capture("setup_name") {
+        SetupScreen(state = SetupUiState.Form(), actions = SetupActions())
+    }
+
+    @Test
+    fun setupNameError() = capture("setup_name_error") {
+        SetupScreen(state = SetupUiState.Form(nameError = UserNameProblem.BLANK), actions = SetupActions())
+    }
+
+    @Test
+    fun setupPin() = capture("setup_pin") {
         SetupScreen(
-            state = SetupUiState.Form(),
-            onNameChange = {},
-            onPinChange = {},
-            onConfirmationChange = {},
-            onSubmit = {},
+            state = SetupUiState.Form(step = SetupStep.PIN, name = "Alice", pin = "1234"),
+            actions = SetupActions(),
         )
     }
 
     @Test
-    fun setupFormWithErrors() = capture("setup_form_errors") {
+    fun setupPinError() = capture("setup_pin_error") {
         SetupScreen(
             state = SetupUiState.Form(
+                step = SetupStep.PIN,
+                name = "Alice",
                 pin = "12345",
-                confirmation = "12345",
-                nameError = NameError.BLANK,
                 pinError = PinProblem.TOO_SHORT,
             ),
-            onNameChange = {},
-            onPinChange = {},
-            onConfirmationChange = {},
-            onSubmit = {},
+            actions = SetupActions(),
+        )
+    }
+
+    @Test
+    fun setupConfirmationError() = capture("setup_confirmation_error") {
+        SetupScreen(
+            state = SetupUiState.Form(
+                step = SetupStep.CONFIRMATION,
+                name = "Alice",
+                pin = "123456",
+                pinError = PinProblem.MISMATCH,
+            ),
+            actions = SetupActions(),
         )
     }
 
@@ -124,6 +146,21 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
     }
 
     @Test
+    fun loginBusiness() = capture("login_business") {
+        LoginScreen(
+            state = LoginUiState.Ready(
+                userName = "Aline Niyonzima",
+                business = BusinessIdentity(name = "Boutique Umuco SPRL", tin = "4000000001"),
+                environment = EbmsEnvironment.PRODUCTION,
+                pin = "1234",
+            ),
+            onPinChange = {},
+            onSubmit = {},
+            onForgotPin = {},
+        )
+    }
+
+    @Test
     fun loginWrongPin() = capture("login_wrong_pin") {
         LoginScreen(
             state = LoginUiState.Ready(userName = "Alice", remainingAttempts = 9),
@@ -136,7 +173,12 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
     @Test
     fun loginLocked() = capture("login_locked") {
         LoginScreen(
-            state = LoginUiState.Ready(userName = "Alice", lockSecondsRemaining = 60),
+            state = LoginUiState.Ready(
+                userName = "Alice",
+                business = BusinessIdentity(name = "Boutique Umuco SPRL", tin = "4000000001"),
+                environment = EbmsEnvironment.TEST,
+                lockSecondsRemaining = 60,
+            ),
             onPinChange = {},
             onSubmit = {},
             onForgotPin = {},
@@ -144,15 +186,8 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
     }
 
     @Test
-    fun resetPinForm() = capture("reset_pin_form") {
-        ResetPinScreen(
-            state = ResetPinUiState.Form(),
-            onRecoveryCodeChange = {},
-            onPinChange = {},
-            onConfirmationChange = {},
-            onSubmit = {},
-            onBack = {},
-        )
+    fun resetPinCode() = capture("reset_pin_code") {
+        ResetPinScreen(state = ResetPinUiState.Form(), actions = ResetPinActions())
     }
 
     @Test
@@ -164,11 +199,15 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
                 confirmation = "987654",
                 codeError = RecoveryCodeError.Wrong(remainingAttempts = 9),
             ),
-            onRecoveryCodeChange = {},
-            onPinChange = {},
-            onConfirmationChange = {},
-            onSubmit = {},
-            onBack = {},
+            actions = ResetPinActions(),
+        )
+    }
+
+    @Test
+    fun resetPinNewPin() = capture("reset_pin_new_pin") {
+        ResetPinScreen(
+            state = ResetPinUiState.Form(step = ResetPinStep.PIN, recoveryCode = "ABCD-EFGH-JKLM", pin = "987"),
+            actions = ResetPinActions(),
         )
     }
 
