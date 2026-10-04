@@ -15,6 +15,7 @@ import com.claytonmuhoza.easybilling.domain.identity.SessionManager
 import com.claytonmuhoza.easybilling.testing.TestClock
 import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
 import com.claytonmuhoza.easybilling.testing.pressInForm
+import com.claytonmuhoza.easybilling.testing.pressOnHome
 import com.claytonmuhoza.easybilling.testing.replaceInForm
 import com.claytonmuhoza.easybilling.testing.typeInForm
 import com.claytonmuhoza.easybilling.testing.waitForText
@@ -77,7 +78,7 @@ class TaxProfileFlowTest {
     fun closeActivity() = scenario.close()
 
     private fun openForm() {
-        composeRule.waitForText("Tax profile").performClick()
+        composeRule.pressOnHome("Tax profile")
         composeRule.waitForText("Save")
     }
 
@@ -107,15 +108,16 @@ class TaxProfileFlowTest {
 
     @Test
     fun `the home screen asks for the tax profile while there is none`() {
-        composeRule.waitForText("Tax profile").assertIsDisplayed()
-        composeRule.waitForText("To complete").assertIsDisplayed()
+        composeRule.waitForText("Synchronised with the OBR")
+        composeRule.waitForText("Tax profile").performScrollTo().assertIsDisplayed()
+        composeRule.waitForText("To complete").performScrollTo().assertIsDisplayed()
     }
 
     @Test
     fun `a complete profile is saved as version 1 and the home screen shows it`() {
         saveFirstVersion()
 
-        composeRule.onNodeWithText("Welcome, Alice").assertIsDisplayed()
+        composeRule.onNodeWithText("Welcome, Alice").performScrollTo().assertIsDisplayed()
         val saved = runBlocking { profiles.current() }
         assertEquals(1, saved?.number)
         assertEquals("Boutique Umuco SPRL", saved?.profile?.name)
@@ -220,14 +222,14 @@ class TaxProfileFlowTest {
 
         composeRule.onNodeWithContentDescription("Back").performClick()
 
-        composeRule.waitForText("To complete").assertIsDisplayed()
+        composeRule.waitForText("To complete").performScrollTo().assertIsDisplayed()
         assertNull(runBlocking { profiles.current() })
     }
 
     @Test
     @Config(qualifiers = "fr")
     fun `the form is translated in French`() {
-        composeRule.waitForText("Profil fiscal").performClick()
+        composeRule.pressOnHome("Profil fiscal", banner = "Synchronisé avec l'OBR")
 
         composeRule.waitForText("Nom ou raison sociale").assertIsDisplayed()
         composeRule.onNodeWithText("Personne morale").assertIsDisplayed()

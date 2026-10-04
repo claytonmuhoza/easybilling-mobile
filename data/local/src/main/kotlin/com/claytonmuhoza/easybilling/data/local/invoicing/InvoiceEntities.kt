@@ -27,6 +27,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.PriceMode
 import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.Quantity
+import com.claytonmuhoza.easybilling.domain.transmission.RejectedDocument
 import java.math.BigDecimal
 import java.time.Instant
 
@@ -127,6 +128,12 @@ internal interface InvoiceDao {
 
     @Query("SELECT COUNT(*) FROM invoices WHERE environment = :environment")
     suspend fun countIn(environment: String): Int
+
+    @Query("SELECT * FROM invoice_statuses WHERE status = :status ORDER BY changedAt DESC, invoiceId DESC")
+    suspend fun statuses(status: String): List<InvoiceStatusEntity>
+
+    @Query("SELECT COUNT(*) FROM invoice_statuses WHERE status = :status AND changedAt >= :since")
+    suspend fun countStatusSince(status: String, since: Long): Int
 }
 
 /** [InvoiceRepository] backed by the local database. */
@@ -157,6 +164,15 @@ internal class RoomInvoiceRepository(private val database: EasyBillingDatabase) 
     override suspend fun count(): Int = dao.count()
 
     override suspend fun countIn(environment: EbmsEnvironment): Int = dao.countIn(environment.name)
+
+    override suspend fun rejected(): List<RejectedDocument> = database.withTransaction {
+        dao.statuses(REJECTED).mapNotNull { status ->
+            dao.find(status.invoiceId)?.let { RejectedDocument(it.toDomain(), status.message) }
+        }
+    }
+
+    override suspend fun countRegisteredSince(since: Instant): Int =
+        dao.countStatusSince(InvoiceStatus.Registered.code, since.toEpochMilli())
 
     private fun InvoiceContent.toEntity() = InvoiceEntity(
         id = 0,

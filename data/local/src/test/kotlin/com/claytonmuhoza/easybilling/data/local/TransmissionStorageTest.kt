@@ -22,6 +22,7 @@ import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.Quantity
 import com.claytonmuhoza.easybilling.domain.transmission.ObrReceipt
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
+import com.claytonmuhoza.easybilling.domain.transmission.RejectedDocument
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.runner.RunWith
@@ -168,6 +169,37 @@ class TransmissionStorageTest {
             InvoiceStatus.Pending,
             storage.invoices.statusOf(invoice.id),
         )
+    }
+
+    @Test
+    fun `refused invoices are listed with the message of the OBR, the most recent first`() = runTest {
+        val first = storage.invoices.create(content("FN-00001/2026"))
+        val second = storage.invoices.create(content("FN-00002/2026"))
+        storage.invoices.create(content("FN-00003/2026"))
+        storage.invoices.setStatus(first.id, InvoiceStatus.Rejected("Premier motif"), now)
+        storage.invoices.setStatus(second.id, InvoiceStatus.Rejected("Second motif"), now.plusSeconds(60))
+
+        assertEquals(
+            listOf(RejectedDocument(second, "Second motif"), RejectedDocument(first, "Premier motif")),
+            storage.invoices.rejected(),
+        )
+
+        // Sent again, an invoice is no longer among the refused ones.
+        storage.invoices.setStatus(second.id, InvoiceStatus.Pending, now.plusSeconds(120))
+        assertEquals(listOf(first.id), storage.invoices.rejected().map { it.invoice.id })
+    }
+
+    @Test
+    fun `acknowledged invoices are counted from a moment`() = runTest {
+        val early = storage.invoices.create(content("FN-00001/2026"))
+        val late = storage.invoices.create(content("FN-00002/2026"))
+        storage.invoices.create(content("FN-00003/2026"))
+        storage.invoices.setStatus(early.id, InvoiceStatus.Registered, now)
+        storage.invoices.setStatus(late.id, InvoiceStatus.Registered, now.plusSeconds(3600))
+
+        assertEquals(2, storage.invoices.countRegisteredSince(now))
+        assertEquals(1, storage.invoices.countRegisteredSince(now.plusSeconds(1)))
+        assertEquals(0, storage.invoices.countRegisteredSince(now.plusSeconds(3601)))
     }
 
     @Test

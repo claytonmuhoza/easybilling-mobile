@@ -45,6 +45,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.PaymentType
 import com.claytonmuhoza.easybilling.domain.invoicing.PricedSale
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleLineForm
 import com.claytonmuhoza.easybilling.items.shortLabel
+import com.claytonmuhoza.easybilling.transmission.TransmissionBannerRoute
 import com.claytonmuhoza.easybilling.ui.MoneyText
 import com.claytonmuhoza.easybilling.ui.amountText
 import com.claytonmuhoza.easybilling.ui.decimalText
@@ -62,6 +63,7 @@ private val TwoPaneMinWidth = 720.dp
  * @param onChooseCustomer called when the user asks to choose the customer of the sale.
  * @param onOpenHeld called when the user opens the sales on hold.
  * @param onIssued called with the identifier of the invoice once the sale is issued.
+ * @param onOpenTransmission called when the user opens the transmission to the OBR.
  * @param viewModel holder of the sale state.
  */
 @Composable
@@ -70,6 +72,7 @@ fun SaleRoute(
     onChooseCustomer: () -> Unit,
     onOpenHeld: () -> Unit,
     onIssued: (Long) -> Unit,
+    onOpenTransmission: () -> Unit,
     viewModel: SaleViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -99,6 +102,13 @@ fun SaleRoute(
             onHold = viewModel::hold,
             onIssue = viewModel::issue,
         ),
+        banner = {
+            TransmissionBannerRoute(
+                compact = true,
+                onOpen = onOpenTransmission,
+                modifier = Modifier.padding(horizontal = Spacing.large).padding(bottom = Spacing.small),
+            )
+        },
     )
 }
 
@@ -150,9 +160,15 @@ class SaleActions(
  * @param state the sale state.
  * @param actions what the user can do.
  * @param modifier modifier applied to the screen.
+ * @param banner the state of the transmission to the OBR, shown above the sale when it needs attention.
  */
 @Composable
-fun SaleScreen(state: SaleUiState, actions: SaleActions, modifier: Modifier = Modifier) {
+fun SaleScreen(
+    state: SaleUiState,
+    actions: SaleActions,
+    modifier: Modifier = Modifier,
+    banner: @Composable () -> Unit = {},
+) {
     val held = (state as? SaleUiState.Ready)?.heldCount ?: 0
     TitledScreen(
         title = stringResource(R.string.sale_title),
@@ -174,7 +190,10 @@ fun SaleScreen(state: SaleUiState, actions: SaleActions, modifier: Modifier = Mo
                 message = stringResource(R.string.sale_not_ready_message),
                 title = stringResource(R.string.sale_not_ready_title),
             )
-            is SaleUiState.Ready -> SalePanes(state, actions)
+            is SaleUiState.Ready -> Column(modifier = Modifier.fillMaxSize()) {
+                banner()
+                SalePanes(state, actions)
+            }
         }
     }
 }

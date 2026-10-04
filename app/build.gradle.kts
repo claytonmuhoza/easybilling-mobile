@@ -71,11 +71,13 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     implementation(libs.hilt.android)
+    implementation(libs.androidx.work.runtime.ktx)
     ksp(libs.hilt.compiler)
 
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.hilt.android.testing)
     testImplementation(project(":testing:obr-simulator"))
     testImplementation(libs.okhttp.tls)
+    testImplementation(libs.androidx.work.testing)
     kspTest(libs.hilt.compiler)
 }

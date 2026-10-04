@@ -46,3 +46,12 @@ fun ComposeTestRule.pressInForm(text: String) {
 /** @return how many elements show [text]. */
 fun ComposeTestRule.onAllNodesWithTextCount(text: String, substring: Boolean = false): Int =
     onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().size
+
+/**
+ * Presses the row showing [text] on the home screen. The transmission [banner] is read after the
+ * rows are drawn and pushes them down, so the row is scrolled to only once the banner is there.
+ */
+fun ComposeTestRule.pressOnHome(text: String, banner: String = "Synchronised with the OBR") {
+    waitForText(banner)
+    waitForText(text).performScrollTo().performClick()
+}

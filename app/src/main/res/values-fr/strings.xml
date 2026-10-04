@@ -561,4 +561,44 @@
     <string name="invoice_registered_date">Enregistrée le</string>
     <string name="ebms_switch_refused_pending">Des documents attendent d\'être envoyés à l\'OBR. L\'environnement pourra changer une fois qu\'ils seront envoyés.</string>
     <string name="ebms_switch_refused_production">Des factures réelles ont été émises en production : le retour en test n\'est plus possible.</string>
+    <string name="transmission_title">Transmission OBR</string>
+    <string name="transmission_load_error">L\'état de la transmission n\'a pas pu être lu.</string>
+    <plurals name="transmission_rejected">
+        <item quantity="one">%1$d facture rejetée par l\'OBR</item>
+        <item quantity="other">%1$d factures rejetées par l\'OBR</item>
+    </plurals>
+    <plurals name="transmission_waiting">
+        <item quantity="one">%1$d document en attente d\'envoi</item>
+        <item quantity="other">%1$d documents en attente d\'envoi</item>
+    </plurals>
+    <string name="transmission_offline">Hors ligne</string>
+    <string name="transmission_synchronised">Synchronisé avec l\'OBR</string>
+    <string name="transmission_nothing_waiting">Rien n\'attend d\'être envoyé.</string>
+    <string name="transmission_waiting_since">%1$s, le plus ancien depuis %2$s</string>
+    <string name="transmission_oldest">Le plus ancien attend depuis %1$s</string>
+    <string name="wait_under_a_minute">moins d\'une minute</string>
+    <string name="wait_minutes">%1$d min</string>
+    <string name="wait_hours">%1$d h</string>
+    <string name="wait_days">%1$d j</string>
+    <string name="transmission_online">En ligne</string>
+    <string name="transmission_offline_since">Hors ligne depuis %1$s</string>
+    <string name="transmission_online_text">Les documents sont envoyés à l\'OBR dès leur émission.</string>
+    <string name="transmission_offline_text">La vente continue. Les documents partent dans l\'ordre dès le retour du réseau.</string>
+    <string name="transmission_next_attempt">Prochain essai : %1$s · essai %2$d</string>
+    <string name="transmission_retry_now">Réessayer maintenant</string>
+    <string name="transmission_count_waiting">En attente</string>
+    <string name="transmission_count_rejected">Rejetées</string>
+    <string name="transmission_count_sent_today">Envoyées auj.</string>
+    <string name="transmission_to_deal_with">À traiter</string>
+    <string name="transmission_document">%1$s · %2$s</string>
+    <string name="transmission_obr_reason">Motif de l\'OBR : %1$s</string>
+    <string name="transmission_open_invoice">Ouvrir la facture</string>
+    <string name="transmission_open_invoice_of">Ouvrir la facture %1$s</string>
+    <string name="transmission_queue">File d\'envoi, dans cet ordre</string>
+    <string name="transmission_queue_empty">Rien à envoyer.</string>
+    <string name="transmission_queue_rank">%1$d. Document</string>
+    <string name="transmission_queue_document">%1$d. %2$s · %3$s</string>
+    <string name="transmission_queue_detail">%1$s · %2$s</string>
+    <string name="transmission_uncertain">Une requête est partie sans réponse : l\'OBR est interrogé avant tout nouvel envoi.</string>
+    <string name="transmission_attempts">Essais : %1$d · dernier : %2$s</string>
 </resources>

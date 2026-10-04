@@ -555,4 +555,44 @@
     <string name="invoice_registered_date">Registered on</string>
     <string name="ebms_switch_refused_pending">Documents are waiting to be sent to the OBR. The environment can change once they are sent.</string>
     <string name="ebms_switch_refused_production">Real invoices were issued in production: going back to test is no longer possible.</string>
+    <string name="transmission_title">OBR transmission</string>
+    <string name="transmission_load_error">The state of the transmission could not be read.</string>
+    <plurals name="transmission_rejected">
+        <item quantity="one">%1$d invoice rejected by the OBR</item>
+        <item quantity="other">%1$d invoices rejected by the OBR</item>
+    </plurals>
+    <plurals name="transmission_waiting">
+        <item quantity="one">%1$d document waiting to be sent</item>
+        <item quantity="other">%1$d documents waiting to be sent</item>
+    </plurals>
+    <string name="transmission_offline">Offline</string>
+    <string name="transmission_synchronised">Synchronised with the OBR</string>
+    <string name="transmission_nothing_waiting">Nothing is waiting to be sent.</string>
+    <string name="transmission_waiting_since">%1$s, the oldest for %2$s</string>
+    <string name="transmission_oldest">The oldest has been waiting for %1$s</string>
+    <string name="wait_under_a_minute">less than a minute</string>
+    <string name="wait_minutes">%1$d min</string>
+    <string name="wait_hours">%1$d h</string>
+    <string name="wait_days">%1$d d</string>
+    <string name="transmission_online">Online</string>
+    <string name="transmission_offline_since">Offline for %1$s</string>
+    <string name="transmission_online_text">Documents are sent to the OBR as soon as they are issued.</string>
+    <string name="transmission_offline_text">The sale goes on. Documents leave in order as soon as the network is back.</string>
+    <string name="transmission_next_attempt">Next try: %1$s · try %2$d</string>
+    <string name="transmission_retry_now">Try again now</string>
+    <string name="transmission_count_waiting">Waiting</string>
+    <string name="transmission_count_rejected">Rejected</string>
+    <string name="transmission_count_sent_today">Sent today</string>
+    <string name="transmission_to_deal_with">To deal with</string>
+    <string name="transmission_document">%1$s · %2$s</string>
+    <string name="transmission_obr_reason">Reason given by the OBR: %1$s</string>
+    <string name="transmission_open_invoice">Open the invoice</string>
+    <string name="transmission_open_invoice_of">Open the invoice %1$s</string>
+    <string name="transmission_queue">Send queue, in this order</string>
+    <string name="transmission_queue_empty">Nothing to send.</string>
+    <string name="transmission_queue_rank">%1$d. Document</string>
+    <string name="transmission_queue_document">%1$d. %2$s · %3$s</string>
+    <string name="transmission_queue_detail">%1$s · %2$s</string>
+    <string name="transmission_uncertain">A request left without an answer: the OBR is asked before anything is sent again.</string>
+    <string name="transmission_attempts">Tries: %1$d · last: %2$s</string>
 </resources>

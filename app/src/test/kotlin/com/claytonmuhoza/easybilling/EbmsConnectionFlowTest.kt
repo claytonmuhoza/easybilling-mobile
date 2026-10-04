@@ -46,6 +46,7 @@ import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
 import com.claytonmuhoza.easybilling.testing.TestCertificates
 import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
 import com.claytonmuhoza.easybilling.testing.pressInForm
+import com.claytonmuhoza.easybilling.testing.pressOnHome
 import com.claytonmuhoza.easybilling.testing.replaceInForm
 import com.claytonmuhoza.easybilling.testing.typeInForm
 import com.claytonmuhoza.easybilling.testing.waitForText
@@ -124,7 +125,7 @@ class EbmsConnectionFlowTest {
 
     private fun openScreen() {
         // The card is below the fold of a small phone since the home screen opens the cash register.
-        composeRule.waitForText("EBMS connection").performScrollTo().performClick()
+        composeRule.pressOnHome("EBMS connection")
         composeRule.waitForText("Test the connection")
     }
 
@@ -401,7 +402,7 @@ class EbmsConnectionFlowTest {
     @Test
     @Config(qualifiers = "fr")
     fun `the screen is translated in French`() {
-        composeRule.waitForText("Connexion EBMS").performScrollTo().performClick()
+        composeRule.pressOnHome("Connexion EBMS", banner = "Synchronisé avec l'OBR")
 
         composeRule.waitForText("Tester la connexion").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Adresse du serveur").performScrollTo().assertIsDisplayed()
