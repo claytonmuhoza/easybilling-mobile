@@ -86,6 +86,15 @@ enum class AppIcon(@DrawableRes internal val drawable: Int) {
 
     /** The counter, for the anonymous sales. */
     STORE(R.drawable.ds_ic_store),
+
+    /** Everything was sent to the OBR. */
+    CLOUD_DONE(R.drawable.ds_ic_cloud_done),
+
+    /** No network. */
+    CLOUD_OFF(R.drawable.ds_ic_cloud_off),
+
+    /** Tries again. */
+    REFRESH(R.drawable.ds_ic_refresh),
 }
 
 /** Side of the rounded square an [IconTile] draws behind its icon. */
