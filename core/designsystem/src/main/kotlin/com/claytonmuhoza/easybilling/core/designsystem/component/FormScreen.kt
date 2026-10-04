@@ -115,7 +115,7 @@ fun FormColumn(modifier: Modifier = Modifier, content: @Composable ColumnScope.(
 }
 
 @Composable
-private fun BackButton(onBack: () -> Unit) {
+internal fun BackButton(onBack: () -> Unit) {
     IconButton(onClick = onBack) {
         Icon(
             painter = painterResource(R.drawable.ds_ic_arrow_back),

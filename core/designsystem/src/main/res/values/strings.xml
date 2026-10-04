@@ -4,4 +4,9 @@
     <string name="ds_state_error_title">Something went wrong</string>
     <string name="ds_state_retry">Try again</string>
     <string name="ds_action_back">Back</string>
+    <string name="ds_pin_backspace">Delete the last digit</string>
+    <plurals name="ds_pin_digits_entered">
+        <item quantity="one">%1$d digit entered</item>
+        <item quantity="other">%1$d digits entered</item>
+    </plurals>
 </resources>

@@ -4,4 +4,10 @@
     <string name="ds_state_error_title">Une erreur est survenue</string>
     <string name="ds_state_retry">Réessayer</string>
     <string name="ds_action_back">Retour</string>
+    <string name="ds_pin_backspace">Effacer le dernier chiffre</string>
+    <plurals name="ds_pin_digits_entered">
+        <item quantity="one">%1$d chiffre saisi</item>
+        <item quantity="many">%1$d chiffres saisis</item>
+        <item quantity="other">%1$d chiffres saisis</item>
+    </plurals>
 </resources>
