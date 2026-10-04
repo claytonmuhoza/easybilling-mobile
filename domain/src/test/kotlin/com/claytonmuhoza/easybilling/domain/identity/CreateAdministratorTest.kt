@@ -58,6 +58,14 @@ class CreateAdministratorTest {
     }
 
     @Test
+    fun `a name is checked alone with the rule of the creation`() {
+        assertNull(CreateAdministrator.nameProblem("  Alice  "))
+        assertNull(CreateAdministrator.nameProblem(" " + "a".repeat(50) + " "))
+        assertEquals(UserNameProblem.BLANK, CreateAdministrator.nameProblem("   "))
+        assertEquals(UserNameProblem.TOO_LONG, CreateAdministrator.nameProblem("a".repeat(51)))
+    }
+
+    @Test
     fun `an invalid PIN is refused with its problem`() = runTest {
         assertEquals(
             CreateAdministrator.Result.InvalidPin(PinProblem.TOO_SHORT),
