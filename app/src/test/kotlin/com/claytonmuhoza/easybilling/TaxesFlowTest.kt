@@ -22,6 +22,7 @@ import com.claytonmuhoza.easybilling.domain.identity.User
 import com.claytonmuhoza.easybilling.testing.TestClock
 import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
 import com.claytonmuhoza.easybilling.testing.pressInForm
+import com.claytonmuhoza.easybilling.testing.pressOnHome
 import com.claytonmuhoza.easybilling.testing.replaceInForm
 import com.claytonmuhoza.easybilling.testing.typeInForm
 import com.claytonmuhoza.easybilling.testing.waitForText
@@ -99,7 +100,7 @@ class TaxesFlowTest {
     }
 
     private fun openTaxes() {
-        composeRule.waitForText("Taxes").performScrollTo().performClick()
+        composeRule.pressOnHome("Taxes")
         composeRule.waitForText("Line preview")
     }
 
@@ -255,7 +256,7 @@ class TaxesFlowTest {
     @Config(qualifiers = "fr")
     fun `the taxes are translated in French`() {
         launch()
-        composeRule.waitForText("Taxes").performScrollTo().performClick()
+        composeRule.pressOnHome("Taxes", banner = "Synchronisé avec l'OBR")
 
         composeRule.waitForText("Aucune taxe").assertIsDisplayed()
         composeRule.onNodeWithText("Nouvelle taxe").assertIsDisplayed()

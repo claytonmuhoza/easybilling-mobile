@@ -20,6 +20,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.TextAction
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
 import com.claytonmuhoza.easybilling.core.designsystem.theme.StatusTone
 import com.claytonmuhoza.easybilling.domain.configuration.ReadinessStep
+import com.claytonmuhoza.easybilling.transmission.TransmissionBannerRoute
 
 /**
  * Home screen wired to its view model.
@@ -33,6 +34,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.ReadinessStep
  * @param onOpenItems called when the user opens the items.
  * @param onOpenCustomers called when the user opens the customers.
  * @param onOpenSale called when the user opens the cash register.
+ * @param onOpenTransmission called when the user opens the transmission to the OBR.
  * @param viewModel holder of the home state.
  */
 @Composable
@@ -46,6 +48,7 @@ fun HomeRoute(
     onOpenItems: () -> Unit,
     onOpenCustomers: () -> Unit,
     onOpenSale: () -> Unit,
+    onOpenTransmission: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val taxProfileStatus by viewModel.taxProfileStatus.collectAsStateWithLifecycle()
@@ -80,6 +83,7 @@ fun HomeRoute(
             onOpenCustomers = onOpenCustomers,
             onOpenSale = onOpenSale,
         ),
+        banner = { TransmissionBannerRoute(compact = false, onOpen = onOpenTransmission) },
     )
 }
 
@@ -121,6 +125,7 @@ class HomeActions(
  * @param salesStatus where the sales stand.
  * @param actions what the user can do.
  * @param modifier modifier applied to the screen.
+ * @param banner the state of the transmission to the OBR, shown under the welcome.
  */
 @Composable
 fun HomeScreen(
@@ -135,6 +140,7 @@ fun HomeScreen(
     salesStatus: SalesStatus,
     actions: HomeActions,
     modifier: Modifier = Modifier,
+    banner: @Composable () -> Unit = {},
 ) {
     TitledScreen(
         title = stringResource(R.string.app_name),
@@ -148,6 +154,7 @@ fun HomeScreen(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            banner()
             NavigationRow(
                 title = stringResource(R.string.home_new_sale),
                 onClick = actions.onOpenSale,

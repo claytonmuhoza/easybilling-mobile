@@ -3,6 +3,7 @@ package com.claytonmuhoza.easybilling.testing
 import android.content.Context
 import com.claytonmuhoza.easybilling.data.local.LocalStorage
 import com.claytonmuhoza.easybilling.data.obr.ObrHttp
+import com.claytonmuhoza.easybilling.di.BackgroundModule
 import com.claytonmuhoza.easybilling.di.ObrHttpModule
 import com.claytonmuhoza.easybilling.di.PlatformModule
 import com.claytonmuhoza.easybilling.di.StorageModule
@@ -11,6 +12,8 @@ import com.claytonmuhoza.easybilling.domain.identity.RecoveryCodeGenerator
 import com.claytonmuhoza.easybilling.domain.identity.SecretHasher
 import com.claytonmuhoza.easybilling.domain.shared.SecretStore
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
+import com.claytonmuhoza.easybilling.domain.transmission.NetworkMonitor
+import com.claytonmuhoza.easybilling.domain.transmission.TransmissionScheduler
 import com.claytonmuhoza.easybilling.platform.security.Pbkdf2SecretHasher
 import com.claytonmuhoza.easybilling.testing.obr.ObrSimulator
 import dagger.Module
@@ -18,6 +21,9 @@ import dagger.Provides
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
+import java.util.concurrent.CopyOnWriteArrayList
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import okhttp3.OkHttpClient
 import okhttp3.tls.HandshakeCertificates
 import okhttp3.tls.HeldCertificate
@@ -85,6 +91,45 @@ class InMemorySecretStore : SecretStore {
     override fun write(name: String, value: ByteArray) {
         secrets[name] = value
     }
+}
+
+/** Network of the tests: there until a test takes it away. */
+@Singleton
+class TestNetworkMonitor @Inject constructor() : NetworkMonitor {
+    private val state = MutableStateFlow(true)
+
+    override val online: StateFlow<Boolean> = state
+
+    /** Takes the network away, or brings it back. */
+    fun set(online: Boolean) {
+        state.value = online
+    }
+}
+
+/** Remembers the passes the application planned, instead of handing them to WorkManager. */
+@Singleton
+class RecordingTransmissionScheduler @Inject constructor() : TransmissionScheduler {
+    /** The wait of each planned pass, oldest first; null for a cancellation. */
+    val plans: MutableList<Duration?> = CopyOnWriteArrayList()
+
+    override fun schedule(delay: Duration, afterRunningPass: Boolean) {
+        plans += delay
+    }
+
+    override fun cancel() {
+        plans += null as Duration?
+    }
+}
+
+/** Replaces the network of the device and WorkManager, which the JVM tests do not have. */
+@Module
+@TestInstallIn(components = [SingletonComponent::class], replaces = [BackgroundModule::class])
+object TestBackgroundModule {
+    @Provides
+    fun networkMonitor(monitor: TestNetworkMonitor): NetworkMonitor = monitor
+
+    @Provides
+    fun transmissionScheduler(scheduler: RecordingTransmissionScheduler): TransmissionScheduler = scheduler
 }
 
 /** A certificate made for the tests: the simulated OBR server shows it, the test client trusts it. */

@@ -131,3 +131,7 @@ data object HeldSalesDestination
  */
 @Serializable
 data class InvoiceIssuedDestination(val id: Long)
+
+/** The transmission to the OBR: the network, the send queue and the refused invoices. */
+@Serializable
+data object TransmissionDestination

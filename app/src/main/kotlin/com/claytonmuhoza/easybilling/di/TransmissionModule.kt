@@ -18,6 +18,7 @@ import com.claytonmuhoza.easybilling.domain.transmission.ExponentialRetry
 import com.claytonmuhoza.easybilling.domain.transmission.InvoiceEnvironmentLock
 import com.claytonmuhoza.easybilling.domain.transmission.ObrGateway
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
+import com.claytonmuhoza.easybilling.domain.transmission.ReadTransmissionStatus
 import com.claytonmuhoza.easybilling.domain.transmission.ReceiptArchive
 import com.claytonmuhoza.easybilling.domain.transmission.TokenProvider
 import dagger.Module
@@ -63,6 +64,14 @@ object TransmissionModule {
         tokens: TokenProvider,
         gateway: ObrGateway,
     ): DispatchConnection = DispatchConnection({ settings.activeLoginTarget(vault) }, tokens, gateway)
+
+    /** @return the use case reading where the transmission stands. */
+    @Provides
+    fun readTransmissionStatus(
+        outbox: OutboxRepository,
+        invoices: InvoiceRepository,
+        time: TimeProvider,
+    ): ReadTransmissionStatus = ReadTransmissionStatus(outbox, invoices, time)
 
     /** @return the send queue; a single one, so only one pass runs at a time. */
     @Provides

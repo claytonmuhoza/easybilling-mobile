@@ -38,6 +38,7 @@ import com.claytonmuhoza.easybilling.taxes.TaxListRoute
 import com.claytonmuhoza.easybilling.taxprofile.TaxProfileHistoryRoute
 import com.claytonmuhoza.easybilling.taxprofile.TaxProfileRoute
 import com.claytonmuhoza.easybilling.taxprofile.TaxProfileVersionRoute
+import com.claytonmuhoza.easybilling.transmission.TransmissionRoute
 
 /** The destination a section of the application starts on. */
 private fun AccessState.Ready.entryDestination(): Any = when (this) {
@@ -102,6 +103,7 @@ fun EasyBillingNavHost(
                     onOpenItems = { navController.navigate(ItemsDestination) },
                     onOpenCustomers = { navController.navigate(CustomersDestination) },
                     onOpenSale = { navController.navigate(SaleDestination) },
+                    onOpenTransmission = { navController.navigate(TransmissionDestination) },
                 )
             }
         }
@@ -222,6 +224,7 @@ private fun NavGraphBuilder.saleScreens(access: AccessState.Ready, navController
                 onBack = { navController.popBackStack() },
                 onChooseCustomer = { navController.navigate(SaleCustomerDestination) },
                 onOpenHeld = { navController.navigate(HeldSalesDestination) },
+                onOpenTransmission = { navController.navigate(TransmissionDestination) },
                 onIssued = { id ->
                     navController.navigate(InvoiceIssuedDestination(id)) {
                         popUpTo<SaleDestination> { inclusive = true }
@@ -237,6 +240,14 @@ private fun NavGraphBuilder.saleScreens(access: AccessState.Ready, navController
                 createdCustomerId = created,
                 onClose = { navController.popBackStack() },
                 onNewCustomer = { navController.navigate(CustomerEditorDestination()) },
+            )
+        }
+    }
+    composable<TransmissionDestination> {
+        LoggedIn(access) {
+            TransmissionRoute(
+                onBack = { navController.popBackStack() },
+                onOpenInvoice = { id -> navController.navigate(InvoiceIssuedDestination(id)) },
             )
         }
     }
