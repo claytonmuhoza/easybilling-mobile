@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The only files the application hands to other applications: the PDF of the invoices, in its cache. -->
+<paths>
+    <cache-path
+        name="invoices"
+        path="invoices/" />
+</paths>

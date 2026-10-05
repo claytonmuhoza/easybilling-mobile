@@ -1,12 +1,18 @@
 package com.claytonmuhoza.easybilling.testing
 
 import android.content.Context
+import android.net.Uri
 import com.claytonmuhoza.easybilling.data.local.LocalStorage
 import com.claytonmuhoza.easybilling.data.obr.ObrHttp
 import com.claytonmuhoza.easybilling.di.BackgroundModule
 import com.claytonmuhoza.easybilling.di.ObrHttpModule
+import com.claytonmuhoza.easybilling.di.PdfModule
 import com.claytonmuhoza.easybilling.di.PlatformModule
+import com.claytonmuhoza.easybilling.di.SharedFilesModule
 import com.claytonmuhoza.easybilling.di.StorageModule
+import com.claytonmuhoza.easybilling.documents.SharedFileUris
+import com.claytonmuhoza.easybilling.domain.document.InvoiceDocument
+import com.claytonmuhoza.easybilling.domain.document.InvoicePdfWriter
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCode
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCodeGenerator
 import com.claytonmuhoza.easybilling.domain.identity.SecretHasher
@@ -21,17 +27,17 @@ import dagger.Provides
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
+import java.time.Duration
+import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import okhttp3.OkHttpClient
 import okhttp3.tls.HandshakeCertificates
 import okhttp3.tls.HeldCertificate
-import java.time.Duration
-import java.time.Instant
-import java.util.concurrent.ConcurrentHashMap
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /** Clock of the tests: it only moves when a test moves it. */
 @Singleton
@@ -161,4 +167,40 @@ object TestObrHttpModule {
     fun obrHttpClient(): OkHttpClient = ObrHttp.client(Duration.ofSeconds(3)).newBuilder()
         .sslSocketFactory(TestCertificates.client.sslSocketFactory(), TestCertificates.client.trustManager)
         .build()
+}
+
+/** Writer of the tests: it remembers the documents it was given instead of drawing them. */
+@Singleton
+class RecordingPdfWriter @Inject constructor() : InvoicePdfWriter {
+    /** The documents written so far, oldest first. */
+    val documents: MutableList<InvoiceDocument> = CopyOnWriteArrayList()
+
+    override fun write(document: InvoiceDocument): ByteArray {
+        documents += document
+        return "%PDF simulated ${document.number.value}".toByteArray()
+    }
+}
+
+/** Replaces the writer of PDF files, which the JVM cannot run. */
+@Module
+@TestInstallIn(components = [SingletonComponent::class], replaces = [PdfModule::class])
+object TestPdfModule {
+    @Provides
+    fun invoicePdfWriter(writer: RecordingPdfWriter): InvoicePdfWriter = writer
+}
+
+/**
+ * Replaces the addresses of the shared files. `FileProvider` compares paths with `/`, so it finds
+ * no file on a JVM running on Windows; `FileProviderUrisTest` checks the real one where it works.
+ */
+@Module
+@TestInstallIn(components = [SingletonComponent::class], replaces = [SharedFilesModule::class])
+object TestSharedFilesModule {
+    /** The authority of the addresses of the tests. */
+    const val AUTHORITY = "com.claytonmuhoza.easybilling.files"
+
+    @Provides
+    fun sharedFileUris(): SharedFileUris = SharedFileUris { file ->
+        Uri.parse("content://$AUTHORITY/${file.parentFile?.name}/${file.name}")
+    }
 }

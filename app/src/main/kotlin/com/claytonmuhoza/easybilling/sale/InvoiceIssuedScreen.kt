@@ -41,6 +41,9 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.core.designsystem.component.icon
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
 import com.claytonmuhoza.easybilling.core.designsystem.theme.palette
+import com.claytonmuhoza.easybilling.documents.InvoicePdfActions
+import com.claytonmuhoza.easybilling.documents.PdfButtons
+import com.claytonmuhoza.easybilling.documents.PdfOutcome
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
@@ -54,11 +57,11 @@ import com.claytonmuhoza.easybilling.ui.MoneyText
 import com.claytonmuhoza.easybilling.ui.dateTimeText
 import com.claytonmuhoza.easybilling.ui.storageCall
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /** Side of the circle that shows the status of the invoice. */
 private val OutcomeIconSize = 88.dp
@@ -80,11 +83,15 @@ sealed interface InvoiceIssuedUiState {
      * @property invoice the invoice.
      * @property status where it stands with the OBR.
      * @property receipt the acknowledgement of the OBR, or null while there is none.
+     * @property pdfProblem why the PDF was not opened or shared at the last try, or null.
+     * @property busy true while a PDF is created.
      */
     data class Ready(
         val invoice: Invoice,
         val status: InvoiceStatus,
         val receipt: ObrReceipt? = null,
+        val pdfProblem: PdfOutcome? = null,
+        val busy: Boolean = false,
     ) : InvoiceIssuedUiState
 }
 
@@ -95,6 +102,7 @@ class InvoiceIssuedViewModel @Inject constructor(
     private val invoices: InvoiceRepository,
     private val receipts: ReceiptArchive,
     private val transmission: TransmissionRunner,
+    private val pdfActions: InvoicePdfActions,
 ) : ViewModel() {
 
     private val id = InvoiceId(savedStateHandle.toRoute<InvoiceIssuedDestination>().id)
@@ -117,11 +125,35 @@ class InvoiceIssuedViewModel @Inject constructor(
                 val invoice = invoices.find(id)
                 val status = invoices.statusOf(id)
                 if (invoice != null && status != null) {
-                    InvoiceIssuedUiState.Ready(invoice, status, receipts.find(id))
+                    val shown = mutableState.value as? InvoiceIssuedUiState.Ready
+                    InvoiceIssuedUiState.Ready(
+                        invoice = invoice,
+                        status = status,
+                        receipt = receipts.find(id),
+                        pdfProblem = shown?.pdfProblem,
+                        busy = shown?.busy == true,
+                    )
                 } else {
                     InvoiceIssuedUiState.NotFound
                 }
             }.getOrElse { InvoiceIssuedUiState.Failed }
+        }
+    }
+
+    /** Opens the PDF of the invoice in another application (UC-G02). */
+    fun openPdf() = pdf { pdfActions.open(id) }
+
+    /** Offers to send the PDF of the invoice with another application (UC-G03). */
+    fun sharePdf() = pdf { pdfActions.share(id) }
+
+    private fun pdf(action: suspend () -> PdfOutcome) {
+        val shown = (mutableState.value as? InvoiceIssuedUiState.Ready)?.takeIf { !it.busy } ?: return
+        mutableState.value = shown.copy(busy = true, pdfProblem = null)
+        viewModelScope.launch {
+            val problem = action().takeIf { it != PdfOutcome.DONE }
+            (mutableState.value as? InvoiceIssuedUiState.Ready)?.let {
+                mutableState.value = it.copy(busy = false, pdfProblem = problem)
+            }
         }
     }
 }
@@ -140,7 +172,16 @@ fun InvoiceIssuedRoute(
     viewModel: InvoiceIssuedViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    InvoiceIssuedScreen(state, InvoiceIssuedActions(onNewSale = onNewSale, onHome = onHome, onRetry = viewModel::load))
+    InvoiceIssuedScreen(
+        state = state,
+        actions = InvoiceIssuedActions(
+            onNewSale = onNewSale,
+            onHome = onHome,
+            onOpenPdf = viewModel::openPdf,
+            onSharePdf = viewModel::sharePdf,
+            onRetry = viewModel::load,
+        ),
+    )
 }
 
 /**
@@ -148,11 +189,15 @@ fun InvoiceIssuedRoute(
  *
  * @property onNewSale called when the user starts another sale.
  * @property onHome called when the user goes back to the home screen.
+ * @property onOpenPdf called when the user opens the PDF of the invoice.
+ * @property onSharePdf called when the user shares the PDF of the invoice.
  * @property onRetry called when the user asks to read the invoice again.
  */
 class InvoiceIssuedActions(
     val onNewSale: () -> Unit = {},
     val onHome: () -> Unit = {},
+    val onOpenPdf: () -> Unit = {},
+    val onSharePdf: () -> Unit = {},
     val onRetry: () -> Unit = {},
 )
 
@@ -199,6 +244,7 @@ fun InvoiceIssuedScreen(state: InvoiceIssuedUiState, actions: InvoiceIssuedActio
                         Text(text = invoice.identifier, fontFamily = FontFamily.Monospace)
                     }
                 }
+                PdfButtons(actions.onOpenPdf, actions.onSharePdf, state.pdfProblem, enabled = !state.busy)
                 Button(onClick = actions.onNewSale, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.invoice_issued_new_sale))
                 }

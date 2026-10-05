@@ -686,4 +686,30 @@
     <string name="settings_billing">Before the first invoice</string>
     <string name="settings_session">Session</string>
     <string name="settings_logged_in_as">Logged in as %1$s</string>
+    <!-- Documents: PDF, sharing, header -->
+    <string name="document_open_pdf">Open the PDF</string>
+    <string name="document_share">Share</string>
+    <string name="document_share_title">Share the invoice</string>
+    <string name="document_no_application">No application on this device can open a PDF. You can still share it.</string>
+    <string name="document_pdf_failed">The PDF could not be created. Try again.</string>
+    <string name="document_settings_title">Invoice header</string>
+    <string name="document_settings_status">Logo, footer and QR code</string>
+    <string name="document_settings_intro">The mandatory mentions of an invoice are always printed and cannot be changed. You choose what goes around them.</string>
+    <string name="document_settings_load_error">The settings of the invoices could not be read.</string>
+    <string name="document_logo">Logo</string>
+    <string name="document_logo_none">No logo</string>
+    <string name="document_logo_description">Logo printed at the top of the invoices</string>
+    <string name="document_logo_choose">Choose a logo</string>
+    <string name="document_logo_remove">Remove the logo</string>
+    <string name="document_logo_not_an_image">This file is not an image.</string>
+    <string name="document_footer">Footer</string>
+    <string name="document_footer_hint">Optional. Printed at the bottom of every page.</string>
+    <string name="document_footer_too_long">The footer is too long.</string>
+    <string name="document_qr_code">Print a QR code of the identifier</string>
+    <string name="document_qr_code_help">Scanning it gives the unique identifier of the invoice, to check the invoice at the OBR.</string>
+    <string name="document_settings_save">Save</string>
+    <string name="document_settings_saved">Saved. The next PDF uses these settings.</string>
+    <string name="document_settings_not_saved">The settings could not be saved. Try again.</string>
+    <string name="settings_documents">Invoices</string>
+    <string name="document_bottom">Bottom of the invoice</string>
 </resources>
