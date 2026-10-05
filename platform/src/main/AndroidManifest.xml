@@ -4,4 +4,19 @@
     <!-- Lets the send queue start again as soon as a network comes back. Granted without a prompt. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!--
+        Printing tickets on a paired Bluetooth printer. The application never searches for devices:
+        it needs neither the scan permission nor the location. Up to Android 11 the connection is
+        granted without a prompt; since Android 12 the user is asked.
+    -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!-- A device without Bluetooth can still invoice: it only cannot print tickets. -->
+    <uses-feature
+        android:name="android.hardware.bluetooth"
+        android:required="false" />
+
 </manifest>
