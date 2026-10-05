@@ -44,10 +44,12 @@ import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatus
 import com.claytonmuhoza.easybilling.domain.invoicing.PriceMode
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
+import com.claytonmuhoza.easybilling.testing.IssuedInvoiceStatus
 import com.claytonmuhoza.easybilling.testing.RecordingTransmissionScheduler
 import com.claytonmuhoza.easybilling.testing.TestCertificates
 import com.claytonmuhoza.easybilling.testing.TestClock
 import com.claytonmuhoza.easybilling.testing.TestNetworkMonitor
+import com.claytonmuhoza.easybilling.testing.backToHomeOnce
 import com.claytonmuhoza.easybilling.testing.obr.ObrSimulator
 import com.claytonmuhoza.easybilling.testing.pressInForm
 import com.claytonmuhoza.easybilling.testing.pressNewSale
@@ -337,7 +339,7 @@ class TransmissionFlowTest {
         sellOneSoapUnsent()
         clock.advance(Duration.ofMinutes(14))
 
-        composeRule.pressInForm("Back to home")
+        composeRule.backToHomeOnce(IssuedInvoiceStatus.PENDING)
 
         shown("Offline")
         shown("1 document waiting to be sent, the oldest for 14 min")
@@ -363,7 +365,7 @@ class TransmissionFlowTest {
         val invoice = sellOneSoap(customer = "Inconnu SA")
         composeRule.waitUntil(TIMEOUT_MILLIS) { statusOf(invoice) is InvoiceStatus.Rejected }
 
-        composeRule.pressInForm("Back to home")
+        composeRule.backToHomeOnce(IssuedInvoiceStatus.REJECTED)
 
         // Nothing waits, yet a refusal has to be dealt with.
         composeRule.waitForText("1 invoice rejected by the OBR").performScrollTo().performClick()
@@ -389,7 +391,7 @@ class TransmissionFlowTest {
         val invoice = sellOneSoap()
         waitForRegistration(invoice)
 
-        composeRule.pressInForm("Back to home")
+        composeRule.backToHomeOnce(IssuedInvoiceStatus.REGISTERED)
 
         shown("Synchronised with the OBR")
         shown("Nothing is waiting to be sent.")
