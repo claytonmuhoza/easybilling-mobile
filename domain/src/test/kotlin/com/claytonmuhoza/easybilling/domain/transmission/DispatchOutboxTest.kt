@@ -206,6 +206,19 @@ class DispatchOutboxTest {
     }
 
     @Test
+    fun `the duplicate message the server really gives is resolved like the one of the specification`() = runTest {
+        val invoice = issued().single()
+        // The first try reached the OBR, its answer was lost; the server words the duplicate its own way.
+        gateway.known += invoice.content.identifier
+        gateway.forcedSends += SendOutcome.Rejected(ObrMessages.DUPLICATE_NUMBER_OBSERVED)
+
+        assertEquals(DispatchReport(registered = 1, remaining = 0), dispatch())
+
+        assertEquals(listOf("addInvoice", "getInvoice"), gateway.calls.map { it.first })
+        assertEquals(InvoiceStatus.Registered, statusOf(invoice))
+    }
+
+    @Test
     fun `a number the OBR already has under another identifier is a rejection`() = runTest {
         val invoice = issued().single()
         gateway.forcedSends += SendOutcome.Rejected(ObrMessages.DUPLICATE_NUMBER)

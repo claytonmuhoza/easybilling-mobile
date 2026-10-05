@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger
 internal const val HTTP_OK = 200
 private const val BAD_REQUEST = 400
 private const val UNAUTHORIZED = 401
+private const val CONFLICT = 409
 private const val FORBIDDEN = 403
 private const val NOT_FOUND = 404
 private const val BEARER = "Bearer "
@@ -46,6 +47,14 @@ internal class ObrServices(var username: String, var password: String) {
 
     @Volatile
     var alternateSignatureName = false
+
+    /**
+     * False to answer as the server of the OBR was seen to on 5 October 2026: 401 for a TIN or an
+     * identifier it does not know, 409 for a number it already has, with its own messages. True
+     * to answer 400 with the messages of the specification.
+     */
+    @Volatile
+    var asSpecified = false
 
     @Volatile
     var loseNextAcknowledgement = false
@@ -107,7 +116,11 @@ internal class ObrServices(var username: String, var password: String) {
         val owner = taxpayers[tin]
         return when {
             tin.isEmpty() -> refusal(ObrSimulator.MESSAGE_NO_TIN)
-            owner == null -> refusal(ObrSimulator.MESSAGE_UNKNOWN_TIN)
+            owner == null -> refusal(
+                ObrSimulator.MESSAGE_UNKNOWN_TIN,
+                UNAUTHORIZED,
+                ObrSimulator.MESSAGE_UNKNOWN_TIN_OBSERVED,
+            )
             else -> jsonResponse(
                 HTTP_OK,
                 buildJsonObject {
@@ -128,8 +141,11 @@ internal class ObrServices(var username: String, var password: String) {
             (body["invoice_items"] as? JsonArray).orEmpty().isNotEmpty()
         return when {
             !complete -> refusal(ObrSimulator.MESSAGE_MISSING_FIELDS)
-            invoices.values.any { it.text("invoice_number") == number } ->
-                refusal(ObrSimulator.MESSAGE_DUPLICATE_NUMBER)
+            invoices.values.any { it.text("invoice_number") == number } -> refusal(
+                ObrSimulator.MESSAGE_DUPLICATE_NUMBER,
+                CONFLICT,
+                ObrSimulator.MESSAGE_DUPLICATE_NUMBER_OBSERVED,
+            )
             customerTin.isNotEmpty() && customerTin !in taxpayers ->
                 refusal(ObrSimulator.MESSAGE_UNKNOWN_CUSTOMER_TIN)
             else -> {
@@ -166,7 +182,7 @@ internal class ObrServices(var username: String, var password: String) {
         val invoice = invoices[identifier]
         return when {
             identifier.isEmpty() -> refusal(ObrSimulator.MESSAGE_NO_IDENTIFIER)
-            invoice == null -> refusal(ObrSimulator.MESSAGE_UNKNOWN_IDENTIFIER)
+            invoice == null -> refusal(ObrSimulator.MESSAGE_UNKNOWN_IDENTIFIER, UNAUTHORIZED)
             else -> jsonResponse(
                 HTTP_OK,
                 buildJsonObject {
@@ -184,7 +200,9 @@ internal class ObrServices(var username: String, var password: String) {
         put("cancelled_invoice", if (identifier in cancelled) "Y" else "N")
     }
 
-    private fun refusal(message: String) = jsonResponse(BAD_REQUEST, failure(message))
+    /** @return the refusal of the specification, or the one the server was seen to give instead. */
+    private fun refusal(specified: String, observedCode: Int, observed: String = specified) =
+        if (asSpecified) refusal(specified) else jsonResponse(observedCode, failure(observed))
 
     private companion object {
         /** The registered numbers follow each other from this one. */
@@ -201,6 +219,9 @@ private fun parse(body: String): JsonObject? =
     } catch (_: SerializationException) {
         null
     }
+
+/** @return the 400 of the specification with [message]. */
+private fun refusal(message: String) = jsonResponse(BAD_REQUEST, failure(message))
 
 internal fun failure(message: String) = buildJsonObject {
     put("success", false)

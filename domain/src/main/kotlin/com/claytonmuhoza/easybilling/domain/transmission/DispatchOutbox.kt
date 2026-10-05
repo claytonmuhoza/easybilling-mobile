@@ -17,6 +17,16 @@ object ObrMessages {
     /** The number is already known: an earlier attempt may have succeeded without its answer. */
     const val DUPLICATE_NUMBER = "Une facture avec le même numéro de facture existe déjà."
 
+    /** The same refusal as the server really words it (observed on 5 October 2026). */
+    const val DUPLICATE_NUMBER_OBSERVED = "Une facture avec le même numéro existe déjà."
+
+    /**
+     * @param message a refusal of the OBR.
+     * @return whether it says the number is already known, in either wording.
+     */
+    fun isDuplicateNumber(message: String): Boolean =
+        message == DUPLICATE_NUMBER || message == DUPLICATE_NUMBER_OBSERVED
+
     /** The clock of the device is ahead of the one of the OBR: to send again later. */
     const val DATE_IN_FUTURE = "La date de facturation fournie est supérieur à la date actuelle."
 }
@@ -168,10 +178,10 @@ class DispatchOutbox(
             is SendOutcome.NotDelivered -> Attempt.Later(outcome.reason, uncertain = false)
             is SendOutcome.Uncertain -> Attempt.Later(outcome.reason, uncertain = true)
             SendOutcome.TokenRefused -> Attempt.Later("TOKEN_REFUSED", uncertain = false)
-            is SendOutcome.Rejected -> when (outcome.message) {
-                ObrMessages.DATE_IN_FUTURE -> Attempt.Later(outcome.message, uncertain = false)
+            is SendOutcome.Rejected -> when {
+                outcome.message == ObrMessages.DATE_IN_FUTURE -> Attempt.Later(outcome.message, uncertain = false)
                 // An earlier attempt may have succeeded: only the OBR can tell.
-                ObrMessages.DUPLICATE_NUMBER -> lookedUp(target, invoice, outcome.message) {
+                ObrMessages.isDuplicateNumber(outcome.message) -> lookedUp(target, invoice, outcome.message) {
                     Attempt.Rejected(outcome.message)
                 }
                 else -> Attempt.Rejected(outcome.message)

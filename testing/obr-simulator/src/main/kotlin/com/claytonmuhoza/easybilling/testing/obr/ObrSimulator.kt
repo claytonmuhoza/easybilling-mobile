@@ -48,6 +48,12 @@ class ObrSimulator(
     /** The invoices the server accepted, by `invoice_identifier`, as they were sent. */
     val invoices: Map<String, JsonObject> get() = services.invoices
 
+    /**
+     * Whether the unknown and the duplicate are answered as the specification says (400, its
+     * messages) instead of as the server of the OBR really does (see [ObrServices.asSpecified]).
+     */
+    var asSpecified: Boolean by services::asSpecified
+
     /** Whether the acknowledgements spell the signature `electronique_signature`, as some examples do. */
     var alternateSignatureName: Boolean by services::alternateSignatureName
 
@@ -155,6 +161,9 @@ class ObrSimulator(
         /** Message of `checkTIN/` for a TIN the OBR does not know (400), page 28 of the specification. */
         const val MESSAGE_UNKNOWN_TIN = "NIF du contribuable inconnu."
 
+        /** Message the server really gives for a TIN it does not know, with 401 (observed on 5 October 2026). */
+        const val MESSAGE_UNKNOWN_TIN_OBSERVED = "NIF du contribuable inconnu. empty"
+
         /** Message of a request that is not a POST (400), pages 19 and 28 of the specification. */
         const val MESSAGE_USE_POST = "Veuillez utiliser la méthode POST pour envoyer les données."
 
@@ -166,6 +175,9 @@ class ObrSimulator(
 
         /** Message of an invoice whose number the OBR already has (400), page 26 of the specification. */
         const val MESSAGE_DUPLICATE_NUMBER = "Une facture avec le même numéro de facture existe déjà."
+
+        /** Message the server really gives for a number it already has, with 409 (observed on 5 October 2026). */
+        const val MESSAGE_DUPLICATE_NUMBER_OBSERVED = "Une facture avec le même numéro existe déjà."
 
         /** Message of an invoice dated after the clock of the OBR (400), page 22 of the specification. */
         const val MESSAGE_DATE_IN_FUTURE = "La date de facturation fournie est supérieur à la date actuelle."
