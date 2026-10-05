@@ -404,7 +404,7 @@ class EbmsConnectionFlowTest {
     @Test
     @Config(qualifiers = "fr")
     fun `the screen is translated in French`() {
-        composeRule.pressInSettings("Connexion EBMS", banner = "Synchronisé avec l'OBR", settings = "Paramètres")
+        composeRule.pressInSettings("Connexion EBMS", settings = "Paramètres")
 
         composeRule.waitForText("Tester la connexion").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Adresse du serveur").performScrollTo().assertIsDisplayed()

@@ -232,7 +232,7 @@ class TaxProfileFlowTest {
     @Test
     @Config(qualifiers = "fr")
     fun `the form is translated in French`() {
-        composeRule.pressInSettings("Profil fiscal", banner = "Synchronisé avec l'OBR", settings = "Paramètres")
+        composeRule.pressInSettings("Profil fiscal", settings = "Paramètres")
 
         composeRule.waitForText("Nom ou raison sociale").assertIsDisplayed()
         composeRule.onNodeWithText("Personne morale").assertIsDisplayed()

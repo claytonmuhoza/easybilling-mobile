@@ -258,7 +258,7 @@ class TaxesFlowTest {
     @Config(qualifiers = "fr")
     fun `the taxes are translated in French`() {
         launch()
-        composeRule.pressInSettings("Taxes", banner = "Synchronisé avec l'OBR", settings = "Paramètres")
+        composeRule.pressInSettings("Taxes", settings = "Paramètres")
 
         composeRule.waitForText("Aucune taxe").assertIsDisplayed()
         composeRule.onNodeWithText("Nouvelle taxe").assertIsDisplayed()
