@@ -46,7 +46,8 @@ import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
 import com.claytonmuhoza.easybilling.testing.TestCertificates
 import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
 import com.claytonmuhoza.easybilling.testing.pressInForm
-import com.claytonmuhoza.easybilling.testing.pressOnHome
+import com.claytonmuhoza.easybilling.testing.openSettings
+import com.claytonmuhoza.easybilling.testing.pressInSettings
 import com.claytonmuhoza.easybilling.testing.replaceInForm
 import com.claytonmuhoza.easybilling.testing.typeInForm
 import com.claytonmuhoza.easybilling.testing.waitForText
@@ -125,7 +126,7 @@ class EbmsConnectionFlowTest {
 
     private fun openScreen() {
         // The card is below the fold of a small phone since the home screen opens the cash register.
-        composeRule.pressOnHome("EBMS connection")
+        composeRule.pressInSettings("EBMS connection")
         composeRule.waitForText("Test the connection")
     }
 
@@ -143,7 +144,8 @@ class EbmsConnectionFlowTest {
     }
 
     @Test
-    fun `the home screen asks for the connection while it is not configured`() {
+    fun `the settings ask for the connection while it is not configured`() {
+        composeRule.openSettings()
         composeRule.waitForText("EBMS connection").performScrollTo().assertIsDisplayed()
         composeRule.waitForText("To configure").assertIsDisplayed()
     }
@@ -402,7 +404,7 @@ class EbmsConnectionFlowTest {
     @Test
     @Config(qualifiers = "fr")
     fun `the screen is translated in French`() {
-        composeRule.pressOnHome("Connexion EBMS", banner = "Synchronisé avec l'OBR")
+        composeRule.pressInSettings("Connexion EBMS", banner = "Synchronisé avec l'OBR", settings = "Paramètres")
 
         composeRule.waitForText("Tester la connexion").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Adresse du serveur").performScrollTo().assertIsDisplayed()

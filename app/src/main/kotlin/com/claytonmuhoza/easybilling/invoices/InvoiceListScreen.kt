@@ -61,13 +61,11 @@ private val TypeTileSize = 40.dp
 /**
  * List of the invoices wired to its view model.
  *
- * @param onBack called when the user goes back.
  * @param onOpenInvoice called with the identifier of the invoice the user opens.
  * @param viewModel holder of the list state.
  */
 @Composable
 fun InvoiceListRoute(
-    onBack: () -> Unit,
     onOpenInvoice: (Long) -> Unit,
     viewModel: InvoiceListViewModel = hiltViewModel(),
 ) {
@@ -79,7 +77,6 @@ fun InvoiceListRoute(
     InvoiceListScreen(
         state = state,
         actions = InvoiceListActions(
-            onBack = onBack,
             onOpenInvoice = onOpenInvoice,
             onQueryChange = viewModel::onQueryChange,
             onStatusChange = viewModel::onStatusChange,
@@ -92,7 +89,6 @@ fun InvoiceListRoute(
 /**
  * What the user can do on the list of the invoices.
  *
- * @property onBack called when the user goes back.
  * @property onOpenInvoice called with the identifier of the invoice the user opens.
  * @property onQueryChange called with the new content of the search field.
  * @property onStatusChange called with the status to list, or null for every status.
@@ -100,7 +96,6 @@ fun InvoiceListRoute(
  * @property onRetry called when the user asks to read the invoices again.
  */
 class InvoiceListActions(
-    val onBack: () -> Unit = {},
     val onOpenInvoice: (Long) -> Unit = {},
     val onQueryChange: (String) -> Unit = {},
     val onStatusChange: (InvoiceStatusKind?) -> Unit = {},
@@ -109,7 +104,7 @@ class InvoiceListActions(
 )
 
 /**
- * The issued invoices (UC-C08): searched by number or customer, filtered by status and by period,
+ * The issued invoices (UC-C08), the "Invoices" tab: searched by number or customer, filtered by status and by period,
  * grouped by day with the number and the total of each day.
  *
  * @param state the list state.
@@ -118,7 +113,7 @@ class InvoiceListActions(
  */
 @Composable
 fun InvoiceListScreen(state: InvoiceListUiState, actions: InvoiceListActions, modifier: Modifier = Modifier) {
-    TitledScreen(title = stringResource(R.string.invoices_title), modifier = modifier, onBack = actions.onBack) {
+    TitledScreen(title = stringResource(R.string.invoices_title), modifier = modifier) {
         when (state) {
             InvoiceListUiState.Loading -> LoadingState()
             InvoiceListUiState.Failed -> ErrorState(
@@ -254,9 +249,12 @@ private fun Notice(text: String, small: Boolean = false) {
  * An invoice: its type, its number and its total on one line, then its customer and its status.
  * A rejected invoice shows the message of the OBR instead of the customer; a cancelled one has its
  * total struck.
+ *
+ * @param invoice the invoice.
+ * @param onOpen called with the identifier of the invoice when the user opens it.
  */
 @Composable
-private fun InvoiceCard(invoice: InvoiceSummary, onOpen: (Long) -> Unit) {
+internal fun InvoiceCard(invoice: InvoiceSummary, onOpen: (Long) -> Unit) {
     val kind = invoice.status.kind
     TonalCard(onClick = { onOpen(invoice.id.value) }, modifier = Modifier.fillMaxWidth()) {
         Row(

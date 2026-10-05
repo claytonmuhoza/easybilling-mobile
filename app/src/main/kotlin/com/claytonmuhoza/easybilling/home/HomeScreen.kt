@@ -1,12 +1,24 @@
 package com.claytonmuhoza.easybilling.home
 
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.claytonmuhoza.easybilling.R
@@ -15,77 +27,44 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.AppIconImage
 import com.claytonmuhoza.easybilling.core.designsystem.component.FormColumn
 import com.claytonmuhoza.easybilling.core.designsystem.component.NavigationRow
 import com.claytonmuhoza.easybilling.core.designsystem.component.SectionHeader
-import com.claytonmuhoza.easybilling.core.designsystem.component.StatusChip
-import com.claytonmuhoza.easybilling.core.designsystem.component.TextAction
+import com.claytonmuhoza.easybilling.core.designsystem.component.StatusBanner
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
+import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
 import com.claytonmuhoza.easybilling.core.designsystem.theme.StatusTone
-import com.claytonmuhoza.easybilling.domain.configuration.ReadinessStep
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceSummary
+import com.claytonmuhoza.easybilling.invoices.InvoiceCard
 import com.claytonmuhoza.easybilling.transmission.TransmissionBannerRoute
+
+/** Width from which "New sale" is a card at the top instead of a floating button. */
+private const val WIDE_SCREEN_DP = 600
+
+/** Room left under the content of a narrow screen, so the floating button hides nothing. */
+private val FloatingButtonRoom = 88.dp
 
 /**
  * Home screen wired to its view model.
  *
  * @param userName name of the logged in user.
- * @param onLogOut called when the user asks to log out.
- * @param onOpenTaxProfile called when the user opens the tax profile.
- * @param onOpenEbmsConnection called when the user opens the connection to the EBMS.
- * @param onOpenTaxes called when the user opens the taxes.
- * @param onOpenNumbering called when the user opens the numbering.
- * @param onOpenItems called when the user opens the items.
- * @param onOpenCustomers called when the user opens the customers.
- * @param onOpenSale called when the user opens the cash register.
- * @param onOpenInvoices called when the user opens the issued invoices.
+ * @param actions where the home screen leads.
  * @param onOpenTransmission called when the user opens the transmission to the OBR.
  * @param viewModel holder of the home state.
  */
 @Composable
 fun HomeRoute(
     userName: String,
-    onLogOut: () -> Unit,
-    onOpenTaxProfile: () -> Unit,
-    onOpenEbmsConnection: () -> Unit,
-    onOpenTaxes: () -> Unit,
-    onOpenNumbering: () -> Unit,
-    onOpenItems: () -> Unit,
-    onOpenCustomers: () -> Unit,
-    onOpenSale: () -> Unit,
-    onOpenInvoices: () -> Unit,
+    actions: HomeActions,
     onOpenTransmission: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
-    val taxProfileStatus by viewModel.taxProfileStatus.collectAsStateWithLifecycle()
-    val ebmsStatus by viewModel.ebmsStatus.collectAsStateWithLifecycle()
-    val taxesStatus by viewModel.taxesStatus.collectAsStateWithLifecycle()
-    val numberingStatus by viewModel.numberingStatus.collectAsStateWithLifecycle()
-    val readiness by viewModel.readiness.collectAsStateWithLifecycle()
-    val catalogStatus by viewModel.catalogStatus.collectAsStateWithLifecycle()
-    val customersStatus by viewModel.customersStatus.collectAsStateWithLifecycle()
-    val salesStatus by viewModel.salesStatus.collectAsStateWithLifecycle()
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
-    // Reloaded each time the screen appears: the settings may have changed on their own screens.
+    // Reloaded each time the screen appears: a sale, an invoice or a setting may have changed.
     LaunchedEffect(Unit) { viewModel.load() }
 
     HomeScreen(
         userName = userName,
-        taxProfileStatus = taxProfileStatus,
-        ebmsStatus = ebmsStatus,
-        taxesStatus = taxesStatus,
-        numberingStatus = numberingStatus,
-        readiness = readiness,
-        catalogStatus = catalogStatus,
-        customersStatus = customersStatus,
-        salesStatus = salesStatus,
-        actions = HomeActions(
-            onLogOut = onLogOut,
-            onOpenTaxProfile = onOpenTaxProfile,
-            onOpenEbmsConnection = onOpenEbmsConnection,
-            onOpenTaxes = onOpenTaxes,
-            onOpenNumbering = onOpenNumbering,
-            onOpenItems = onOpenItems,
-            onOpenCustomers = onOpenCustomers,
-            onOpenSale = onOpenSale,
-            onOpenInvoices = onOpenInvoices,
-        ),
+        state = state,
+        actions = actions,
         banner = { TransmissionBannerRoute(compact = false, onOpen = onOpenTransmission) },
     )
 }
@@ -93,41 +72,29 @@ fun HomeRoute(
 /**
  * What the user can do on the home screen.
  *
- * @property onLogOut called when the user asks to log out.
- * @property onOpenTaxProfile called when the user opens the tax profile.
- * @property onOpenEbmsConnection called when the user opens the connection to the EBMS.
- * @property onOpenTaxes called when the user opens the taxes.
- * @property onOpenNumbering called when the user opens the numbering.
+ * @property onOpenSettings called when the user opens the settings.
+ * @property onOpenSale called when the user opens the cash register.
  * @property onOpenItems called when the user opens the items.
  * @property onOpenCustomers called when the user opens the customers.
- * @property onOpenSale called when the user opens the cash register.
- * @property onOpenInvoices called when the user opens the issued invoices.
+ * @property onOpenInvoices called when the user asks for every invoice.
+ * @property onOpenInvoice called with the identifier of the invoice the user opens.
  */
 class HomeActions(
-    val onLogOut: () -> Unit = {},
-    val onOpenTaxProfile: () -> Unit = {},
-    val onOpenEbmsConnection: () -> Unit = {},
-    val onOpenTaxes: () -> Unit = {},
-    val onOpenNumbering: () -> Unit = {},
+    val onOpenSettings: () -> Unit = {},
+    val onOpenSale: () -> Unit = {},
     val onOpenItems: () -> Unit = {},
     val onOpenCustomers: () -> Unit = {},
-    val onOpenSale: () -> Unit = {},
     val onOpenInvoices: () -> Unit = {},
+    val onOpenInvoice: (Long) -> Unit = {},
 )
 
 /**
- * Home screen: a welcome, the cash register, what is left to do before the first invoice and the
- * settings.
+ * Home screen, the "Register" tab: a welcome, the state of the transmission, the cash register
+ * with its sales on hold, the items and the customers, and the latest invoices. The settings are
+ * one touch away; what is left to configure before the first invoice is said here.
  *
  * @param userName name of the logged in user.
- * @param taxProfileStatus where the tax profile stands.
- * @param ebmsStatus where the connection to the EBMS stands.
- * @param taxesStatus where the taxes stand.
- * @param numberingStatus where the numbering stands.
- * @param readiness what is left to configure before the first invoice.
- * @param catalogStatus where the catalogue stands.
- * @param customersStatus where the customers stand.
- * @param salesStatus where the sales stand.
+ * @param state what the screen sums up.
  * @param actions what the user can do.
  * @param modifier modifier applied to the screen.
  * @param banner the state of the transmission to the OBR, shown under the welcome.
@@ -135,141 +102,108 @@ class HomeActions(
 @Composable
 fun HomeScreen(
     userName: String,
-    taxProfileStatus: TaxProfileStatus,
-    ebmsStatus: EbmsStatus,
-    taxesStatus: TaxesStatus,
-    numberingStatus: NumberingStatus,
-    readiness: ReadinessStatus,
-    catalogStatus: CatalogStatus,
-    customersStatus: CustomersStatus,
-    salesStatus: SalesStatus,
+    state: HomeUiState,
     actions: HomeActions,
     modifier: Modifier = Modifier,
     banner: @Composable () -> Unit = {},
 ) {
+    val wide = LocalConfiguration.current.screenWidthDp >= WIDE_SCREEN_DP
     TitledScreen(
         title = stringResource(R.string.app_name),
         modifier = modifier,
-        actions = { TextAction(label = stringResource(R.string.home_log_out), onClick = actions.onLogOut) },
+        actions = {
+            IconButton(onClick = actions.onOpenSettings) {
+                AppIconImage(AppIcon.SETTINGS, contentDescription = stringResource(R.string.settings_title))
+            }
+        },
     ) {
         FormColumn {
             Text(text = stringResource(R.string.home_welcome, userName), style = MaterialTheme.typography.headlineSmall)
-            Text(
-                text = stringResource(R.string.home_empty_message),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             banner()
-            SaleSection(salesStatus, actions)
-
-            SectionHeader(stringResource(R.string.home_settings))
-            ReadinessSummary(readiness)
-            SettingCard(
-                title = stringResource(R.string.tax_profile_title),
-                status = taxProfileStatus.text(),
-                done = readiness.done(ReadinessStep.TAX_PROFILE),
-                icon = AppIcon.BUSINESS,
-                onOpen = actions.onOpenTaxProfile,
-            )
-            SettingCard(
-                title = stringResource(R.string.ebms_title),
-                status = ebmsStatus.text(),
-                done = readiness.done(ReadinessStep.EBMS_CONNECTION),
-                icon = AppIcon.CLOUD,
-                onOpen = actions.onOpenEbmsConnection,
-            )
-            SettingCard(
-                title = stringResource(R.string.taxes_title),
-                status = taxesStatus.text(),
-                done = readiness.done(ReadinessStep.VAT),
-                icon = AppIcon.TAG,
-                onOpen = actions.onOpenTaxes,
-            )
-            SettingCard(
-                title = stringResource(R.string.numbering_title),
-                status = numberingStatus.text(),
-                done = readiness.done(ReadinessStep.NUMBERING),
-                icon = AppIcon.TUNE,
-                onOpen = actions.onOpenNumbering,
-            )
-            CatalogueSection(catalogStatus, customersStatus, actions)
+            NotReadyNotice(state.readiness, actions.onOpenSettings)
+            SaleSection(state.salesStatus, wide, actions.onOpenSale)
+            CatalogueSection(state.catalogStatus, state.customersStatus, actions)
+            RecentInvoices(state.recentInvoices, actions)
+            if (!wide) Spacer(Modifier.height(FloatingButtonRoom))
         }
+        if (!wide) NewSaleButton(actions.onOpenSale)
     }
 }
 
-/** The cash register, and the invoices it issued. */
+/** While the configuration is not complete: why nothing can be sold, and the way to the settings. */
 @Composable
-private fun SaleSection(salesStatus: SalesStatus, actions: HomeActions) {
-    NavigationRow(
-        title = stringResource(R.string.home_new_sale),
-        onClick = actions.onOpenSale,
-        supporting = salesStatus.text(),
-        icon = AppIcon.CART,
-        trailing = { AppIconImage(AppIcon.ARROW_FORWARD, contentDescription = null) },
-        container = MaterialTheme.colorScheme.primaryContainer,
-    )
-    NavigationRow(
-        title = stringResource(R.string.invoices_title),
-        onClick = actions.onOpenInvoices,
-        supporting = stringResource(R.string.home_invoices_text),
-        icon = AppIcon.INVOICE,
-    )
+private fun NotReadyNotice(status: ReadinessStatus, onOpenSettings: () -> Unit) {
+    val known = status as? ReadinessStatus.Known ?: return
+    if (!known.readiness.ready) {
+        StatusBanner(StatusTone.PENDING, stringResource(R.string.home_readiness_not_ready))
+        TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.home_open_settings)) }
+    }
+}
+
+/**
+ * The cash register: a card on a wide screen, where the floating button is not shown; on a narrow
+ * one, only the sales on hold, when there are some.
+ */
+@Composable
+private fun SaleSection(salesStatus: SalesStatus, wide: Boolean, onOpenSale: () -> Unit) {
+    val held = (salesStatus as? SalesStatus.Counted)?.held ?: 0
+    if (wide) {
+        NavigationRow(
+            title = stringResource(R.string.home_new_sale),
+            onClick = onOpenSale,
+            supporting = salesStatus.text(),
+            icon = AppIcon.CART,
+            trailing = { AppIconImage(AppIcon.ARROW_FORWARD, contentDescription = null) },
+            container = MaterialTheme.colorScheme.primaryContainer,
+        )
+    } else if (held > 0) {
+        NavigationRow(
+            title = stringResource(R.string.home_held_sales),
+            onClick = onOpenSale,
+            supporting = salesStatus.text(),
+            icon = AppIcon.PAUSE,
+        )
+    }
+}
+
+/** "New sale", always within reach of the thumb on a narrow screen. */
+@Composable
+private fun BoxScope.NewSaleButton(onOpenSale: () -> Unit) {
+    // The form with its own content: the one with an icon and a text animates its text in.
+    ExtendedFloatingActionButton(
+        onClick = onOpenSale,
+        modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.large),
+    ) {
+        AppIconImage(AppIcon.CART, contentDescription = null)
+        Text(stringResource(R.string.home_new_sale), modifier = Modifier.padding(start = Spacing.small))
+    }
 }
 
 /** The items and the customers, which the sale picks from. */
 @Composable
 private fun CatalogueSection(catalogStatus: CatalogStatus, customersStatus: CustomersStatus, actions: HomeActions) {
     SectionHeader(stringResource(R.string.home_catalog))
-    SettingCard(
-        title = stringResource(R.string.items_title),
-        status = catalogStatus.text(),
-        done = null,
-        icon = AppIcon.ITEMS,
-        onOpen = actions.onOpenItems,
-    )
-    SettingCard(
-        title = stringResource(R.string.customers_title),
-        status = customersStatus.text(),
-        done = null,
-        icon = AppIcon.GROUP,
-        onOpen = actions.onOpenCustomers,
-    )
-}
-
-/**
- * A setting to open. [done] tells whether it is ready for the first invoice; null shows nothing,
- * for a setting that is not required or not read yet.
- */
-@Composable
-private fun SettingCard(title: String, status: String, done: Boolean?, icon: AppIcon, onOpen: () -> Unit) {
     NavigationRow(
-        title = title,
-        onClick = onOpen,
-        supporting = status,
-        icon = icon,
-        trailing = done?.let {
-            {
-                StatusChip(
-                    tone = if (it) StatusTone.SUCCESS else StatusTone.PENDING,
-                    label = stringResource(if (it) R.string.home_readiness_done else R.string.home_readiness_to_do),
-                )
-            }
-        },
+        title = stringResource(R.string.items_title),
+        onClick = actions.onOpenItems,
+        supporting = catalogStatus.text(),
+        icon = AppIcon.ITEMS,
+    )
+    NavigationRow(
+        title = stringResource(R.string.customers_title),
+        onClick = actions.onOpenCustomers,
+        supporting = customersStatus.text(),
+        icon = AppIcon.GROUP,
     )
 }
 
-/** Whether invoices can be issued; the cards below show what is left to do. */
+/** The latest invoices, and the way to all of them; nothing while there is no invoice. */
 @Composable
-private fun ReadinessSummary(status: ReadinessStatus) {
-    val known = status as? ReadinessStatus.Known ?: return
-    val ready = known.readiness.ready
-    Text(
-        text = stringResource(if (ready) R.string.home_readiness_ready else R.string.home_readiness_not_ready),
-        style = MaterialTheme.typography.bodyMedium,
-        color = if (ready) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-    )
+private fun RecentInvoices(invoices: List<InvoiceSummary>, actions: HomeActions) {
+    if (invoices.isEmpty()) return
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        SectionHeader(stringResource(R.string.home_recent_invoices), modifier = Modifier.weight(1f))
+        TextButton(onClick = actions.onOpenInvoices) { Text(stringResource(R.string.home_see_all)) }
+    }
+    invoices.forEach { InvoiceCard(it, actions.onOpenInvoice) }
 }
-
-/** @return whether [step] is done, or null when it does not apply or is not known yet. */
-private fun ReadinessStatus.done(step: ReadinessStep): Boolean? =
-    (this as? ReadinessStatus.Known)?.readiness?.steps?.get(step)

@@ -62,9 +62,7 @@
 
     <!-- Home -->
     <string name="home_welcome">Bienvenue, %1$s</string>
-    <string name="home_empty_message">L\'application est prête. Ses fonctionnalités arriveront étape par étape.</string>
     <string name="home_log_out">Se déconnecter</string>
-    <string name="home_settings">Configuration</string>
     <string name="home_tax_profile_to_complete">À compléter</string>
     <string name="home_tax_profile_version">Version %1$d</string>
     <string name="home_status_unreadable">Lecture impossible</string>
@@ -487,7 +485,7 @@
     <string name="sale_held_action">En attente (%1$d)</string>
     <string name="sale_load_error">La vente n\'a pas pu être lue.</string>
     <string name="sale_not_ready_title">Caisse bloquée</string>
-    <string name="sale_not_ready_message">Terminez les réglages marqués « À faire » sur l\'accueil avant de vendre.</string>
+    <string name="sale_not_ready_message">Terminez les étapes marquées « À faire » dans les paramètres avant de vendre.</string>
     <string name="sale_search">Rechercher un article ou scanner un code-barres</string>
     <string name="sale_catalogue_empty">Le catalogue n\'a aucun article à vendre. Créez d\'abord les articles.</string>
     <string name="sale_in_sale">× %1$s</string>
@@ -610,7 +608,6 @@
     <string name="transmission_attempts">Essais : %1$d · dernier : %2$s</string>
     <!-- Invoices -->
     <string name="invoices_title">Factures</string>
-    <string name="home_invoices_text">Rechercher, vérifier chez l\'OBR, traiter les rejets</string>
     <string name="invoices_search">Numéro ou client</string>
     <string name="invoices_load_error">Les factures n\'ont pas pu être lues.</string>
     <string name="invoices_filter_all">Toutes</string>
@@ -685,4 +682,14 @@
     <string name="invoice_copy_total">Total chez l\'OBR</string>
     <string name="invoice_copy_cancelled">Annulée chez l\'OBR</string>
     <string name="invoice_copy_unknown">Non précisé par l\'OBR</string>
+    <!-- Navigation and settings -->
+    <string name="settings_title">Paramètres</string>
+    <string name="nav_register">Caisse</string>
+    <string name="home_open_settings">Ouvrir les paramètres</string>
+    <string name="home_held_sales">Ventes en attente</string>
+    <string name="home_recent_invoices">Dernières factures</string>
+    <string name="home_see_all">Tout voir</string>
+    <string name="settings_billing">Avant la première facture</string>
+    <string name="settings_session">Session</string>
+    <string name="settings_logged_in_as">Connecté en tant que %1$s</string>
 </resources>

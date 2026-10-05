@@ -15,7 +15,8 @@ import com.claytonmuhoza.easybilling.domain.identity.SessionManager
 import com.claytonmuhoza.easybilling.testing.TestClock
 import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
 import com.claytonmuhoza.easybilling.testing.pressInForm
-import com.claytonmuhoza.easybilling.testing.pressOnHome
+import com.claytonmuhoza.easybilling.testing.openSettings
+import com.claytonmuhoza.easybilling.testing.pressInSettings
 import com.claytonmuhoza.easybilling.testing.replaceInForm
 import com.claytonmuhoza.easybilling.testing.typeInForm
 import com.claytonmuhoza.easybilling.testing.waitForText
@@ -78,7 +79,7 @@ class TaxProfileFlowTest {
     fun closeActivity() = scenario.close()
 
     private fun openForm() {
-        composeRule.pressOnHome("Tax profile")
+        composeRule.pressInSettings("Tax profile")
         composeRule.waitForText("Save")
     }
 
@@ -107,17 +108,19 @@ class TaxProfileFlowTest {
     }
 
     @Test
-    fun `the home screen asks for the tax profile while there is none`() {
-        composeRule.waitForText("Synchronised with the OBR")
+    fun `the settings ask for the tax profile while there is none`() {
+        composeRule.openSettings()
         composeRule.waitForText("Tax profile").performScrollTo().assertIsDisplayed()
         composeRule.waitForText("To complete").performScrollTo().assertIsDisplayed()
     }
 
     @Test
-    fun `a complete profile is saved as version 1 and the home screen shows it`() {
+    fun `a complete profile is saved as version 1 and the settings show it`() {
         saveFirstVersion()
 
-        composeRule.onNodeWithText("Welcome, Alice").performScrollTo().assertIsDisplayed()
+        // Saving comes back to the settings, where the profile was opened from.
+        composeRule.onNodeWithText("Before the first invoice").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Version 1").performScrollTo().assertIsDisplayed()
         val saved = runBlocking { profiles.current() }
         assertEquals(1, saved?.number)
         assertEquals("Boutique Umuco SPRL", saved?.profile?.name)
@@ -229,7 +232,7 @@ class TaxProfileFlowTest {
     @Test
     @Config(qualifiers = "fr")
     fun `the form is translated in French`() {
-        composeRule.pressOnHome("Profil fiscal", banner = "Synchronisé avec l'OBR")
+        composeRule.pressInSettings("Profil fiscal", banner = "Synchronisé avec l'OBR", settings = "Paramètres")
 
         composeRule.waitForText("Nom ou raison sociale").assertIsDisplayed()
         composeRule.onNodeWithText("Personne morale").assertIsDisplayed()

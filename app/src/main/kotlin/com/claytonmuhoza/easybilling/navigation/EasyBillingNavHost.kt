@@ -1,5 +1,7 @@
 package com.claytonmuhoza.easybilling.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -21,6 +23,7 @@ import com.claytonmuhoza.easybilling.domain.identity.Session
 import com.claytonmuhoza.easybilling.ebms.EbmsConnectionRoute
 import com.claytonmuhoza.easybilling.ebms.ExchangeLogRoute
 import com.claytonmuhoza.easybilling.ebms.ExchangeRoute
+import com.claytonmuhoza.easybilling.home.HomeActions
 import com.claytonmuhoza.easybilling.home.HomeRoute
 import com.claytonmuhoza.easybilling.invoices.InvoiceDetailRoute
 import com.claytonmuhoza.easybilling.invoices.InvoiceListRoute
@@ -33,6 +36,8 @@ import com.claytonmuhoza.easybilling.sale.HeldSalesRoute
 import com.claytonmuhoza.easybilling.sale.InvoiceIssuedRoute
 import com.claytonmuhoza.easybilling.sale.SaleCustomerRoute
 import com.claytonmuhoza.easybilling.sale.SaleRoute
+import com.claytonmuhoza.easybilling.settings.SettingsActions
+import com.claytonmuhoza.easybilling.settings.SettingsRoute
 import com.claytonmuhoza.easybilling.setup.SetupRoute
 import com.claytonmuhoza.easybilling.taxes.LinePreviewRoute
 import com.claytonmuhoza.easybilling.taxes.TaxEditorRoute
@@ -93,20 +98,19 @@ fun EasyBillingNavHost(
         composable<ResetPinDestination> {
             ResetPinRoute(onClose = { navController.popBackStack() })
         }
-        composable<HomeDestination> {
+        mainTabs(access, navController)
+        composable<SettingsDestination> {
             LoggedIn(access) { session ->
-                HomeRoute(
+                SettingsRoute(
                     userName = session.userName,
-                    onLogOut = onLogOut,
-                    onOpenTaxProfile = { navController.navigate(TaxProfileDestination) },
-                    onOpenEbmsConnection = { navController.navigate(EbmsConnectionDestination) },
-                    onOpenTaxes = { navController.navigate(TaxesDestination) },
-                    onOpenNumbering = { navController.navigate(NumberingDestination) },
-                    onOpenItems = { navController.navigate(ItemsDestination) },
-                    onOpenCustomers = { navController.navigate(CustomersDestination) },
-                    onOpenSale = { navController.navigate(SaleDestination) },
-                    onOpenInvoices = { navController.navigate(InvoicesDestination) },
-                    onOpenTransmission = { navController.navigate(TransmissionDestination) },
+                    actions = SettingsActions(
+                        onBack = { navController.popBackStack() },
+                        onLogOut = onLogOut,
+                        onOpenTaxProfile = { navController.navigate(TaxProfileDestination) },
+                        onOpenEbmsConnection = { navController.navigate(EbmsConnectionDestination) },
+                        onOpenTaxes = { navController.navigate(TaxesDestination) },
+                        onOpenNumbering = { navController.navigate(NumberingDestination) },
+                    ),
                 )
             }
         }
@@ -116,7 +120,14 @@ fun EasyBillingNavHost(
         itemScreens(access, navController)
         customerScreens(access, navController)
         saleScreens(access, navController)
-        invoiceScreens(access, navController)
+        composable<InvoiceDestination> {
+            LoggedIn(access) {
+                InvoiceDetailRoute(
+                    onBack = { navController.popBackStack() },
+                    onOpenSale = { navController.navigate(SaleDestination) },
+                )
+            }
+        }
         composable<NumberingDestination> {
             LoggedIn(access) {
                 NumberingRoute(onBack = { navController.popBackStack() })
@@ -274,22 +285,53 @@ private fun NavGraphBuilder.saleScreens(access: AccessState.Ready, navController
     }
 }
 
-/** The issued invoices and the detail of one (UC-C08, UC-C09, UC-D04). */
-private fun NavGraphBuilder.invoiceScreens(access: AccessState.Ready, navController: NavHostController) {
-    composable<InvoicesDestination> {
-        LoggedIn(access) {
-            InvoiceListRoute(
-                onBack = { navController.popBackStack() },
-                onOpenInvoice = { id -> navController.navigate(InvoiceDestination(id)) },
-            )
+/**
+ * The two main screens, each inside the navigation that leads to the other: the home screen
+ * ("Register") and the issued invoices (UC-C08). They replace each other without a transition, so
+ * the navigation does not move.
+ */
+private fun NavGraphBuilder.mainTabs(access: AccessState.Ready, navController: NavHostController) {
+    val openTab: (MainTab) -> Unit = { tab ->
+        navController.navigate(tab.destination) {
+            // The home screen stays under the other tab: "back" returns to it.
+            popUpTo<HomeDestination> { saveState = true }
+            launchSingleTop = true
+            restoreState = true
         }
     }
-    composable<InvoiceDestination> {
+    composable<HomeDestination>(
+        enterTransition = { EnterTransition.None },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = { ExitTransition.None },
+    ) {
+        LoggedIn(access) { session ->
+            MainTabs(selected = MainTab.REGISTER, onSelect = openTab) {
+                HomeRoute(
+                    userName = session.userName,
+                    actions = HomeActions(
+                        onOpenSettings = { navController.navigate(SettingsDestination) },
+                        onOpenSale = { navController.navigate(SaleDestination) },
+                        onOpenItems = { navController.navigate(ItemsDestination) },
+                        onOpenCustomers = { navController.navigate(CustomersDestination) },
+                        onOpenInvoices = { openTab(MainTab.INVOICES) },
+                        onOpenInvoice = { id -> navController.navigate(InvoiceDestination(id)) },
+                    ),
+                    onOpenTransmission = { navController.navigate(TransmissionDestination) },
+                )
+            }
+        }
+    }
+    composable<InvoicesDestination>(
+        enterTransition = { EnterTransition.None },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = { ExitTransition.None },
+    ) {
         LoggedIn(access) {
-            InvoiceDetailRoute(
-                onBack = { navController.popBackStack() },
-                onOpenSale = { navController.navigate(SaleDestination) },
-            )
+            MainTabs(selected = MainTab.INVOICES, onSelect = openTab) {
+                InvoiceListRoute(onOpenInvoice = { id -> navController.navigate(InvoiceDestination(id)) })
+            }
         }
     }
 }

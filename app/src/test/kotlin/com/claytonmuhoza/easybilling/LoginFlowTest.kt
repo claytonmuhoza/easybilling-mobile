@@ -27,6 +27,7 @@ import com.claytonmuhoza.easybilling.domain.identity.CreateAdministrator
 import com.claytonmuhoza.easybilling.domain.identity.User
 import com.claytonmuhoza.easybilling.testing.TestClock
 import com.claytonmuhoza.easybilling.testing.enterPin
+import com.claytonmuhoza.easybilling.testing.openSettings
 import com.claytonmuhoza.easybilling.testing.press
 import com.claytonmuhoza.easybilling.testing.pressInForm
 import com.claytonmuhoza.easybilling.testing.pressKey
@@ -219,8 +220,7 @@ class LoginFlowTest {
 
         composeRule.waitForText("Welcome, Alice").assertIsDisplayed()
         composeRule.onNodeWithText("EasyBilling").assertIsDisplayed()
-        composeRule.onNodeWithText("The application is ready. Its features will arrive step by step.")
-            .assertIsDisplayed()
+        composeRule.onNodeWithText("Register").assertIsDisplayed()
     }
 
     @Test
@@ -251,9 +251,9 @@ class LoginFlowTest {
 
         composeRule.waitForText("Bienvenue, Alice").assertIsDisplayed()
         composeRule.onNodeWithText("EasyBilling").assertIsDisplayed()
-        composeRule.onNodeWithText("L'application est prête. Ses fonctionnalités arriveront étape par étape.")
-            .assertIsDisplayed()
-        composeRule.onNodeWithText("Se déconnecter").assertIsDisplayed()
+        composeRule.onNodeWithText("Caisse").assertIsDisplayed()
+        composeRule.onNodeWithText("Factures").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Paramètres").assertIsDisplayed()
     }
 
     @Test
@@ -315,7 +315,8 @@ class LoginFlowTest {
         logIn("123456")
         composeRule.waitForText("Welcome, Alice")
 
-        composeRule.press("Log out")
+        composeRule.openSettings()
+        composeRule.pressInForm("Log out")
 
         composeRule.waitForText("Enter your PIN to continue").assertIsDisplayed()
         composeRule.onNodeWithText("Welcome, Alice").assertDoesNotExist()
