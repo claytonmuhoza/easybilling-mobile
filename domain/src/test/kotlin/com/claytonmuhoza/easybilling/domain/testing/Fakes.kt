@@ -31,6 +31,8 @@ import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
 import com.claytonmuhoza.easybilling.domain.customer.CustomerSearchText
 import com.claytonmuhoza.easybilling.domain.customer.TinLookup
 import com.claytonmuhoza.easybilling.domain.customer.TinReply
+import com.claytonmuhoza.easybilling.domain.document.DocumentSettings
+import com.claytonmuhoza.easybilling.domain.document.DocumentSettingsRepository
 import com.claytonmuhoza.easybilling.domain.identity.NewUser
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCode
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCodeGenerator
@@ -214,6 +216,16 @@ class InMemoryTaxRepository : TaxRepository {
 
     override suspend fun setArchived(id: TaxId, archived: Boolean) {
         taxes[id] = taxes.getValue(id).copy(archived = archived)
+    }
+}
+
+/** Settings of the documents kept in a field. */
+class InMemoryDocumentSettingsRepository(private var settings: DocumentSettings = DocumentSettings()) :
+    DocumentSettingsRepository {
+    override suspend fun read(): DocumentSettings = settings
+
+    override suspend fun write(settings: DocumentSettings) {
+        this.settings = settings
     }
 }
 

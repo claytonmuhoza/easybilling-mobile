@@ -7,6 +7,8 @@ import com.claytonmuhoza.easybilling.data.local.audit.AuditDao
 import com.claytonmuhoza.easybilling.data.local.audit.AuditEntryEntity
 import com.claytonmuhoza.easybilling.data.local.catalog.ItemDao
 import com.claytonmuhoza.easybilling.data.local.catalog.ItemEntity
+import com.claytonmuhoza.easybilling.data.local.configuration.DocumentSettingsDao
+import com.claytonmuhoza.easybilling.data.local.configuration.DocumentSettingsEntity
 import com.claytonmuhoza.easybilling.data.local.configuration.EbmsSettingsDao
 import com.claytonmuhoza.easybilling.data.local.configuration.EbmsSettingsEntity
 import com.claytonmuhoza.easybilling.data.local.configuration.NumberCounterEntity
@@ -50,7 +52,7 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
  * counters (step 06); 6 items of the catalogue (step 07); 7 customers (step 08); 8 sales that are not
  * issued, issued invoices with their status, and send queue (step 09); 9 state of the send queue and
  * acknowledgements of the OBR (step 10); 10 total and search text of the invoices, and seller of the
- * invoices sent again (step 12).
+ * invoices sent again (step 12); 11 settings of the documents (step 13).
  */
 @Database(
     entities = [
@@ -73,8 +75,9 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
         InvoiceSellerEntity::class,
         OutboxEntryEntity::class,
         InvoiceReceiptEntity::class,
+        DocumentSettingsEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 // One accessor per DAO: the list grows with the schema.
@@ -109,6 +112,8 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
     abstract fun outboxDao(): OutboxDao
 
     abstract fun receiptDao(): ReceiptDao
+
+    abstract fun documentSettingsDao(): DocumentSettingsDao
 }
 
 /**
