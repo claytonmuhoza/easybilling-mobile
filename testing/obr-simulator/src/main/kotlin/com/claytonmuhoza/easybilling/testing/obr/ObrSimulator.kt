@@ -96,6 +96,15 @@ class ObrSimulator(
         services.loseNextAcknowledgement = true
     }
 
+    /**
+     * The invoice is cancelled on the server: `getInvoice/` now reads it with `cancelled_invoice` `Y`.
+     *
+     * @param identifier the `invoice_identifier` of an accepted invoice.
+     */
+    fun markCancelled(identifier: String) {
+        services.cancelled += identifier
+    }
+
     /** Every token given so far is now refused: the next authenticated call needs a new login. */
     fun expireTokens() = services.expireTokens()
 

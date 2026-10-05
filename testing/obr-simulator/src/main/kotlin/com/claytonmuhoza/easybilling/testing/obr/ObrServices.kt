@@ -42,6 +42,7 @@ internal class ObrServices(var username: String, var password: String) {
     val taxpayers: MutableMap<String, String> =
         ConcurrentHashMap(mapOf(ObrSimulator.KNOWN_TIN to ObrSimulator.KNOWN_TAXPAYER))
     val invoices: MutableMap<String, JsonObject> = ConcurrentHashMap()
+    val cancelled: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     @Volatile
     var alternateSignatureName = false
@@ -171,10 +172,16 @@ internal class ObrServices(var username: String, var password: String) {
                 buildJsonObject {
                     put("success", true)
                     put("msg", ObrSimulator.MESSAGE_SUCCESS)
-                    putJsonObject("result") { putJsonArray("invoices") { add(invoice) } }
+                    putJsonObject("result") { putJsonArray("invoices") { add(invoice.read(identifier)) } }
                 },
             )
         }
+    }
+
+    /** @return this invoice as it is read: as it was sent, with `cancelled_invoice` (`N` or `Y`). */
+    private fun JsonObject.read(identifier: String) = buildJsonObject {
+        forEach { (name, value) -> put(name, value) }
+        put("cancelled_invoice", if (identifier in cancelled) "Y" else "N")
     }
 
     private fun refusal(message: String) = jsonResponse(BAD_REQUEST, failure(message))

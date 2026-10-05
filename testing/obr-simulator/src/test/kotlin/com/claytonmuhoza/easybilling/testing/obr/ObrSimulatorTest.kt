@@ -128,6 +128,10 @@ class ObrSimulatorTest {
         val (found, invoices) = post("getInvoice/", """{"invoice_identifier":"id/FN-1"}""", token = token)
         assertEquals(200, found)
         assertTrue(""""invoices":[{"invoice_number":"FN-1"""" in invoices, invoices)
+        assertTrue(""""cancelled_invoice":"N"""" in invoices, invoices)
+        simulator.markCancelled("id/FN-1")
+        val cancelled = post("getInvoice/", """{"invoice_identifier":"id/FN-1"}""", token = token).second
+        assertTrue(""""cancelled_invoice":"Y"""" in cancelled, cancelled)
         val unknown = post("getInvoice/", """{"invoice_identifier":"x"}""", token = token)
         assertTrue(ObrSimulator.MESSAGE_UNKNOWN_IDENTIFIER in unknown.second, unknown.second)
         assertTrue(ObrSimulator.MESSAGE_NO_IDENTIFIER in post("getInvoice/", """{}""", token = token).second)

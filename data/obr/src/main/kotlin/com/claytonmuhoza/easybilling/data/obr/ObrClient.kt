@@ -11,6 +11,7 @@ import com.claytonmuhoza.easybilling.domain.transmission.LoginTarget
 import com.claytonmuhoza.easybilling.domain.transmission.LookupOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.ObrAuthentication
 import com.claytonmuhoza.easybilling.domain.transmission.ObrGateway
+import com.claytonmuhoza.easybilling.domain.transmission.ObrInvoiceCopy
 import com.claytonmuhoza.easybilling.domain.transmission.ObrReceipt
 import com.claytonmuhoza.easybilling.domain.transmission.SendOutcome
 import kotlinx.serialization.SerializationException
@@ -22,6 +23,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import okhttp3.OkHttpClient
+import java.math.BigDecimal
 import java.time.Duration
 
 /** Builds the HTTP client of the EBMS. */
@@ -140,8 +142,9 @@ class ObrClient(http: OkHttpClient, recorder: ExchangeRecorder, time: TimeProvid
 
     private fun lookupOutcome(reply: ObrReply.Answered, identifier: String): LookupOutcome {
         val json = parse(reply.body)
+        val copy = if (reply.code == HTTP_OK) json?.invoiceCopy(identifier) else null
         return when {
-            reply.code == HTTP_OK && json?.hasInvoice(identifier) == true -> LookupOutcome.Found
+            copy != null -> LookupOutcome.Found(copy)
             reply.code == HTTP_UNAUTHORIZED || reply.code == HTTP_FORBIDDEN -> LookupOutcome.TokenRefused
             reply.code == HTTP_BAD_REQUEST && json?.text("msg") == UNKNOWN_IDENTIFIER -> LookupOutcome.NotFound
             else -> LookupOutcome.Unavailable("HTTP ${reply.code}")
@@ -204,12 +207,37 @@ private fun JsonObject.receipt(raw: String): ObrReceipt? {
     }
 }
 
-/** @return whether this answer of `getInvoice/` holds the invoice with [identifier]. */
-private fun JsonObject.hasInvoice(identifier: String): Boolean {
+/**
+ * @return the invoice with [identifier] in this answer of `getInvoice/` (pages 17 and 18), or null
+ * if the answer does not hold it. The total is the sum of the `item_total_amount`: the answer has
+ * no total of its own.
+ */
+private fun JsonObject.invoiceCopy(identifier: String): ObrInvoiceCopy? {
     val success = (this["success"] as? JsonPrimitive)?.booleanOrNull
     val invoices = (this["result"] as? JsonObject)?.get("invoices") as? JsonArray
-    return success == true &&
-        invoices.orEmpty().any { (it as? JsonObject)?.text("invoice_identifier") == identifier }
+    val invoice = invoices.orEmpty().filterIsInstance<JsonObject>()
+        .firstOrNull { it.text("invoice_identifier") == identifier }
+        ?.takeIf { success == true }
+        ?: return null
+    val items = (invoice["invoice_items"] as? JsonArray).orEmpty()
+    val totals = items.map { (it as? JsonObject)?.text("item_total_amount")?.toBigDecimalOrNull() }
+    return ObrInvoiceCopy(
+        number = invoice.text("invoice_number").orEmpty(),
+        date = invoice.text("invoice_date").orEmpty(),
+        customerName = invoice.text("customer_name").orEmpty(),
+        itemCount = items.size,
+        total = totals.filterNotNull().takeIf { it.size == totals.size && it.isNotEmpty() }
+            ?.fold(BigDecimal.ZERO, BigDecimal::add),
+        cancelled = when (invoice.text("cancelled_invoice")) {
+            CANCELLED_YES -> true
+            CANCELLED_NO -> false
+            else -> null
+        },
+    )
 }
+
+/** The values of `cancelled_invoice`. */
+private const val CANCELLED_YES = "Y"
+private const val CANCELLED_NO = "N"
 
 private fun JsonObject.text(name: String): String? = (this[name] as? JsonPrimitive)?.content?.trim()
