@@ -278,8 +278,17 @@ class ObrClientInvoiceTest {
     fun `the two refusals the send queue reacts to are the messages of the specification`() = runTest {
         assertIs<SendOutcome.Accepted>(send())
 
+        // The server answers 409 with its own wording; both wordings are a duplicate for the queue.
+        assertEquals(SendOutcome.Rejected(ObrMessages.DUPLICATE_NUMBER_OBSERVED), send())
+        assertEquals(409, exchanges.last().statusCode)
+        assertEquals(ObrSimulator.MESSAGE_DUPLICATE_NUMBER_OBSERVED, ObrMessages.DUPLICATE_NUMBER_OBSERVED)
+        assertTrue(ObrMessages.isDuplicateNumber(ObrMessages.DUPLICATE_NUMBER_OBSERVED))
+
+        simulator.asSpecified = true
         assertEquals(SendOutcome.Rejected(ObrMessages.DUPLICATE_NUMBER), send())
+        assertEquals(400, exchanges.last().statusCode)
         assertEquals(ObrSimulator.MESSAGE_DUPLICATE_NUMBER, ObrMessages.DUPLICATE_NUMBER)
+        assertTrue(ObrMessages.isDuplicateNumber(ObrMessages.DUPLICATE_NUMBER))
         assertEquals(ObrSimulator.MESSAGE_DATE_IN_FUTURE, ObrMessages.DATE_IN_FUTURE)
     }
 
@@ -347,6 +356,12 @@ class ObrClientInvoiceTest {
         assertEquals(LookupOutcome.Found(copy), client.getInvoice(target, token, invoice().content.identifier))
         assertEquals(LookupOutcome.NotFound, client.getInvoice(target, token, "4000000001/ws/20261003101542/X"))
 
+        // The server answers 401 for an unknown identifier; the specification says 400.
+        assertEquals(401, exchanges.last().statusCode)
+        simulator.asSpecified = true
+        assertEquals(LookupOutcome.NotFound, client.getInvoice(target, token, "4000000001/ws/20261003101542/X"))
+        assertEquals(400, exchanges.last().statusCode)
+
         val request = simulator.requests.last()
         assertEquals("/ebms_api/getInvoice/", request.url.encodedPath)
         assertEquals("""{"invoice_identifier":"4000000001/ws/20261003101542/X"}""", request.body!!.utf8())
@@ -392,6 +407,30 @@ class ObrClientInvoiceTest {
         // A total that is not a number is not guessed.
         simulator.forceNext(MockResponse.Builder().code(200).body(answer("\"\"")).build())
         assertEquals(LookupOutcome.Found(copy.copy(total = null)), client.getInvoice(target, token, identifier))
+    }
+
+    @Test
+    fun `an answer the server starts with a warning in HTML is still read`() = runTest {
+        val token = token()
+        client.addInvoice(target, token, invoice(), seller)
+        val warning = "<br /><b>Warning</b>: Undefined variable \$cle_recherche in <b>getInvoice.php</b><br />"
+
+        val found = warning + """{"success":true,"result":{"invoices":[{"invoice_number":"FN-00001/2026",""" +
+            """"invoice_identifier":"${invoice().content.identifier}","invoice_items":[]}]}}"""
+        simulator.forceNext(MockResponse.Builder().code(200).body(found).build())
+        assertIs<LookupOutcome.Found>(client.getInvoice(target, token, invoice().content.identifier))
+
+        val unknown = warning + """{"success":false,"msg":"${ObrSimulator.MESSAGE_UNKNOWN_IDENTIFIER}","result":[]}"""
+        simulator.forceNext(MockResponse.Builder().code(401).body(unknown).build())
+        assertEquals(LookupOutcome.NotFound, client.getInvoice(target, token, invoice().content.identifier))
+    }
+
+    @Test
+    fun `a 401 that does not say the identifier is unknown concludes nothing and asks for no new token`() = runTest {
+        val token = token()
+        simulator.failNext(401, "Autre refus")
+
+        assertEquals(LookupOutcome.Unavailable("HTTP 401"), client.getInvoice(target, token, "x"))
     }
 
     @Test

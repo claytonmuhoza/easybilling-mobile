@@ -77,14 +77,14 @@ class ObrSimulatorTest {
     }
 
     @Test
-    fun `an unknown TIN, a missing TIN or a broken body is refused with 400`() {
+    fun `an unknown TIN is refused as the server does, a missing TIN or a broken body with 400`() {
         val token = token()
         simulator.taxpayers["4000303030"] = "BRASSERIE DU LAC"
 
         assertEquals(200, post("checkTIN/", """{"tp_TIN":"4000303030"}""", token = token).first)
         val (code, body) = post("checkTIN/", """{"tp_TIN":"999"}""", token = token)
-        assertEquals(400, code)
-        assertTrue(ObrSimulator.MESSAGE_UNKNOWN_TIN in body, body)
+        assertEquals(401, code)
+        assertTrue(ObrSimulator.MESSAGE_UNKNOWN_TIN_OBSERVED in body, body)
         assertTrue(ObrSimulator.MESSAGE_NO_TIN in post("checkTIN/", """{}""", token = token).second)
         assertTrue(ObrSimulator.MESSAGE_INVALID_JSON in post("checkTIN/", """not json""", token = token).second)
         assertTrue(ObrSimulator.MESSAGE_USE_POST in post("checkTIN/", "", method = "GET", token = token).second)
@@ -138,13 +138,14 @@ class ObrSimulatorTest {
     }
 
     @Test
-    fun `an invoice that is incomplete, known already or for an unknown customer TIN is refused with 400`() {
+    fun `an invoice that is incomplete, known already or for an unknown customer TIN is refused`() {
         val token = token()
         post("addInvoice_confirm/", invoice("FN-1"), token = token)
 
         val duplicate = post("addInvoice_confirm/", invoice("FN-1"), token = token)
-        assertEquals(400, duplicate.first)
-        assertTrue(ObrSimulator.MESSAGE_DUPLICATE_NUMBER in duplicate.second, duplicate.second)
+        // 409 and its own wording, as the server does; the specification form is checked apart.
+        assertEquals(409, duplicate.first)
+        assertTrue(ObrSimulator.MESSAGE_DUPLICATE_NUMBER_OBSERVED in duplicate.second, duplicate.second)
         val incomplete = post("addInvoice_confirm/", invoice("FN-2").replace("\"RC 1\"", "\"\""), token = token)
         assertTrue(ObrSimulator.MESSAGE_MISSING_FIELDS in incomplete.second, incomplete.second)
         val unknown = post("addInvoice_confirm/", invoice("FN-2", customerTin = "999"), token = token)
@@ -152,6 +153,26 @@ class ObrSimulatorTest {
         assertEquals(200, post("addInvoice_confirm/", invoice("FN-2", customerTin = "4000202020"), token = token).first)
         assertEquals(403, post("addInvoice_confirm/", invoice("FN-3")).first)
         assertEquals(setOf("id/FN-1", "id/FN-2"), simulator.invoices.keys)
+    }
+
+    @Test
+    fun `the unknown and the duplicate are answered as the server does, or as the specification says`() {
+        val token = token()
+        post("addInvoice_confirm/", invoice("FN-1"), token = token)
+
+        val duplicate = post("addInvoice_confirm/", invoice("FN-1"), token = token)
+        assertEquals(409, duplicate.first)
+        assertTrue(ObrSimulator.MESSAGE_DUPLICATE_NUMBER_OBSERVED in duplicate.second, duplicate.second)
+        assertEquals(401, post("getInvoice/", """{"invoice_identifier":"x"}""", token = token).first)
+
+        simulator.asSpecified = true
+        val specified = post("addInvoice_confirm/", invoice("FN-1"), token = token)
+        assertEquals(400, specified.first)
+        assertTrue(ObrSimulator.MESSAGE_DUPLICATE_NUMBER in specified.second, specified.second)
+        assertEquals(400, post("getInvoice/", """{"invoice_identifier":"x"}""", token = token).first)
+        val (code, body) = post("checkTIN/", """{"tp_TIN":"999"}""", token = token)
+        assertEquals(400, code)
+        assertTrue(ObrSimulator.MESSAGE_UNKNOWN_TIN in body && ObrSimulator.MESSAGE_UNKNOWN_TIN_OBSERVED !in body, body)
     }
 
     @Test

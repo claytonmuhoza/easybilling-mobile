@@ -98,8 +98,10 @@ class ObrClient(http: OkHttpClient, recorder: ExchangeRecorder, time: TimeProvid
         val message = json?.text("msg").orEmpty()
         return when (reply.code) {
             HTTP_OK -> json?.taxpayerName()?.let { TinReply.Known(it) } ?: TinReply.InvalidResponse
-            HTTP_UNAUTHORIZED, HTTP_FORBIDDEN -> TinReply.TokenRefused
-            HTTP_BAD_REQUEST -> if (message == UNKNOWN_TIN) TinReply.Unknown else TinReply.Refused(message)
+            HTTP_FORBIDDEN -> TinReply.TokenRefused
+            // The server answers 401 for an unknown TIN, and adds words to the message.
+            HTTP_BAD_REQUEST, HTTP_UNAUTHORIZED ->
+                if (message.startsWith(UNKNOWN_TIN)) TinReply.Unknown else TinReply.Refused(message)
             in HTTP_SERVER_ERRORS -> TinReply.ServerError
             else -> TinReply.InvalidResponse
         }
@@ -127,7 +129,8 @@ class ObrClient(http: OkHttpClient, recorder: ExchangeRecorder, time: TimeProvid
             HTTP_OK -> json?.receipt(reply.body)?.let { SendOutcome.Accepted(it) }
                 ?: SendOutcome.Uncertain("HTTP $HTTP_OK without an acknowledgement")
             HTTP_UNAUTHORIZED, HTTP_FORBIDDEN -> SendOutcome.TokenRefused
-            HTTP_BAD_REQUEST -> SendOutcome.Rejected(json?.text("msg").orEmpty())
+            // The server answers 409 for a number it already has.
+            HTTP_BAD_REQUEST, HTTP_CONFLICT -> SendOutcome.Rejected(json?.text("msg").orEmpty())
             else -> SendOutcome.NotDelivered("HTTP ${reply.code}")
         }
     }
@@ -145,8 +148,9 @@ class ObrClient(http: OkHttpClient, recorder: ExchangeRecorder, time: TimeProvid
         val copy = if (reply.code == HTTP_OK) json?.invoiceCopy(identifier) else null
         return when {
             copy != null -> LookupOutcome.Found(copy)
-            reply.code == HTTP_UNAUTHORIZED || reply.code == HTTP_FORBIDDEN -> LookupOutcome.TokenRefused
-            reply.code == HTTP_BAD_REQUEST && json?.text("msg") == UNKNOWN_IDENTIFIER -> LookupOutcome.NotFound
+            reply.code == HTTP_FORBIDDEN -> LookupOutcome.TokenRefused
+            // The server answers 401 for an unknown identifier; the specification says 400.
+            reply.code in UNKNOWN_CODES && json?.text("msg") == UNKNOWN_IDENTIFIER -> LookupOutcome.NotFound
             else -> LookupOutcome.Unavailable("HTTP ${reply.code}")
         }
     }
@@ -160,19 +164,33 @@ class ObrClient(http: OkHttpClient, recorder: ExchangeRecorder, time: TimeProvid
         /** The only refusal of `getInvoice/` that means the OBR does not have the invoice (page 19). */
         const val UNKNOWN_IDENTIFIER = "Identifiant de la facture inconnu."
 
-        /** The only refusal of `checkTIN/` that means the TIN does not exist (page 28). */
+        /**
+         * The start of the only refusal of `checkTIN/` that means the TIN does not exist (page 28);
+         * the server was seen to add words after it.
+         */
         const val UNKNOWN_TIN = "NIF du contribuable inconnu."
         const val HTTP_OK = 200
         const val HTTP_BAD_REQUEST = 400
         const val HTTP_UNAUTHORIZED = 401
         const val HTTP_FORBIDDEN = 403
+        const val HTTP_CONFLICT = 409
+
+        /**
+         * The codes "unknown" comes with: 400 in the specification, 401 on the server. Only 403 is
+         * a refused token, on every service but `login/`.
+         */
+        val UNKNOWN_CODES = setOf(HTTP_BAD_REQUEST, HTTP_UNAUTHORIZED)
         val HTTP_SERVER_ERRORS = 500..599
     }
 }
 
+/**
+ * @return the JSON object of [body], or null if there is none. The server sometimes writes a
+ * warning in HTML before the object: what precedes the first brace is skipped.
+ */
 private fun parse(body: String): JsonObject? =
     try {
-        Json.parseToJsonElement(body) as? JsonObject
+        Json.parseToJsonElement(body.substring(body.indexOf('{').coerceAtLeast(0))) as? JsonObject
     } catch (_: SerializationException) {
         null
     }

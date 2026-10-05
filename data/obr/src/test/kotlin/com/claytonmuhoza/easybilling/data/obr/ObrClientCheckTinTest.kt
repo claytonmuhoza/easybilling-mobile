@@ -77,6 +77,26 @@ class ObrClientCheckTinTest {
     @Test
     fun `a TIN the OBR does not know is unknown`() = runTest {
         assertEquals(TinReply.Unknown, client.check(target, token(), "999"))
+        // The server answers 401 with a longer message; the specification says 400.
+        val exchange = exchanges.last()
+        assertEquals(401, exchange.statusCode)
+        assertTrue(ObrSimulator.MESSAGE_UNKNOWN_TIN_OBSERVED in exchange.responseBody)
+    }
+
+    @Test
+    fun `a TIN the OBR does not know is unknown as the specification answers it too`() = runTest {
+        simulator.asSpecified = true
+
+        assertEquals(TinReply.Unknown, client.check(target, token(), "999"))
+        assertEquals(400, exchanges.last().statusCode)
+    }
+
+    @Test
+    fun `a 401 that is not about the TIN keeps its message and asks for no new token`() = runTest {
+        val token = token()
+        simulator.failNext(401, "Autre refus")
+
+        assertEquals(TinReply.Refused("Autre refus"), client.check(target, token, ObrSimulator.KNOWN_TIN))
     }
 
     @Test
