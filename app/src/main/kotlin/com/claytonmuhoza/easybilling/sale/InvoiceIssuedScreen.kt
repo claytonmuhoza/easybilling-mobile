@@ -65,6 +65,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** Side of the circle that shows the status of the invoice. */
@@ -139,23 +140,24 @@ class InvoiceIssuedViewModel @Inject constructor(
     /** Reads the invoice. Also used to retry. */
     fun load() {
         viewModelScope.launch {
-            mutableState.value = storageCall {
+            val read = storageCall {
                 val invoice = invoices.find(id)
                 val status = invoices.statusOf(id)
                 if (invoice != null && status != null) {
-                    val shown = mutableState.value as? InvoiceIssuedUiState.Ready
-                    InvoiceIssuedUiState.Ready(
-                        invoice = invoice,
-                        status = status,
-                        receipt = receipts.find(id),
-                        pdfProblem = shown?.pdfProblem,
-                        print = shown?.print,
-                        busy = shown?.busy == true,
-                    )
+                    InvoiceIssuedUiState.Ready(invoice, status, receipts.find(id))
                 } else {
                     InvoiceIssuedUiState.NotFound
                 }
             }.getOrElse { InvoiceIssuedUiState.Failed }
+            // A print or a PDF may have ended while the storage was read: what the screen says of
+            // them is taken from the state as it is now, not as it was before the reading.
+            mutableState.update { shown ->
+                if (read is InvoiceIssuedUiState.Ready && shown is InvoiceIssuedUiState.Ready) {
+                    read.copy(pdfProblem = shown.pdfProblem, print = shown.print, busy = shown.busy)
+                } else {
+                    read
+                }
+            }
         }
     }
 
