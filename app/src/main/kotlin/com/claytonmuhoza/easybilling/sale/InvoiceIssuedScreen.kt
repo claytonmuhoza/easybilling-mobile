@@ -42,8 +42,11 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.icon
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
 import com.claytonmuhoza.easybilling.core.designsystem.theme.palette
 import com.claytonmuhoza.easybilling.documents.InvoicePdfActions
+import com.claytonmuhoza.easybilling.documents.InvoicePrintActions
 import com.claytonmuhoza.easybilling.documents.PdfButtons
 import com.claytonmuhoza.easybilling.documents.PdfOutcome
+import com.claytonmuhoza.easybilling.documents.PrintButton
+import com.claytonmuhoza.easybilling.documents.PrintUiState
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
@@ -61,6 +64,8 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** Side of the circle that shows the status of the invoice. */
@@ -84,6 +89,7 @@ sealed interface InvoiceIssuedUiState {
      * @property status where it stands with the OBR.
      * @property receipt the acknowledgement of the OBR, or null while there is none.
      * @property pdfProblem why the PDF was not opened or shared at the last try, or null.
+     * @property print where the printing of the ticket stands, or null before the first print.
      * @property busy true while a PDF is created.
      */
     data class Ready(
@@ -91,18 +97,23 @@ sealed interface InvoiceIssuedUiState {
         val status: InvoiceStatus,
         val receipt: ObrReceipt? = null,
         val pdfProblem: PdfOutcome? = null,
+        val print: PrintUiState? = null,
         val busy: Boolean = false,
     ) : InvoiceIssuedUiState
 }
 
-/** Reads the invoice that was just issued, and follows its transmission to the OBR. */
+/**
+ * Reads the invoice that was just issued, follows its transmission to the OBR, and prints its
+ * ticket at once when the settings of the printer say so.
+ */
 @HiltViewModel
 class InvoiceIssuedViewModel @Inject constructor(
-    savedStateHandle: SavedStateHandle,
+    private val savedStateHandle: SavedStateHandle,
     private val invoices: InvoiceRepository,
     private val receipts: ReceiptArchive,
     private val transmission: TransmissionRunner,
     private val pdfActions: InvoicePdfActions,
+    private val printActions: InvoicePrintActions,
 ) : ViewModel() {
 
     private val id = InvoiceId(savedStateHandle.toRoute<InvoiceIssuedDestination>().id)
@@ -116,27 +127,50 @@ class InvoiceIssuedViewModel @Inject constructor(
         transmission.kick()
         // The status is read again each time a pass over the send queue ends.
         viewModelScope.launch { transmission.passes.collect { load() } }
+        viewModelScope.launch {
+            // Once per sale: coming back to this screen prints nothing again.
+            if (savedStateHandle.get<Boolean>(AUTO_PRINTED) != true && printActions.printsAfterSale()) {
+                savedStateHandle[AUTO_PRINTED] = true
+                state.first { it is InvoiceIssuedUiState.Ready }
+                print()
+            }
+        }
     }
 
     /** Reads the invoice. Also used to retry. */
     fun load() {
         viewModelScope.launch {
-            mutableState.value = storageCall {
+            val read = storageCall {
                 val invoice = invoices.find(id)
                 val status = invoices.statusOf(id)
                 if (invoice != null && status != null) {
-                    val shown = mutableState.value as? InvoiceIssuedUiState.Ready
-                    InvoiceIssuedUiState.Ready(
-                        invoice = invoice,
-                        status = status,
-                        receipt = receipts.find(id),
-                        pdfProblem = shown?.pdfProblem,
-                        busy = shown?.busy == true,
-                    )
+                    InvoiceIssuedUiState.Ready(invoice, status, receipts.find(id))
                 } else {
                     InvoiceIssuedUiState.NotFound
                 }
             }.getOrElse { InvoiceIssuedUiState.Failed }
+            // A print or a PDF may have ended while the storage was read: what the screen says of
+            // them is taken from the state as it is now, not as it was before the reading.
+            mutableState.update { shown ->
+                if (read is InvoiceIssuedUiState.Ready && shown is InvoiceIssuedUiState.Ready) {
+                    read.copy(pdfProblem = shown.pdfProblem, print = shown.print, busy = shown.busy)
+                } else {
+                    read
+                }
+            }
+        }
+    }
+
+    /** Prints the ticket of the invoice on the associated printer (UC-G01). */
+    fun print() {
+        val shown = (mutableState.value as? InvoiceIssuedUiState.Ready)?.takeIf { it.print != PrintUiState.Printing }
+            ?: return
+        mutableState.value = shown.copy(print = PrintUiState.Printing)
+        viewModelScope.launch {
+            val result = printActions.print(id)
+            (mutableState.value as? InvoiceIssuedUiState.Ready)?.let {
+                mutableState.value = it.copy(print = PrintUiState.Done(result))
+            }
         }
     }
 
@@ -155,6 +189,11 @@ class InvoiceIssuedViewModel @Inject constructor(
                 mutableState.value = it.copy(busy = false, pdfProblem = problem)
             }
         }
+    }
+
+    private companion object {
+        /** Key under which the screen remembers that the ticket of this sale was printed by itself. */
+        const val AUTO_PRINTED = "autoPrinted"
     }
 }
 
@@ -177,6 +216,7 @@ fun InvoiceIssuedRoute(
         actions = InvoiceIssuedActions(
             onNewSale = onNewSale,
             onHome = onHome,
+            onPrint = viewModel::print,
             onOpenPdf = viewModel::openPdf,
             onSharePdf = viewModel::sharePdf,
             onRetry = viewModel::load,
@@ -189,6 +229,7 @@ fun InvoiceIssuedRoute(
  *
  * @property onNewSale called when the user starts another sale.
  * @property onHome called when the user goes back to the home screen.
+ * @property onPrint called when the user prints the ticket of the invoice.
  * @property onOpenPdf called when the user opens the PDF of the invoice.
  * @property onSharePdf called when the user shares the PDF of the invoice.
  * @property onRetry called when the user asks to read the invoice again.
@@ -196,6 +237,7 @@ fun InvoiceIssuedRoute(
 class InvoiceIssuedActions(
     val onNewSale: () -> Unit = {},
     val onHome: () -> Unit = {},
+    val onPrint: () -> Unit = {},
     val onOpenPdf: () -> Unit = {},
     val onSharePdf: () -> Unit = {},
     val onRetry: () -> Unit = {},
@@ -244,6 +286,7 @@ fun InvoiceIssuedScreen(state: InvoiceIssuedUiState, actions: InvoiceIssuedActio
                         Text(text = invoice.identifier, fontFamily = FontFamily.Monospace)
                     }
                 }
+                PrintButton(actions.onPrint, state.print, enabled = !state.busy)
                 PdfButtons(actions.onOpenPdf, actions.onSharePdf, state.pdfProblem, enabled = !state.busy)
                 Button(onClick = actions.onNewSale, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.invoice_issued_new_sale))

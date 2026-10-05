@@ -718,4 +718,31 @@
     <string name="document_settings_not_saved">Les réglages n\'ont pas pu être enregistrés. Réessayez.</string>
     <string name="settings_documents">Factures</string>
     <string name="document_bottom">Bas de la facture</string>
+    <!-- Printing -->
+    <string name="print_ticket">Imprimer le ticket</string>
+    <string name="print_running">Impression en cours…</string>
+    <string name="print_done">Ticket envoyé à l’imprimante.</string>
+    <string name="print_no_printer">Aucune imprimante n’est associée. Choisissez-en une dans Paramètres › Imprimante.</string>
+    <string name="print_bluetooth_off">Le Bluetooth est désactivé. Activez-le, puis relancez l’impression.</string>
+    <string name="print_permission_missing">L’application n’est pas autorisée à utiliser le Bluetooth. Autorisez-la dans Paramètres › Imprimante.</string>
+    <string name="print_unreachable">L’imprimante ne répond pas. Vérifiez qu’elle est allumée, à portée et qu’elle a du papier.</string>
+    <string name="printer_title">Imprimante</string>
+    <string name="printer_none">Aucune imprimante</string>
+    <string name="printer_load_error">Les réglages de l’imprimante n’ont pas pu être lus.</string>
+    <string name="printer_intro">Les tickets s’impriment sur une imprimante Bluetooth déjà appairée à cet appareil dans les réglages Bluetooth d’Android.</string>
+    <string name="printer_paired">Imprimantes appairées</string>
+    <string name="printer_none_paired">Aucun appareil n’est appairé. Appairez l’imprimante dans les réglages Bluetooth d’Android, puis revenez ici.</string>
+    <string name="printer_not_paired_any_more">%1$s · n’est plus appairée</string>
+    <string name="printer_bluetooth_off">Le Bluetooth est désactivé. Activez-le pour choisir une imprimante.</string>
+    <string name="printer_permission_needed">L’application a besoin de votre autorisation pour se connecter aux appareils Bluetooth. Elle ne recherche jamais d’appareils et n’utilise pas votre position.</string>
+    <string name="printer_allow">Autoriser le Bluetooth</string>
+    <string name="printer_check_again">Vérifier à nouveau</string>
+    <string name="printer_width">Largeur du papier</string>
+    <string name="printer_width_58">58 mm</string>
+    <string name="printer_width_80">80 mm</string>
+    <string name="printer_accents">Imprimer les accents</string>
+    <string name="printer_accents_help">Désactivé, les lettres accentuées sont imprimées sans accent (é devient e), ce que toute imprimante sait faire. Activez-le si la page de test affiche bien les accents.</string>
+    <string name="printer_auto_print">Imprimer le ticket dès qu’une vente est validée</string>
+    <string name="printer_test_page">Imprimer une page de test</string>
+    <string name="printer_not_saved">Le réglage n’a pas pu être enregistré. Réessayez.</string>
 </resources>

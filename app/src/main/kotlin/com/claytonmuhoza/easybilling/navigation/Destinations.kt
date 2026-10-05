@@ -26,6 +26,10 @@ data object SettingsDestination
 @Serializable
 data object DocumentSettingsDestination
 
+/** The printer of the tickets and how it prints. */
+@Serializable
+data object PrinterSettingsDestination
+
 /** Entry and change of the tax profile. */
 @Serializable
 data object TaxProfileDestination

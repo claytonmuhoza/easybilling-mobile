@@ -8,11 +8,17 @@ import com.claytonmuhoza.easybilling.di.BackgroundModule
 import com.claytonmuhoza.easybilling.di.ObrHttpModule
 import com.claytonmuhoza.easybilling.di.PdfModule
 import com.claytonmuhoza.easybilling.di.PlatformModule
+import com.claytonmuhoza.easybilling.di.ReceiptPrinterModule
 import com.claytonmuhoza.easybilling.di.SharedFilesModule
 import com.claytonmuhoza.easybilling.di.StorageModule
 import com.claytonmuhoza.easybilling.documents.SharedFileUris
 import com.claytonmuhoza.easybilling.domain.document.InvoiceDocument
 import com.claytonmuhoza.easybilling.domain.document.InvoicePdfWriter
+import com.claytonmuhoza.easybilling.domain.document.PairedPrinter
+import com.claytonmuhoza.easybilling.domain.document.PrintOutcome
+import com.claytonmuhoza.easybilling.domain.document.PrinterLookup
+import com.claytonmuhoza.easybilling.domain.document.Receipt
+import com.claytonmuhoza.easybilling.domain.document.ReceiptPrinter
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCode
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCodeGenerator
 import com.claytonmuhoza.easybilling.domain.identity.SecretHasher
@@ -203,4 +209,34 @@ object TestSharedFilesModule {
     fun sharedFileUris(): SharedFileUris = SharedFileUris { file ->
         Uri.parse("content://$AUTHORITY/${file.parentFile?.name}/${file.name}")
     }
+}
+
+/** Printer of the tests: it remembers the tickets it was sent, or fails as a test chose. */
+@Singleton
+class RecordingReceiptPrinter @Inject constructor() : ReceiptPrinter {
+    /** What looking for the paired printers gives. */
+    @Volatile
+    var lookup: PrinterLookup = PrinterLookup.Found(listOf(PairedPrinter("00:11:22:33:44:55", "POS-58")))
+
+    /** How the next prints end. */
+    @Volatile
+    var outcome: PrintOutcome = PrintOutcome.PRINTED
+
+    /** The tickets printed, with the address they were sent to, oldest first. */
+    val printed: MutableList<Pair<String, Receipt>> = CopyOnWriteArrayList()
+
+    override fun paired(): PrinterLookup = lookup
+
+    override suspend fun print(address: String, receipt: Receipt): PrintOutcome {
+        if (outcome == PrintOutcome.PRINTED) printed += address to receipt
+        return outcome
+    }
+}
+
+/** Replaces the Bluetooth printer, which the JVM tests do not have. */
+@Module
+@TestInstallIn(components = [SingletonComponent::class], replaces = [ReceiptPrinterModule::class])
+object TestReceiptPrinterModule {
+    @Provides
+    fun receiptPrinter(printer: RecordingReceiptPrinter): ReceiptPrinter = printer
 }
