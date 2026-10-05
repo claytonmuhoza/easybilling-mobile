@@ -376,8 +376,11 @@ class TransmissionFlowTest {
 
         composeRule.pressInForm("Open the invoice")
 
-        composeRule.waitForText("Invoice FN-00001/2026").assertIsDisplayed()
-        shown("Rejected by the OBR: ${ObrSimulator.MESSAGE_UNKNOWN_CUSTOMER_TIN}")
+        // The detail of the invoice: the reason again, and the two ways out of a refusal.
+        composeRule.waitForText("At the OBR")
+        shown("Reason given by the OBR: ${ObrSimulator.MESSAGE_UNKNOWN_CUSTOMER_TIN}")
+        shown("Send again")
+        shown("Start the sale over")
     }
 
     @Test

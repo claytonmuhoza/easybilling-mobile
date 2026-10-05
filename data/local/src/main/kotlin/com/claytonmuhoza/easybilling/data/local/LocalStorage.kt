@@ -11,6 +11,7 @@ import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxProfileRepo
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxRepository
 import com.claytonmuhoza.easybilling.data.local.customer.RoomCustomerRepository
 import com.claytonmuhoza.easybilling.data.local.identity.RoomUserRepository
+import com.claytonmuhoza.easybilling.data.local.invoicing.RoomInvoiceListing
 import com.claytonmuhoza.easybilling.data.local.invoicing.RoomInvoiceRepository
 import com.claytonmuhoza.easybilling.data.local.invoicing.RoomSaleDraftRepository
 import com.claytonmuhoza.easybilling.data.local.transmission.RoomExchangeLog
@@ -24,6 +25,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
 import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
 import com.claytonmuhoza.easybilling.domain.identity.UserRepository
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceListing
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
@@ -60,6 +62,9 @@ class LocalStorage private constructor(internal val database: EasyBillingDatabas
 
     /** The issued invoices. */
     val invoices: InvoiceRepository = RoomInvoiceRepository(database)
+
+    /** The issued invoices as the list shows them. */
+    val invoiceListing: InvoiceListing = RoomInvoiceListing(database)
 
     /** The operations to send to the OBR. */
     val outbox: OutboxRepository = RoomOutboxRepository(database.outboxDao())

@@ -62,8 +62,9 @@ data class InvoiceCustomer(
 )
 
 /**
- * What an issued invoice is made of. Nothing of it ever changes: an invoice is only corrected by
- * a cancellation or a credit note.
+ * What an issued invoice is made of. What was sold never changes: an invoice is only corrected
+ * by a cancellation or a credit note. Only a refused invoice sent again takes the seller in force
+ * then ([profileVersion], and the NIF in [identifier]).
  *
  * @property type `invoice_type`.
  * @property number `invoice_number`, from the sequence of [type].
@@ -122,6 +123,9 @@ sealed class InvoiceStatus(val code: String) {
     /** Cancelled at the OBR. */
     data object Cancelled : InvoiceStatus("CANCELLED")
 
+    /** What this status is, whatever its message: what the invoices are filtered by. */
+    val kind: InvoiceStatusKind get() = InvoiceStatusKind.valueOf(code)
+
     /**
      * @param next another status.
      * @return whether an invoice may go from this status to [next]: a pending invoice is
@@ -136,7 +140,25 @@ sealed class InvoiceStatus(val code: String) {
     }
 }
 
-/** Storage of the issued invoices. An invoice is never changed nor deleted; its status is kept apart. */
+/** The kinds of [InvoiceStatus]; each name is the code of its status. */
+enum class InvoiceStatusKind {
+    /** See [InvoiceStatus.Pending]. */
+    PENDING,
+
+    /** See [InvoiceStatus.Registered]. */
+    REGISTERED,
+
+    /** See [InvoiceStatus.Rejected]. */
+    REJECTED,
+
+    /** See [InvoiceStatus.Cancelled]. */
+    CANCELLED,
+}
+
+/**
+ * Storage of the issued invoices. An invoice is never deleted and what was issued is never
+ * changed; its status is kept apart, and so is the seller it is sent again with.
+ */
 interface InvoiceRepository {
     /**
      * @param content the invoice to store.
@@ -187,4 +209,16 @@ interface InvoiceRepository {
      * @return how many invoices the OBR acknowledged at [since] or later.
      */
     suspend fun countRegisteredSince(since: Instant): Int
+
+    /**
+     * Makes a refused invoice read with a corrected seller (UC-D04). What was issued stays stored
+     * as it was; number, date, customer, lines and amounts never change.
+     *
+     * @param id a refused invoice.
+     * @param profileVersion the version of the tax profile it is sent again with.
+     * @param identifier its `invoice_identifier` with the NIF of that version.
+     * @return the invoice as it is read from now on.
+     * @throws IllegalStateException if the invoice is not refused.
+     */
+    suspend fun replaceSeller(id: InvoiceId, profileVersion: Int, identifier: String): Invoice
 }

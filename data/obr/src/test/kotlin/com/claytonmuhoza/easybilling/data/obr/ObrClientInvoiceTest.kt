@@ -28,6 +28,7 @@ import com.claytonmuhoza.easybilling.domain.transmission.LoginOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.LoginTarget
 import com.claytonmuhoza.easybilling.domain.transmission.LookupOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.ObrExchange
+import com.claytonmuhoza.easybilling.domain.transmission.ObrInvoiceCopy
 import com.claytonmuhoza.easybilling.domain.transmission.ObrMessages
 import com.claytonmuhoza.easybilling.domain.transmission.SendOutcome
 import com.claytonmuhoza.easybilling.testing.obr.ObrSimulator
@@ -310,7 +311,7 @@ class ObrClientInvoiceTest {
 
         assertIs<SendOutcome.Uncertain>(client.addInvoice(target, token, invoice(), seller))
 
-        assertEquals(LookupOutcome.Found, client.getInvoice(target, token, invoice().content.identifier))
+        assertIs<LookupOutcome.Found>(client.getInvoice(target, token, invoice().content.identifier))
     }
 
     @Test
@@ -335,12 +336,62 @@ class ObrClientInvoiceTest {
         val token = token()
         client.addInvoice(target, token, invoice(), seller)
 
-        assertEquals(LookupOutcome.Found, client.getInvoice(target, token, invoice().content.identifier))
+        val copy = ObrInvoiceCopy(
+            number = "FN-00001/2026",
+            date = "2026-10-03 10:15:42",
+            customerName = "Client comptoir",
+            itemCount = 2,
+            total = BigDecimal("4840.8"),
+            cancelled = false,
+        )
+        assertEquals(LookupOutcome.Found(copy), client.getInvoice(target, token, invoice().content.identifier))
         assertEquals(LookupOutcome.NotFound, client.getInvoice(target, token, "4000000001/ws/20261003101542/X"))
 
         val request = simulator.requests.last()
         assertEquals("/ebms_api/getInvoice/", request.url.encodedPath)
         assertEquals("""{"invoice_identifier":"4000000001/ws/20261003101542/X"}""", request.body!!.utf8())
+    }
+
+    @Test
+    fun `an invoice cancelled at the OBR is read as cancelled`() = runTest {
+        val token = token()
+        client.addInvoice(target, token, invoice(), seller)
+        simulator.markCancelled(invoice().content.identifier)
+
+        val found = assertIs<LookupOutcome.Found>(client.getInvoice(target, token, invoice().content.identifier))
+
+        assertEquals(true, found.copy.cancelled)
+    }
+
+    @Test
+    fun `the example of the specification is read, and what it does not say stays unknown`() = runTest {
+        val token = token()
+        val identifier = "4701354861/ws470135486100027/20220211120214/01929"
+        fun answer(secondTotal: String) = """
+            {"success":true,"msg":"Opération réussie","result":{"invoices":[{
+              "invoice_number":"01929","invoice_date":"2022-02-11 12:02:14","invoice_type":"FN",
+              "customer_name":"NGARUKIYINTWARI WAKA","customer_TIN":"4401202020",
+              "invoice_identifier":"$identifier",
+              "invoice_items":[
+                {"item_designation":"Article 1","item_quantity":"10","item_total_amount":"5900"},
+                {"item_designation":"Article 2","item_quantity":"10","item_total_amount":$secondTotal}
+              ]}]}}
+        """.trimIndent()
+
+        simulator.forceNext(MockResponse.Builder().code(200).body(answer("\"2420.4\"")).build())
+        val copy = ObrInvoiceCopy(
+            number = "01929",
+            date = "2022-02-11 12:02:14",
+            customerName = "NGARUKIYINTWARI WAKA",
+            itemCount = 2,
+            total = BigDecimal("8320.4"),
+            cancelled = null,
+        )
+        assertEquals(LookupOutcome.Found(copy), client.getInvoice(target, token, identifier))
+
+        // A total that is not a number is not guessed.
+        simulator.forceNext(MockResponse.Builder().code(200).body(answer("\"\"")).build())
+        assertEquals(LookupOutcome.Found(copy.copy(total = null)), client.getInvoice(target, token, identifier))
     }
 
     @Test

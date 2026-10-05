@@ -36,6 +36,14 @@ object InvoiceIdentifier {
     }
 
     /**
+     * @param identifier an identifier.
+     * @param tin the NIF that replaces the one of [identifier].
+     * @return the identifier with [tin], or null if it is longer than [MAX_LENGTH].
+     */
+    fun withTin(identifier: String, tin: String): String? =
+        (tin + SEPARATOR + identifier.substringAfter(SEPARATOR)).takeIf { it.length <= MAX_LENGTH }
+
+    /**
      * @param tin the NIF of the taxpayer.
      * @param systemId the system identifier given by the OBR.
      * @return how many characters are left for the number of a document.

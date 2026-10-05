@@ -178,6 +178,12 @@ sealed interface AuditEvent {
         override val details get() = "invoice=${invoice.value}"
     }
 
+    /** The refused invoice [invoice] was put back in the send queue with the tax profile [profileVersion]. */
+    data class InvoiceResent(override val actor: UserId, val invoice: InvoiceId, val profileVersion: Int) : AuditEvent {
+        override val action get() = "INVOICE_RESENT"
+        override val details get() = "invoice=${invoice.value};profile=$profileVersion"
+    }
+
     /** The invoice [invoice] was issued with the number [number]. */
     data class InvoiceIssued(override val actor: UserId, val invoice: InvoiceId, val number: String) : AuditEvent {
         override val action get() = "INVOICE_ISSUED"

@@ -51,7 +51,26 @@ class DispatchConnection(
     val target: suspend () -> LoginTarget?,
     val tokens: TokenProvider,
     val gateway: ObrGateway,
-)
+) {
+    /**
+     * Runs [call] with a token; a refused token is renewed and the call made again, once.
+     *
+     * @param refused tells whether an answer is a refusal of the token.
+     * @param call the call to make with a token.
+     * @return what the call gave, or null when no token could be obtained.
+     */
+    suspend fun <T> withToken(refused: (T) -> Boolean, call: suspend (String) -> T): T? {
+        val first = token()?.let { call(it) }
+        return if (first != null && refused(first)) {
+            tokens.invalidate()
+            token()?.let { call(it) }
+        } else {
+            first
+        }
+    }
+
+    private suspend fun token(): String? = (tokens.token() as? LoginOutcome.Success)?.token
+}
 
 /**
  * What a pass over the queue did.
@@ -140,7 +159,7 @@ class DispatchOutbox(
     }
 
     private suspend fun send(target: LoginTarget, invoice: Invoice, seller: TaxProfile): Attempt {
-        val outcome = withToken({ it is SendOutcome.TokenRefused }) { token ->
+        val outcome = connection.withToken({ it is SendOutcome.TokenRefused }) { token ->
             connection.gateway.addInvoice(target, token, invoice, seller)
         }
         return when (outcome) {
@@ -170,33 +189,16 @@ class DispatchOutbox(
         rejection: String?,
         otherwise: suspend () -> Attempt,
     ): Attempt {
-        val outcome = withToken({ it is LookupOutcome.TokenRefused }) { token ->
+        val outcome = connection.withToken({ it is LookupOutcome.TokenRefused }) { token ->
             connection.gateway.getInvoice(target, token, invoice.content.identifier)
         }
         return when (outcome) {
-            LookupOutcome.Found -> Attempt.Registered(receipt = null)
+            is LookupOutcome.Found -> Attempt.Registered(receipt = null)
             LookupOutcome.NotFound -> otherwise()
             is LookupOutcome.Unavailable -> Attempt.Later(rejection ?: outcome.reason, uncertain = true)
             LookupOutcome.TokenRefused, null -> Attempt.Later(rejection ?: "LOGIN", uncertain = true)
         }
     }
-
-    /**
-     * Runs [call] with a token; a refused token is renewed and the call made again, once.
-     *
-     * @return what the call gave, or null when no token could be obtained.
-     */
-    private suspend fun <T> withToken(refused: (T) -> Boolean, call: suspend (String) -> T): T? {
-        val first = token()?.let { call(it) }
-        return if (first != null && refused(first)) {
-            connection.tokens.invalidate()
-            token()?.let { call(it) }
-        } else {
-            first
-        }
-    }
-
-    private suspend fun token(): String? = (connection.tokens.token() as? LoginOutcome.Success)?.token
 
     /** The OBR settled the operation: the invoice takes its status and the operation leaves the queue. */
     private suspend fun settle(entry: OutboxEntry, status: InvoiceStatus, receipt: ObrReceipt?) {

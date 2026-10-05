@@ -22,6 +22,8 @@ import com.claytonmuhoza.easybilling.ebms.EbmsConnectionRoute
 import com.claytonmuhoza.easybilling.ebms.ExchangeLogRoute
 import com.claytonmuhoza.easybilling.ebms.ExchangeRoute
 import com.claytonmuhoza.easybilling.home.HomeRoute
+import com.claytonmuhoza.easybilling.invoices.InvoiceDetailRoute
+import com.claytonmuhoza.easybilling.invoices.InvoiceListRoute
 import com.claytonmuhoza.easybilling.items.ItemEditorRoute
 import com.claytonmuhoza.easybilling.items.ItemListRoute
 import com.claytonmuhoza.easybilling.login.LoginRoute
@@ -103,6 +105,7 @@ fun EasyBillingNavHost(
                     onOpenItems = { navController.navigate(ItemsDestination) },
                     onOpenCustomers = { navController.navigate(CustomersDestination) },
                     onOpenSale = { navController.navigate(SaleDestination) },
+                    onOpenInvoices = { navController.navigate(InvoicesDestination) },
                     onOpenTransmission = { navController.navigate(TransmissionDestination) },
                 )
             }
@@ -113,6 +116,7 @@ fun EasyBillingNavHost(
         itemScreens(access, navController)
         customerScreens(access, navController)
         saleScreens(access, navController)
+        invoiceScreens(access, navController)
         composable<NumberingDestination> {
             LoggedIn(access) {
                 NumberingRoute(onBack = { navController.popBackStack() })
@@ -247,7 +251,7 @@ private fun NavGraphBuilder.saleScreens(access: AccessState.Ready, navController
         LoggedIn(access) {
             TransmissionRoute(
                 onBack = { navController.popBackStack() },
-                onOpenInvoice = { id -> navController.navigate(InvoiceIssuedDestination(id)) },
+                onOpenInvoice = { id -> navController.navigate(InvoiceDestination(id)) },
             )
         }
     }
@@ -265,6 +269,26 @@ private fun NavGraphBuilder.saleScreens(access: AccessState.Ready, navController
                     }
                 },
                 onHome = { navController.popBackStack() },
+            )
+        }
+    }
+}
+
+/** The issued invoices and the detail of one (UC-C08, UC-C09, UC-D04). */
+private fun NavGraphBuilder.invoiceScreens(access: AccessState.Ready, navController: NavHostController) {
+    composable<InvoicesDestination> {
+        LoggedIn(access) {
+            InvoiceListRoute(
+                onBack = { navController.popBackStack() },
+                onOpenInvoice = { id -> navController.navigate(InvoiceDestination(id)) },
+            )
+        }
+    }
+    composable<InvoiceDestination> {
+        LoggedIn(access) {
+            InvoiceDetailRoute(
+                onBack = { navController.popBackStack() },
+                onOpenSale = { navController.navigate(SaleDestination) },
             )
         }
     }

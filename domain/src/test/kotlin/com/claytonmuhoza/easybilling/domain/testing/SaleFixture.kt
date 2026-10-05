@@ -2,6 +2,7 @@ package com.claytonmuhoza.easybilling.domain.testing
 
 import com.claytonmuhoza.easybilling.domain.catalog.Item
 import com.claytonmuhoza.easybilling.domain.catalog.ItemDetails
+import com.claytonmuhoza.easybilling.domain.catalog.SearchText
 import com.claytonmuhoza.easybilling.domain.configuration.CheckBillingReadiness
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentials
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
@@ -23,9 +24,13 @@ import com.claytonmuhoza.easybilling.domain.invoicing.DraftId
 import com.claytonmuhoza.easybilling.domain.invoicing.EditSale
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceContent
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceFilter
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceListing
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatus
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatusKind
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceSummary
 import com.claytonmuhoza.easybilling.domain.invoicing.IssueConfiguration
 import com.claytonmuhoza.easybilling.domain.invoicing.IssueSale
 import com.claytonmuhoza.easybilling.domain.invoicing.IssueStorage
@@ -38,6 +43,7 @@ import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.transmission.LoginTarget
 import com.claytonmuhoza.easybilling.domain.transmission.LookupOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.ObrGateway
+import com.claytonmuhoza.easybilling.domain.transmission.ObrInvoiceCopy
 import com.claytonmuhoza.easybilling.domain.transmission.ObrMessages
 import com.claytonmuhoza.easybilling.domain.transmission.ObrReceipt
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxEntry
@@ -75,7 +81,9 @@ class InMemorySaleDraftRepository : SaleDraftRepository {
 }
 
 /** Issued invoices kept in a map. */
-class InMemoryInvoiceRepository : InvoiceRepository {
+class InMemoryInvoiceRepository :
+    InvoiceRepository,
+    InvoiceListing {
     private val invoices = LinkedHashMap<InvoiceId, Invoice>()
     private val statuses = mutableMapOf<InvoiceId, InvoiceStatus>()
     private val changes = mutableMapOf<InvoiceId, Instant>()
@@ -112,6 +120,41 @@ class InMemoryInvoiceRepository : InvoiceRepository {
 
     override suspend fun countIn(environment: EbmsEnvironment): Int =
         invoices.values.count { it.content.environment == environment }
+
+    override suspend fun replaceSeller(id: InvoiceId, profileVersion: Int, identifier: String): Invoice {
+        check(statuses.getValue(id) is InvoiceStatus.Rejected) { "Invoice ${id.value} is not refused" }
+        val invoice = invoices.getValue(id)
+        val content = invoice.content.copy(profileVersion = profileVersion, identifier = identifier)
+        return invoice.copy(content = content).also { invoices[id] = it }
+    }
+
+    override suspend fun search(filter: InvoiceFilter, limit: Int): List<InvoiceSummary> =
+        matching(filter)
+            .filter { filter.status == null || it.status.kind == filter.status }
+            .sortedWith(compareByDescending<InvoiceSummary> { it.issuedAt }.thenByDescending { it.id.value })
+            .take(limit)
+
+    override suspend fun countByStatus(filter: InvoiceFilter): Map<InvoiceStatusKind, Int> =
+        matching(filter).groupingBy { it.status.kind }.eachCount()
+
+    private fun matching(filter: InvoiceFilter): List<InvoiceSummary> {
+        val wanted = SearchText.normalize(filter.query)
+        return invoices.values
+            .filter { filter.since == null || it.content.issuedAt >= filter.since }
+            .filter { wanted in SearchText.normalize(it.content.number + " " + it.content.customer.name) }
+            .map {
+                InvoiceSummary(
+                    id = it.id,
+                    type = it.content.type,
+                    number = it.content.number,
+                    issuedAt = it.content.issuedAt,
+                    customerName = it.content.customer.name,
+                    paymentType = it.content.paymentType,
+                    total = it.content.totals.total,
+                    status = statuses.getValue(it.id),
+                )
+            }
+    }
 }
 
 /** Send queue kept in a list. */
@@ -152,6 +195,9 @@ class FakeObrGateway : ObrGateway {
     /** The identifiers of the invoices the OBR has. */
     val known = mutableSetOf<String>()
 
+    /** What the OBR gives for an identifier it has, when it is not the invoice as it was sent. */
+    val copies = mutableMapOf<String, ObrInvoiceCopy>()
+
     /** Outcomes given to the next sends instead of the normal ones, oldest first. */
     val forcedSends = mutableListOf<SendOutcome>()
 
@@ -178,6 +224,7 @@ class FakeObrGateway : ObrGateway {
         val forced = forcedSends.removeFirstOrNull()
         if (forced is SendOutcome.Uncertain && lostAnswerReachesObr) known += invoice.content.identifier
         return forced ?: if (known.add(invoice.content.identifier)) {
+            copies[invoice.content.identifier] = copyOf(invoice)
             SendOutcome.Accepted(receiptOf(invoice))
         } else {
             SendOutcome.Rejected(ObrMessages.DUPLICATE_NUMBER)
@@ -187,8 +234,36 @@ class FakeObrGateway : ObrGateway {
     override suspend fun getInvoice(target: LoginTarget, token: String, identifier: String): LookupOutcome {
         calls += Triple("getInvoice", token, identifier)
         return forcedLookups.removeFirstOrNull()
-            ?: if (identifier in known) LookupOutcome.Found else LookupOutcome.NotFound
+            ?: if (identifier in known) found(identifier) else LookupOutcome.NotFound
     }
+
+    /** Makes the OBR have [invoice] as it was issued, without a call. */
+    fun accept(invoice: Invoice) {
+        known += invoice.content.identifier
+        copies[invoice.content.identifier] = copyOf(invoice)
+    }
+
+    /** @return [invoice] as this OBR registers it. */
+    fun copyOf(invoice: Invoice) = ObrInvoiceCopy(
+        number = invoice.content.number,
+        date = invoice.content.issuedAt.toString(),
+        customerName = invoice.content.customer.name,
+        itemCount = invoice.content.lines.size,
+        total = invoice.content.totals.total.amount,
+        cancelled = false,
+    )
+
+    /** The copy of an invoice; one the test only gave the identifier of says nothing else. */
+    private fun found(identifier: String) = LookupOutcome.Found(
+        copies[identifier] ?: ObrInvoiceCopy(
+            number = identifier.split("/", limit = IDENTIFIER_PARTS).last(),
+            date = "",
+            customerName = "",
+            itemCount = 0,
+            total = null,
+            cancelled = null,
+        ),
+    )
 
     /** @return the acknowledgement this OBR gives to [invoice]. */
     fun receiptOf(invoice: Invoice) = ObrReceipt(
@@ -197,6 +272,11 @@ class FakeObrGateway : ObrGateway {
         signature = "signature-of-${invoice.content.number}",
         rawResponse = """{"success":true}""",
     )
+
+    private companion object {
+        /** NIF, system identifier, date and number. */
+        const val IDENTIFIER_PARTS = 4
+    }
 }
 
 /**

@@ -23,3 +23,19 @@ fun dateTimeText(instant: Instant): String {
             .format(instant)
     }
 }
+
+/**
+ * @param instant a moment.
+ * @return the time of [instant] in Bujumbura, whatever the setting of the device, written for the
+ * language of the device.
+ */
+@Composable
+fun timeText(instant: Instant): String {
+    val locale = LocalConfiguration.current.locales[0]
+    return remember(instant, locale) {
+        DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+            .withLocale(locale)
+            .withZone(BusinessCalendar.ZONE)
+            .format(instant)
+    }
+}

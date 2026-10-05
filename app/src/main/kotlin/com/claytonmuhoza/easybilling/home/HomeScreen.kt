@@ -34,6 +34,7 @@ import com.claytonmuhoza.easybilling.transmission.TransmissionBannerRoute
  * @param onOpenItems called when the user opens the items.
  * @param onOpenCustomers called when the user opens the customers.
  * @param onOpenSale called when the user opens the cash register.
+ * @param onOpenInvoices called when the user opens the issued invoices.
  * @param onOpenTransmission called when the user opens the transmission to the OBR.
  * @param viewModel holder of the home state.
  */
@@ -48,6 +49,7 @@ fun HomeRoute(
     onOpenItems: () -> Unit,
     onOpenCustomers: () -> Unit,
     onOpenSale: () -> Unit,
+    onOpenInvoices: () -> Unit,
     onOpenTransmission: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -82,6 +84,7 @@ fun HomeRoute(
             onOpenItems = onOpenItems,
             onOpenCustomers = onOpenCustomers,
             onOpenSale = onOpenSale,
+            onOpenInvoices = onOpenInvoices,
         ),
         banner = { TransmissionBannerRoute(compact = false, onOpen = onOpenTransmission) },
     )
@@ -98,6 +101,7 @@ fun HomeRoute(
  * @property onOpenItems called when the user opens the items.
  * @property onOpenCustomers called when the user opens the customers.
  * @property onOpenSale called when the user opens the cash register.
+ * @property onOpenInvoices called when the user opens the issued invoices.
  */
 class HomeActions(
     val onLogOut: () -> Unit = {},
@@ -108,6 +112,7 @@ class HomeActions(
     val onOpenItems: () -> Unit = {},
     val onOpenCustomers: () -> Unit = {},
     val onOpenSale: () -> Unit = {},
+    val onOpenInvoices: () -> Unit = {},
 )
 
 /**
@@ -155,14 +160,7 @@ fun HomeScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             banner()
-            NavigationRow(
-                title = stringResource(R.string.home_new_sale),
-                onClick = actions.onOpenSale,
-                supporting = salesStatus.text(),
-                icon = AppIcon.CART,
-                trailing = { AppIconImage(AppIcon.ARROW_FORWARD, contentDescription = null) },
-                container = MaterialTheme.colorScheme.primaryContainer,
-            )
+            SaleSection(salesStatus, actions)
 
             SectionHeader(stringResource(R.string.home_settings))
             ReadinessSummary(readiness)
@@ -197,6 +195,25 @@ fun HomeScreen(
             CatalogueSection(catalogStatus, customersStatus, actions)
         }
     }
+}
+
+/** The cash register, and the invoices it issued. */
+@Composable
+private fun SaleSection(salesStatus: SalesStatus, actions: HomeActions) {
+    NavigationRow(
+        title = stringResource(R.string.home_new_sale),
+        onClick = actions.onOpenSale,
+        supporting = salesStatus.text(),
+        icon = AppIcon.CART,
+        trailing = { AppIconImage(AppIcon.ARROW_FORWARD, contentDescription = null) },
+        container = MaterialTheme.colorScheme.primaryContainer,
+    )
+    NavigationRow(
+        title = stringResource(R.string.invoices_title),
+        onClick = actions.onOpenInvoices,
+        supporting = stringResource(R.string.home_invoices_text),
+        icon = AppIcon.INVOICE,
+    )
 }
 
 /** The items and the customers, which the sale picks from. */

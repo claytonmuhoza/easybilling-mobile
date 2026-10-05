@@ -132,6 +132,18 @@ data object HeldSalesDestination
 @Serializable
 data class InvoiceIssuedDestination(val id: Long)
 
+/** The list of the issued invoices. */
+@Serializable
+data object InvoicesDestination
+
+/**
+ * The detail of an issued invoice.
+ *
+ * @property id identifier of the invoice.
+ */
+@Serializable
+data class InvoiceDestination(val id: Long)
+
 /** The transmission to the OBR: the network, the send queue and the refused invoices. */
 @Serializable
 data object TransmissionDestination
