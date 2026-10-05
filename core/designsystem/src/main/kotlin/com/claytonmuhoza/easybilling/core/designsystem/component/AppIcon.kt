@@ -101,6 +101,9 @@ enum class AppIcon(@DrawableRes internal val drawable: Int) {
 
     /** Copies something to the clipboard. */
     COPY(R.drawable.ds_ic_content_copy),
+
+    /** The settings of the application. */
+    SETTINGS(R.drawable.ds_ic_settings),
 }
 
 /** Side of the rounded square an [IconTile] draws behind its icon. */
