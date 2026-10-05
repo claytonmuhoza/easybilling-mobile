@@ -3,14 +3,12 @@ package com.claytonmuhoza.easybilling
 import android.app.Application
 import com.claytonmuhoza.easybilling.domain.configuration.EnvironmentRefusal
 import com.claytonmuhoza.easybilling.domain.identity.PinProblem
-import com.claytonmuhoza.easybilling.domain.configuration.BillingReadiness
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsConnectionForm
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialField
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsServerAddress
 import com.claytonmuhoza.easybilling.domain.configuration.FieldProblem
 import com.claytonmuhoza.easybilling.domain.configuration.FiscalCenter
-import com.claytonmuhoza.easybilling.domain.configuration.ReadinessStep
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileCheck
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileChoice
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileField
@@ -32,16 +30,6 @@ import com.claytonmuhoza.easybilling.ebms.ExchangeLogUiState
 import com.claytonmuhoza.easybilling.ebms.ExchangeScreen
 import com.claytonmuhoza.easybilling.ebms.ExchangeUiState
 import com.claytonmuhoza.easybilling.ebms.PinPrompt
-import com.claytonmuhoza.easybilling.home.CatalogStatus
-import com.claytonmuhoza.easybilling.home.CustomersStatus
-import com.claytonmuhoza.easybilling.home.SalesStatus
-import com.claytonmuhoza.easybilling.home.EbmsStatus
-import com.claytonmuhoza.easybilling.home.HomeActions
-import com.claytonmuhoza.easybilling.home.HomeScreen
-import com.claytonmuhoza.easybilling.home.NumberingStatus
-import com.claytonmuhoza.easybilling.home.ReadinessStatus
-import com.claytonmuhoza.easybilling.home.TaxesStatus
-import com.claytonmuhoza.easybilling.home.TaxProfileStatus
 import com.claytonmuhoza.easybilling.login.BusinessIdentity
 import com.claytonmuhoza.easybilling.login.LoginScreen
 import com.claytonmuhoza.easybilling.login.LoginUiState
@@ -73,7 +61,7 @@ import java.time.Instant
 import kotlin.test.Test
 
 /**
- * Screenshots of the first launch, login, home, tax profile and EBMS screens, rendered from a
+ * Screenshots of the first launch, login, tax profile and EBMS screens, rendered from a
  * fixed state, without view model nor database, in every [ScreenshotVariant].
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
@@ -208,80 +196,6 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
         ResetPinScreen(
             state = ResetPinUiState.Form(step = ResetPinStep.PIN, recoveryCode = "ABCD-EFGH-JKLM", pin = "987"),
             actions = ResetPinActions(),
-        )
-    }
-
-    @Test
-    fun homeProfileToComplete() = capture("home") {
-        HomeScreen(
-            userName = "Alice",
-            taxProfileStatus = TaxProfileStatus.ToComplete,
-            ebmsStatus = EbmsStatus.ToConfigure,
-            taxesStatus = TaxesStatus.Defined(0),
-            numberingStatus = NumberingStatus.ToDefine,
-            catalogStatus = CatalogStatus.Counted(active = 0, withoutVat = 0),
-            customersStatus = CustomersStatus.Counted(active = 0),
-            salesStatus = SalesStatus.Counted(held = 0),
-            readiness = ReadinessStatus.Known(
-                BillingReadiness(
-                    mapOf(
-                        ReadinessStep.TAX_PROFILE to false,
-                        ReadinessStep.EBMS_CONNECTION to false,
-                        ReadinessStep.NUMBERING to false,
-                    ),
-                ),
-            ),
-            actions = HomeActions(),
-        )
-    }
-
-    @Test
-    fun homeProfileSaved() = capture("home_profile_saved") {
-        HomeScreen(
-            userName = "Alice",
-            taxProfileStatus = TaxProfileStatus.Saved(2),
-            ebmsStatus = EbmsStatus.Configured(EbmsEnvironment.TEST, Instant.parse("2026-10-03T12:30:00Z")),
-            taxesStatus = TaxesStatus.Defined(3),
-            numberingStatus = NumberingStatus.Defined("FN-00001/2026", locked = false),
-            catalogStatus = CatalogStatus.Counted(active = 12, withoutVat = 3),
-            customersStatus = CustomersStatus.Counted(active = 1),
-            salesStatus = SalesStatus.Counted(held = 0),
-            readiness = ReadinessStatus.Known(
-                BillingReadiness(
-                    mapOf(
-                        ReadinessStep.TAX_PROFILE to true,
-                        ReadinessStep.EBMS_CONNECTION to true,
-                        ReadinessStep.VAT to false,
-                        ReadinessStep.NUMBERING to true,
-                    ),
-                ),
-            ),
-            actions = HomeActions(),
-        )
-    }
-
-    @Test
-    fun homeReady() = capture("home_ready") {
-        HomeScreen(
-            userName = "Alice",
-            taxProfileStatus = TaxProfileStatus.Saved(2),
-            ebmsStatus = EbmsStatus.Configured(EbmsEnvironment.TEST, Instant.parse("2026-10-03T12:30:00Z")),
-            taxesStatus = TaxesStatus.Defined(3),
-            numberingStatus = NumberingStatus.Defined("FN-00001/2026", locked = true),
-            catalogStatus = CatalogStatus.Counted(active = 12, withoutVat = 0),
-            customersStatus = CustomersStatus.Counted(active = 34),
-            salesStatus = SalesStatus.Counted(held = 2),
-            readiness = ReadinessStatus.Known(
-                BillingReadiness(
-                    mapOf(
-                        ReadinessStep.TAX_PROFILE to true,
-                        ReadinessStep.EBMS_CONNECTION to true,
-                        ReadinessStep.VAT to true,
-                        ReadinessStep.NUMBERING to true,
-                    ),
-                ),
-            ),
-            actions = HomeActions(),
         )
     }
 

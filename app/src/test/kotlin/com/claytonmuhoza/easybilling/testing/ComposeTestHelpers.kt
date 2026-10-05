@@ -4,6 +4,7 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -51,12 +52,36 @@ fun ComposeTestRule.onAllNodesWithTextCount(text: String, substring: Boolean = f
     onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().size
 
 /**
- * Presses the row showing [text] on the home screen. The transmission [banner] is read after the
- * rows are drawn and pushes them down, so the row is scrolled to only once the banner is there.
+ * Opens the settings from the home screen, once its transmission [banner] is drawn. Closing a
+ * setting comes back to the settings: when they are already shown, nothing is pressed.
+ *
+ * @param banner what the transmission banner says.
+ * @param settings the name of the settings, in the language of the test: the description of the
+ * button on the home screen and the title of the settings screen.
  */
-fun ComposeTestRule.pressOnHome(text: String, banner: String = "Synchronised with the OBR") {
-    waitForText(banner)
+fun ComposeTestRule.openSettings(banner: String = "Synchronised with the OBR", settings: String = "Settings") {
+    fun onHome() = onAllNodesWithContentDescription(settings).fetchSemanticsNodes().isNotEmpty()
+    waitUntil(TIMEOUT_MILLIS) { onHome() || onAllNodesWithText(settings).fetchSemanticsNodes().isNotEmpty() }
+    if (onHome()) {
+        waitForText(banner)
+        onNodeWithContentDescription(settings).performClick()
+        waitForText(settings)
+    }
+}
+
+/** Opens the settings from the home screen, then presses the row showing [text]. */
+fun ComposeTestRule.pressInSettings(
+    text: String,
+    banner: String = "Synchronised with the OBR",
+    settings: String = "Settings",
+) {
+    openSettings(banner, settings)
     waitForText(text).performScrollTo().performClick()
+}
+
+/** Presses "New sale" on the home screen: a floating button on a phone, not part of the scrolling content. */
+fun ComposeTestRule.pressNewSale() {
+    waitForText("New sale").performClick()
 }
 
 /** Types [pin] on the on-screen PIN pad, one key after the other; the pad may be under the fold. */

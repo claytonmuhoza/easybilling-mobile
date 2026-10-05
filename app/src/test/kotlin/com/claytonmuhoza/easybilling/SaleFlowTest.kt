@@ -60,6 +60,7 @@ import com.claytonmuhoza.easybilling.testing.TestClock
 import com.claytonmuhoza.easybilling.testing.obr.ObrSimulator
 import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
 import com.claytonmuhoza.easybilling.testing.pressInForm
+import com.claytonmuhoza.easybilling.testing.pressNewSale
 import com.claytonmuhoza.easybilling.testing.replaceInForm
 import com.claytonmuhoza.easybilling.testing.typeInForm
 import com.claytonmuhoza.easybilling.testing.waitForText
@@ -234,10 +235,10 @@ class SaleFlowTest {
         item("ART-0002", "Sucre 1 kg", "2360", PriceMode.INCLUDING_TAXES)
     }
 
-    /** @param status what the home screen says of the sales, the last status it loads. */
-    private fun openRegister(status: String = "Open the cash register") {
-        composeRule.waitForText(status)
-        composeRule.pressInForm("New sale")
+    /** @param status what the home screen says of the sales on hold once loaded, or null when there is none. */
+    private fun openRegister(status: String? = null) {
+        status?.let { composeRule.waitForText(it) }
+        composeRule.pressNewSale()
     }
 
     /** Touches an item of the catalogue, and waits for the sale to hold [inSale] of it. */
@@ -300,7 +301,7 @@ class SaleFlowTest {
         openRegister()
 
         composeRule.waitForText("Cash register locked").assertIsDisplayed()
-        composeRule.onNodeWithText("Finish the settings marked “To do” on the home screen before selling.")
+        composeRule.onNodeWithText("Finish the steps marked “To do” in the settings before selling.")
             .assertIsDisplayed()
         assertNull(runBlocking { drafts.current() })
     }

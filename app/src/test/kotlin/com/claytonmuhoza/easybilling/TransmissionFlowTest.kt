@@ -50,6 +50,7 @@ import com.claytonmuhoza.easybilling.testing.TestClock
 import com.claytonmuhoza.easybilling.testing.TestNetworkMonitor
 import com.claytonmuhoza.easybilling.testing.obr.ObrSimulator
 import com.claytonmuhoza.easybilling.testing.pressInForm
+import com.claytonmuhoza.easybilling.testing.pressNewSale
 import com.claytonmuhoza.easybilling.testing.waitForText
 import com.claytonmuhoza.easybilling.transmission.TransmissionWorker
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -206,8 +207,7 @@ class TransmissionFlowTest {
      */
     private fun sellOneSoap(customer: String? = null): Invoice {
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        composeRule.waitForText("Open the cash register")
-        composeRule.pressInForm("New sale")
+        composeRule.pressNewSale()
         composeRule.waitForText("Savon de Marseille").performClick()
         composeRule.waitForText("1 item · 1,180 BIF")
         composeRule.onNodeWithText("Checkout").performClick()

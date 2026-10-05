@@ -52,6 +52,7 @@ import com.claytonmuhoza.easybilling.testing.TestClock
 import com.claytonmuhoza.easybilling.testing.obr.ObrSimulator
 import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
 import com.claytonmuhoza.easybilling.testing.pressInForm
+import com.claytonmuhoza.easybilling.testing.pressNewSale
 import com.claytonmuhoza.easybilling.testing.type
 import com.claytonmuhoza.easybilling.testing.waitForText
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -239,8 +240,7 @@ class InvoicesFlowTest {
      */
     private fun sellOneSoap(customer: String? = null): Invoice {
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        composeRule.waitForText("Open the cash register")
-        composeRule.pressInForm("New sale")
+        composeRule.pressNewSale()
         composeRule.waitForText("Savon de Marseille").performClick()
         composeRule.waitForText("1 item · 1,180 BIF")
         composeRule.onNodeWithText("Checkout").performClick()
@@ -277,7 +277,7 @@ class InvoicesFlowTest {
     /** Opens the list from the home screen, once its [banner] is drawn: it pushes the rows down. */
     private fun openInvoices(banner: String) {
         composeRule.waitForText(banner, substring = true)
-        composeRule.waitForText("Invoices").performScrollTo().performClick()
+        composeRule.onNodeWithText("Invoices").performClick()
         composeRule.waitForText("Number or customer")
     }
 
@@ -357,7 +357,7 @@ class InvoicesFlowTest {
 
         scenario = ActivityScenario.launch(MainActivity::class.java)
         composeRule.waitForText("Synchronised with the OBR")
-        composeRule.waitForText("Invoices").performScrollTo().performClick()
+        composeRule.onNodeWithText("Invoices").performClick()
 
         composeRule.waitForText("No invoice yet").assertIsDisplayed()
         composeRule.onNodeWithText("The invoices you issue are listed here.").assertIsDisplayed()

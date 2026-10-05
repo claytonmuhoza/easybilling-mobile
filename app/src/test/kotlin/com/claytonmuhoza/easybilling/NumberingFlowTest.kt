@@ -30,6 +30,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.AllocateInvoiceNumber
 import com.claytonmuhoza.easybilling.domain.invoicing.DocumentType
 import com.claytonmuhoza.easybilling.testing.TestClock
 import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
+import com.claytonmuhoza.easybilling.testing.openSettings
 import com.claytonmuhoza.easybilling.testing.pressInForm
 import com.claytonmuhoza.easybilling.testing.typeInForm
 import com.claytonmuhoza.easybilling.testing.waitForText
@@ -109,9 +110,10 @@ class NumberingFlowTest {
         scenario = ActivityScenario.launch(MainActivity::class.java)
     }
 
-    /** @param status what the home screen says of the numbering, the last status it loads. */
+    /** @param status what the settings say of the numbering, the last status they load. */
     private fun openNumbering(status: String = "Not set") {
-        // The cards move when the sentence above them is loaded: wait for the home screen to settle.
+        composeRule.openSettings()
+        // The cards move when the sentence above them is loaded: wait for the settings to settle.
         composeRule.waitForText(status)
         composeRule.pressInForm("Numbering")
         composeRule.waitForText("Next numbers")
@@ -150,6 +152,9 @@ class NumberingFlowTest {
     fun `a new installation is not ready to invoice and has no numbering`() {
         launch()
 
+        // Said on the home screen, then detailed in the settings.
+        composeRule.waitForText(NOT_READY).assertIsDisplayed()
+        composeRule.openSettings()
         shown(NOT_READY)
         assertEquals(3, composeRule.onAllNodesWithTextCount("To do"))
         shown("Not set")
@@ -213,12 +218,12 @@ class NumberingFlowTest {
     }
 
     @Test
-    fun `a saved numbering is shown again on the home screen and in its fields`() {
+    fun `a saved numbering is shown again in the settings and in its fields`() {
         val form = NumberingForm("{DEVICE}/{TYPE}/{NNNN}-{YY}", multipleDevices = true, deviceCode = "Z9")
         runBlocking { saveNumbering(form, null, alice.id) }
         launch()
 
-        shown("Z9/FN/0001-26")
+        // The settings show it, then its own screen.
         openNumbering("Z9/FN/0001-26")
 
         shown("Z9/RC/0001-26")
@@ -244,7 +249,7 @@ class NumberingFlowTest {
         }
         launch()
 
-        shown("FN-00001/2026 · locked")
+        // The settings say it is locked, then its own screen.
         openNumbering("FN-00001/2026 · locked")
 
         composeRule.waitForText("Locked since", substring = true).assertIsDisplayed()
@@ -260,6 +265,7 @@ class NumberingFlowTest {
         runBlocking { saveNumbering(NumberingForm(), null, alice.id) }
         launch()
 
+        composeRule.openSettings()
         shown("Ready to invoice.")
         assertEquals(3, composeRule.onAllNodesWithTextCount("Done"))
         assertEquals(0, composeRule.onAllNodesWithTextCount("To do"))
@@ -272,6 +278,7 @@ class NumberingFlowTest {
         runBlocking { saveNumbering(NumberingForm(), null, alice.id) }
         launch()
 
+        composeRule.openSettings()
         shown(NOT_READY)
         assertEquals(1, composeRule.onAllNodesWithTextCount("To do"))
     }

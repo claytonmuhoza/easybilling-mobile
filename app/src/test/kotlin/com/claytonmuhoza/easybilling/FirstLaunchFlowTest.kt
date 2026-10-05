@@ -209,7 +209,8 @@ class FirstLaunchFlowTest {
         composeRule.pressInForm("I have written it down")
 
         composeRule.waitForText("Welcome, Alice").assertIsDisplayed()
-        composeRule.onNodeWithText("Log out").assertIsDisplayed()
+        // The settings, where the logout is, are one touch away.
+        composeRule.onNodeWithContentDescription("Settings").assertIsDisplayed()
     }
 
     @Test

@@ -14,9 +14,13 @@ data object LoginDestination
 @Serializable
 data object ResetPinDestination
 
-/** Home screen, the start of the application once logged in. */
+/** Home screen, the "Register" tab: the start of the application once logged in. */
 @Serializable
 data object HomeDestination
+
+/** The settings: what is configured before the first invoice, and the logout. */
+@Serializable
+data object SettingsDestination
 
 /** Entry and change of the tax profile. */
 @Serializable
@@ -132,7 +136,7 @@ data object HeldSalesDestination
 @Serializable
 data class InvoiceIssuedDestination(val id: Long)
 
-/** The list of the issued invoices. */
+/** The list of the issued invoices, the "Invoices" tab. */
 @Serializable
 data object InvoicesDestination
 

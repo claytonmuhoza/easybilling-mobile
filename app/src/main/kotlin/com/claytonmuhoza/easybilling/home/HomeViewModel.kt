@@ -14,6 +14,9 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
 import com.claytonmuhoza.easybilling.domain.configuration.activeLoginTarget
 import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.DocumentType
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceFilter
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceListing
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceSummary
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.BusinessCalendar
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
@@ -23,6 +26,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
 import javax.inject.Inject
@@ -206,63 +211,68 @@ class HomeStatusReader @Inject constructor(
     suspend fun sales(): SalesStatus = SalesStatus.Counted(drafts.held().size)
 }
 
+/**
+ * What the home screen sums up.
+ *
+ * @property readiness what is left to configure before the first invoice.
+ * @property catalogStatus where the catalogue stands.
+ * @property customersStatus where the customers stand.
+ * @property salesStatus where the sales stand.
+ * @property recentInvoices the latest invoices, [HomeViewModel.RECENT_INVOICES] at most; empty
+ * while they are read, when there is none, or when they could not be read.
+ */
+data class HomeUiState(
+    val readiness: ReadinessStatus = ReadinessStatus.Loading,
+    val catalogStatus: CatalogStatus = CatalogStatus.Loading,
+    val customersStatus: CustomersStatus = CustomersStatus.Loading,
+    val salesStatus: SalesStatus = SalesStatus.Loading,
+    val recentInvoices: List<InvoiceSummary> = emptyList(),
+)
+
 /** Drives the home screen. */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val reader: HomeStatusReader,
     private val checkReadiness: CheckBillingReadiness,
+    private val invoices: InvoiceListing,
     private val transmission: TransmissionRunner,
 ) : ViewModel() {
 
-    private val mutableTaxProfileStatus = MutableStateFlow<TaxProfileStatus>(TaxProfileStatus.Loading)
-    private val mutableEbmsStatus = MutableStateFlow<EbmsStatus>(EbmsStatus.Loading)
-    private val mutableTaxesStatus = MutableStateFlow<TaxesStatus>(TaxesStatus.Loading)
-    private val mutableNumberingStatus = MutableStateFlow<NumberingStatus>(NumberingStatus.Loading)
-    private val mutableReadiness = MutableStateFlow<ReadinessStatus>(ReadinessStatus.Loading)
-    private val mutableCatalogStatus = MutableStateFlow<CatalogStatus>(CatalogStatus.Loading)
-    private val mutableCustomersStatus = MutableStateFlow<CustomersStatus>(CustomersStatus.Loading)
-    private val mutableSalesStatus = MutableStateFlow<SalesStatus>(SalesStatus.Loading)
+    private val mutableState = MutableStateFlow(HomeUiState())
 
-    /** Where the tax profile stands. */
-    val taxProfileStatus: StateFlow<TaxProfileStatus> = mutableTaxProfileStatus.asStateFlow()
+    /** The state to show. */
+    val state: StateFlow<HomeUiState> = mutableState.asStateFlow()
 
-    /** Where the connection to the EBMS stands. */
-    val ebmsStatus: StateFlow<EbmsStatus> = mutableEbmsStatus.asStateFlow()
+    init {
+        // An invoice sent meanwhile changes status: the latest invoices are read again.
+        viewModelScope.launch { transmission.passes.drop(1).collect { readRecentInvoices() } }
+    }
 
-    /** Where the taxes stand. */
-    val taxesStatus: StateFlow<TaxesStatus> = mutableTaxesStatus.asStateFlow()
-
-    /** Where the numbering stands. */
-    val numberingStatus: StateFlow<NumberingStatus> = mutableNumberingStatus.asStateFlow()
-
-    /** What is left to configure before the first invoice. */
-    val readiness: StateFlow<ReadinessStatus> = mutableReadiness.asStateFlow()
-
-    /** Where the catalogue stands. */
-    val catalogStatus: StateFlow<CatalogStatus> = mutableCatalogStatus.asStateFlow()
-
-    /** Where the customers stand. */
-    val customersStatus: StateFlow<CustomersStatus> = mutableCustomersStatus.asStateFlow()
-
-    /** Where the sales stand. */
-    val salesStatus: StateFlow<SalesStatus> = mutableSalesStatus.asStateFlow()
-
-    /** Reads the state of the settings, of the catalogue and of the customers. Called each time the screen is shown. */
+    /** Reads what the screen sums up. Called each time the screen is shown. */
     fun load() {
         // Whatever waits in the send queue is tried again each time the home screen is shown.
         transmission.kick()
         viewModelScope.launch {
-            // Read first: its sentence is the only text whose height changes once loaded.
-            mutableReadiness.value = storageCall { ReadinessStatus.Known(checkReadiness()) }
+            // Read first: its notice is the only content whose height changes once loaded.
+            val readiness = storageCall { ReadinessStatus.Known(checkReadiness()) }
                 .getOrElse { ReadinessStatus.Unreadable }
-            mutableTaxProfileStatus.value = storageCall { reader.taxProfile() }
-                .getOrElse { TaxProfileStatus.Unreadable }
-            mutableEbmsStatus.value = storageCall { reader.ebms() }.getOrElse { EbmsStatus.Unreadable }
-            mutableTaxesStatus.value = storageCall { reader.taxes() }.getOrElse { TaxesStatus.Unreadable }
-            mutableNumberingStatus.value = storageCall { reader.numbering() }.getOrElse { NumberingStatus.Unreadable }
-            mutableCatalogStatus.value = storageCall { reader.catalog() }.getOrElse { CatalogStatus.Unreadable }
-            mutableCustomersStatus.value = storageCall { reader.customers() }.getOrElse { CustomersStatus.Unreadable }
-            mutableSalesStatus.value = storageCall { reader.sales() }.getOrElse { SalesStatus.Unreadable }
+            mutableState.update { it.copy(readiness = readiness) }
+            val catalog = storageCall { reader.catalog() }.getOrElse { CatalogStatus.Unreadable }
+            val customers = storageCall { reader.customers() }.getOrElse { CustomersStatus.Unreadable }
+            val sales = storageCall { reader.sales() }.getOrElse { SalesStatus.Unreadable }
+            mutableState.update { it.copy(catalogStatus = catalog, customersStatus = customers, salesStatus = sales) }
+            readRecentInvoices()
         }
+    }
+
+    private suspend fun readRecentInvoices() {
+        val recent = storageCall { invoices.search(InvoiceFilter(), RECENT_INVOICES) }.getOrElse { emptyList() }
+        mutableState.update { it.copy(recentInvoices = recent) }
+    }
+
+    /** Limits of the home screen. */
+    companion object {
+        /** How many of the latest invoices the home screen shows. */
+        const val RECENT_INVOICES = 3
     }
 }
