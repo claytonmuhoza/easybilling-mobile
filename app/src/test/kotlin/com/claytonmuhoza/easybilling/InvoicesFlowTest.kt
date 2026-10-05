@@ -267,17 +267,16 @@ class InvoicesFlowTest {
     }
 
     /** Goes from the screen of the issued invoice to the detail of [number], through the list. */
-    private fun openFromHome(number: String, banner: String) {
+    private fun openFromHome(number: String) {
         composeRule.pressInForm("Back to home")
-        openInvoices(banner)
+        openInvoices()
         composeRule.waitForText(number).performClick()
         composeRule.waitForText("At the OBR")
     }
 
-    /** Opens the list from the home screen, once its [banner] is drawn: it pushes the rows down. */
-    private fun openInvoices(banner: String) {
-        composeRule.waitForText(banner, substring = true)
-        composeRule.onNodeWithText("Invoices").performClick()
+    /** Opens the list by its tab, which does not move while the home screen loads. */
+    private fun openInvoices() {
+        composeRule.waitForText("Invoices").performClick()
         composeRule.waitForText("Number or customer")
     }
 
@@ -320,7 +319,7 @@ class InvoicesFlowTest {
         issued(status = InvoiceStatus.Rejected("Le NIF du contribuable est invalide."))
 
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        openInvoices(banner = "1 invoice rejected by the OBR")
+        openInvoices()
 
         // The most recent day first, each with its number of invoices and its total without the refused one.
         filters("All 3", "Pending 0", "Registered 2", "Rejected 1", "Cancelled 0")
@@ -356,8 +355,7 @@ class InvoicesFlowTest {
         readyToSell(unreachable)
 
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        composeRule.waitForText("Synchronised with the OBR")
-        composeRule.onNodeWithText("Invoices").performClick()
+        composeRule.waitForText("Invoices").performClick()
 
         composeRule.waitForText("No invoice yet").assertIsDisplayed()
         composeRule.onNodeWithText("The invoices you issue are listed here.").assertIsDisplayed()
@@ -369,7 +367,7 @@ class InvoicesFlowTest {
         val invoice = sellOneSoap()
         composeRule.waitUntil(TIMEOUT_MILLIS) { statusOf(invoice) == InvoiceStatus.Registered }
 
-        openFromHome("FN-00001/2026", banner = "Synchronised with the OBR")
+        openFromHome("FN-00001/2026")
 
         shown("Registered")
         shown("Client comptoir")
@@ -400,7 +398,7 @@ class InvoicesFlowTest {
         composeRule.waitUntil(TIMEOUT_MILLIS) { runBlocking { outbox.pending() }.singleOrNull()?.attempts == 1 }
         connectTo(simulator.baseUrl)
 
-        openFromHome("FN-00001/2026", banner = "1 document waiting to be sent")
+        openFromHome("FN-00001/2026")
 
         shown("Pending")
         shown("This invoice leaves by itself as soon as the OBR can be reached.")
@@ -418,7 +416,7 @@ class InvoicesFlowTest {
         simulator.taxpayers["999"] = "INCONNU SA"
         runBlocking { profiles.append(TaxProfileVersion(2, profile.copy(tin = "4000000002"), clock.now(), alice.id)) }
 
-        openFromHome("FN-00001/2026", banner = "1 invoice rejected by the OBR")
+        openFromHome("FN-00001/2026")
         shown("Rejected")
         shown("Reason given by the OBR: ${ObrSimulator.MESSAGE_UNKNOWN_CUSTOMER_TIN}")
         composeRule.pressInForm("Send again")
@@ -441,7 +439,7 @@ class InvoicesFlowTest {
     fun `the sale of a rejected invoice is started over, and the invoice stays rejected`() {
         val invoice = sellRejected()
 
-        openFromHome("FN-00001/2026", banner = "1 invoice rejected by the OBR")
+        openFromHome("FN-00001/2026")
         composeRule.pressInForm("Start the sale over")
 
         // The cash register shows the new sale, with the line of the invoice.

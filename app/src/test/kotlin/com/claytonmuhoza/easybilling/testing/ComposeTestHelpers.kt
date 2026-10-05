@@ -52,30 +52,32 @@ fun ComposeTestRule.onAllNodesWithTextCount(text: String, substring: Boolean = f
     onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().size
 
 /**
- * Opens the settings from the home screen, once its transmission [banner] is drawn. Closing a
- * setting comes back to the settings: when they are already shown, nothing is pressed.
+ * Opens the settings from the home screen. Closing a setting comes back to the settings: when
+ * they are already shown, nothing is pressed.
  *
- * @param banner what the transmission banner says.
+ * The button is in the title bar, which does not move while the home screen loads: nothing of
+ * the home screen is waited for, whatever its transmission banner says.
+ *
  * @param settings the name of the settings, in the language of the test: the description of the
  * button on the home screen and the title of the settings screen.
  */
-fun ComposeTestRule.openSettings(banner: String = "Synchronised with the OBR", settings: String = "Settings") {
+fun ComposeTestRule.openSettings(settings: String = "Settings") {
     fun onHome() = onAllNodesWithContentDescription(settings).fetchSemanticsNodes().isNotEmpty()
     waitUntil(TIMEOUT_MILLIS) { onHome() || onAllNodesWithText(settings).fetchSemanticsNodes().isNotEmpty() }
     if (onHome()) {
-        waitForText(banner)
         onNodeWithContentDescription(settings).performClick()
         waitForText(settings)
     }
 }
 
-/** Opens the settings from the home screen, then presses the row showing [text]. */
-fun ComposeTestRule.pressInSettings(
-    text: String,
-    banner: String = "Synchronised with the OBR",
-    settings: String = "Settings",
-) {
-    openSettings(banner, settings)
+/**
+ * Opens the settings from the home screen, then presses the row showing [text].
+ *
+ * @param text what the row shows.
+ * @param settings the name of the settings, in the language of the test.
+ */
+fun ComposeTestRule.pressInSettings(text: String, settings: String = "Settings") {
+    openSettings(settings)
     waitForText(text).performScrollTo().performClick()
 }
 
