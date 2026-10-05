@@ -33,6 +33,12 @@ import com.claytonmuhoza.easybilling.domain.customer.TinLookup
 import com.claytonmuhoza.easybilling.domain.customer.TinReply
 import com.claytonmuhoza.easybilling.domain.document.DocumentSettings
 import com.claytonmuhoza.easybilling.domain.document.DocumentSettingsRepository
+import com.claytonmuhoza.easybilling.domain.document.PrintOutcome
+import com.claytonmuhoza.easybilling.domain.document.PrinterLookup
+import com.claytonmuhoza.easybilling.domain.document.PrinterSettings
+import com.claytonmuhoza.easybilling.domain.document.PrinterSettingsRepository
+import com.claytonmuhoza.easybilling.domain.document.Receipt
+import com.claytonmuhoza.easybilling.domain.document.ReceiptPrinter
 import com.claytonmuhoza.easybilling.domain.identity.NewUser
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCode
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCodeGenerator
@@ -226,6 +232,35 @@ class InMemoryDocumentSettingsRepository(private var settings: DocumentSettings 
 
     override suspend fun write(settings: DocumentSettings) {
         this.settings = settings
+    }
+}
+
+/** Settings of the printer kept in a field. */
+class InMemoryPrinterSettingsRepository(private var settings: PrinterSettings = PrinterSettings()) :
+    PrinterSettingsRepository {
+    override suspend fun read(): PrinterSettings = settings
+
+    override suspend fun write(settings: PrinterSettings) {
+        this.settings = settings
+    }
+}
+
+/** Printer that remembers the tickets it was sent, or fails as the test chose. */
+class FakeReceiptPrinter : ReceiptPrinter {
+    /** What the lookup of the paired printers gives. */
+    var lookup: PrinterLookup = PrinterLookup.Found(emptyList())
+
+    /** How the next prints end. */
+    var outcome: PrintOutcome = PrintOutcome.PRINTED
+
+    /** The tickets printed, with the address they were sent to, oldest first. */
+    val printed = mutableListOf<Pair<String, Receipt>>()
+
+    override fun paired(): PrinterLookup = lookup
+
+    override suspend fun print(address: String, receipt: Receipt): PrintOutcome {
+        if (outcome == PrintOutcome.PRINTED) printed += address to receipt
+        return outcome
     }
 }
 

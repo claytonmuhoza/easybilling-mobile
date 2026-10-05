@@ -8,6 +8,7 @@ import com.claytonmuhoza.easybilling.data.local.catalog.RoomItemRepository
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomDocumentSettingsRepository
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomEbmsSettingsRepository
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomNumberingRepository
+import com.claytonmuhoza.easybilling.data.local.configuration.RoomPrinterSettingsRepository
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxProfileRepository
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxRepository
 import com.claytonmuhoza.easybilling.data.local.customer.RoomCustomerRepository
@@ -26,6 +27,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
 import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
 import com.claytonmuhoza.easybilling.domain.document.DocumentSettingsRepository
+import com.claytonmuhoza.easybilling.domain.document.PrinterSettingsRepository
 import com.claytonmuhoza.easybilling.domain.identity.UserRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceListing
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
@@ -76,6 +78,9 @@ class LocalStorage private constructor(internal val database: EasyBillingDatabas
 
     /** The settings of the documents: footer, logo, QR code. */
     val documentSettings: DocumentSettingsRepository = RoomDocumentSettingsRepository(database.documentSettingsDao())
+
+    /** The printer of the tickets and how it prints. */
+    val printerSettings: PrinterSettingsRepository = RoomPrinterSettingsRepository(database.printerSettingsDao())
 
     /** The numbering of the documents and its counters. */
     val numbering: NumberingRepository = RoomNumberingRepository(database.numberingDao())

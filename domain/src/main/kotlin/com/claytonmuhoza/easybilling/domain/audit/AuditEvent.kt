@@ -190,6 +190,12 @@ sealed interface AuditEvent {
         override val details get() = "invoice=${invoice.value}"
     }
 
+    /** The ticket of the invoice [invoice] was printed. */
+    data class InvoicePrinted(override val actor: UserId, val invoice: InvoiceId) : AuditEvent {
+        override val action get() = "INVOICE_PRINTED"
+        override val details get() = "invoice=${invoice.value}"
+    }
+
     /** The invoice [invoice] was issued with the number [number]. */
     data class InvoiceIssued(override val actor: UserId, val invoice: InvoiceId, val number: String) : AuditEvent {
         override val action get() = "INVOICE_ISSUED"
