@@ -3,6 +3,7 @@ package com.claytonmuhoza.easybilling.domain.transmission
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfile
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
+import java.math.BigDecimal
 import java.time.Instant
 
 /**
@@ -38,10 +39,31 @@ sealed interface SendOutcome {
     data class Uncertain(val reason: String) : SendOutcome
 }
 
+/**
+ * An invoice as the OBR registered it, read from `getInvoice/` (UC-C09). Only what the
+ * specification defines is read, and what an answer does not say stays null.
+ *
+ * @property number `invoice_number`.
+ * @property date `invoice_date`, as the OBR wrote it.
+ * @property customerName `customer_name`.
+ * @property itemCount how many `invoice_items` the invoice has.
+ * @property total the sum of the `item_total_amount` of its items, or null if one cannot be read.
+ * @property cancelled `cancelled_invoice`: true for `Y`, false for `N`, null when the answer
+ * does not say.
+ */
+data class ObrInvoiceCopy(
+    val number: String,
+    val date: String,
+    val customerName: String,
+    val itemCount: Int,
+    val total: BigDecimal?,
+    val cancelled: Boolean?,
+)
+
 /** What looking for an invoice at the OBR gave (`getInvoice/`). */
 sealed interface LookupOutcome {
-    /** The OBR has the invoice. */
-    data object Found : LookupOutcome
+    /** The OBR has the invoice, as [copy]. */
+    data class Found(val copy: ObrInvoiceCopy) : LookupOutcome
 
     /** The OBR does not know the identifier. */
     data object NotFound : LookupOutcome
@@ -72,7 +94,7 @@ interface ObrGateway {
      * @param target the server to call.
      * @param token a token given by `login/`.
      * @param identifier the `invoice_identifier`.
-     * @return whether the OBR has it.
+     * @return the invoice as the OBR has it, or why there is none.
      */
     suspend fun getInvoice(target: LoginTarget, token: String, identifier: String): LookupOutcome
 }
