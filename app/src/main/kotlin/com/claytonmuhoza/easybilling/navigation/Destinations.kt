@@ -22,6 +22,10 @@ data object HomeDestination
 @Serializable
 data object SettingsDestination
 
+/** The logo, the footer and the QR code of the documents. */
+@Serializable
+data object DocumentSettingsDestination
+
 /** Entry and change of the tax profile. */
 @Serializable
 data object TaxProfileDestination

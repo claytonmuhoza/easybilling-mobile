@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.claytonmuhoza.easybilling.documents.InvoicePdfActions
+import com.claytonmuhoza.easybilling.documents.PdfOutcome
 import com.claytonmuhoza.easybilling.domain.identity.SessionManager
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
@@ -30,11 +32,13 @@ import javax.inject.Inject
  * @property verify asks the OBR for the invoice.
  * @property resend puts a refused invoice back in the send queue.
  * @property redo starts the sale of an invoice over.
+ * @property pdf opens or shares the PDF of an invoice.
  */
 class InvoiceUseCases @Inject constructor(
     val verify: VerifyInvoice,
     val resend: ResendRejectedInvoice,
     val redo: RedoSale,
+    val pdf: InvoicePdfActions,
 )
 
 /** Where a check at the OBR stands. */
@@ -80,7 +84,8 @@ sealed interface InvoiceDetailUiState {
      * @property receipt the acknowledgement of the OBR, or null while there is none.
      * @property verification the check at the OBR, or null before the first one.
      * @property notice what the last action gave, or null.
-     * @property busy true while an action is written.
+     * @property pdfProblem why the PDF was not opened or shared at the last try, or null.
+     * @property busy true while an action is written or a PDF created.
      */
     data class Ready(
         val invoice: Invoice,
@@ -88,6 +93,7 @@ sealed interface InvoiceDetailUiState {
         val receipt: ObrReceipt? = null,
         val verification: VerificationUiState? = null,
         val notice: InvoiceNotice? = null,
+        val pdfProblem: PdfOutcome? = null,
         val busy: Boolean = false,
     ) : InvoiceDetailUiState
 }
@@ -126,7 +132,12 @@ class InvoiceDetailViewModel @Inject constructor(
             // What the user asked for on this screen stays shown when the status is read again.
             val shown = ready
             mutableState.value = if (read is InvoiceDetailUiState.Ready && shown != null) {
-                read.copy(verification = shown.verification, notice = shown.notice, busy = shown.busy)
+                read.copy(
+                    verification = shown.verification,
+                    notice = shown.notice,
+                    pdfProblem = shown.pdfProblem,
+                    busy = shown.busy,
+                )
             } else {
                 read
             }
@@ -172,6 +183,21 @@ class InvoiceDetailViewModel @Inject constructor(
         when (val result = useCases.redo(id)) {
             is RedoSale.Result.Started -> shown.copy(notice = InvoiceNotice.SaleStarted(result.skippedLines))
             RedoSale.Result.NotFound -> shown
+        }
+    }
+
+    /** Opens the PDF of the invoice in another application (UC-G02). */
+    fun openPdf() = pdf { useCases.pdf.open(id) }
+
+    /** Offers to send the PDF of the invoice with another application (UC-G03). */
+    fun sharePdf() = pdf { useCases.pdf.share(id) }
+
+    private fun pdf(action: suspend () -> PdfOutcome) {
+        val shown = ready?.takeIf { !it.busy } ?: return
+        mutableState.value = shown.copy(busy = true, pdfProblem = null)
+        viewModelScope.launch {
+            val problem = action().takeIf { it != PdfOutcome.DONE }
+            ready?.let { mutableState.value = it.copy(busy = false, pdfProblem = problem) }
         }
     }
 

@@ -692,4 +692,30 @@
     <string name="settings_billing">Avant la première facture</string>
     <string name="settings_session">Session</string>
     <string name="settings_logged_in_as">Connecté en tant que %1$s</string>
+    <!-- Documents: PDF, sharing, header -->
+    <string name="document_open_pdf">Ouvrir le PDF</string>
+    <string name="document_share">Partager</string>
+    <string name="document_share_title">Partager la facture</string>
+    <string name="document_no_application">Aucune application de cet appareil ne peut ouvrir un PDF. Vous pouvez quand même le partager.</string>
+    <string name="document_pdf_failed">Le PDF n\'a pas pu être créé. Réessayez.</string>
+    <string name="document_settings_title">En-tête de facture</string>
+    <string name="document_settings_status">Logo, pied de page et QR code</string>
+    <string name="document_settings_intro">Les mentions obligatoires d\'une facture sont toujours imprimées et ne se modifient pas. Vous choisissez ce qui les entoure.</string>
+    <string name="document_settings_load_error">Les réglages des factures n\'ont pas pu être lus.</string>
+    <string name="document_logo">Logo</string>
+    <string name="document_logo_none">Aucun logo</string>
+    <string name="document_logo_description">Logo imprimé en haut des factures</string>
+    <string name="document_logo_choose">Choisir un logo</string>
+    <string name="document_logo_remove">Retirer le logo</string>
+    <string name="document_logo_not_an_image">Ce fichier n\'est pas une image.</string>
+    <string name="document_footer">Pied de page</string>
+    <string name="document_footer_hint">Facultatif. Imprimé en bas de chaque page.</string>
+    <string name="document_footer_too_long">Le pied de page est trop long.</string>
+    <string name="document_qr_code">Imprimer un QR code de l\'identifiant</string>
+    <string name="document_qr_code_help">Le scanner donne l\'identifiant unique de la facture, pour la vérifier auprès de l\'OBR.</string>
+    <string name="document_settings_save">Enregistrer</string>
+    <string name="document_settings_saved">Enregistré. Le prochain PDF utilise ces réglages.</string>
+    <string name="document_settings_not_saved">Les réglages n\'ont pas pu être enregistrés. Réessayez.</string>
+    <string name="settings_documents">Factures</string>
+    <string name="document_bottom">Bas de la facture</string>
 </resources>

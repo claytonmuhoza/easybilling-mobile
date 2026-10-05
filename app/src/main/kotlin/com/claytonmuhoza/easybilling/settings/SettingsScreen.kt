@@ -49,6 +49,7 @@ fun SettingsRoute(userName: String, actions: SettingsActions, viewModel: Setting
  * @property onOpenEbmsConnection called when the user opens the connection to the EBMS.
  * @property onOpenTaxes called when the user opens the taxes.
  * @property onOpenNumbering called when the user opens the numbering.
+ * @property onOpenDocuments called when the user opens the header of the invoices.
  */
 class SettingsActions(
     val onBack: () -> Unit = {},
@@ -57,11 +58,12 @@ class SettingsActions(
     val onOpenEbmsConnection: () -> Unit = {},
     val onOpenTaxes: () -> Unit = {},
     val onOpenNumbering: () -> Unit = {},
+    val onOpenDocuments: () -> Unit = {},
 )
 
 /**
  * The settings: what must be configured before the first invoice, each with where it stands and
- * whether it is done, and the logout.
+ * whether it is done, the look of the invoices, and the logout.
  *
  * @param userName name of the logged in user.
  * @param state where each setting stands.
@@ -101,6 +103,14 @@ fun SettingsScreen(userName: String, state: SettingsUiState, actions: SettingsAc
                 done = state.readiness.done(ReadinessStep.NUMBERING),
                 icon = AppIcon.TUNE,
                 onOpen = actions.onOpenNumbering,
+            )
+
+            SectionHeader(stringResource(R.string.settings_documents))
+            NavigationRow(
+                title = stringResource(R.string.document_settings_title),
+                onClick = actions.onOpenDocuments,
+                supporting = stringResource(R.string.document_settings_status),
+                icon = AppIcon.INVOICE,
             )
 
             SectionHeader(stringResource(R.string.settings_session))

@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.claytonmuhoza.easybilling.data.local.audit.RoomAuditStore
 import com.claytonmuhoza.easybilling.data.local.catalog.RoomItemRepository
+import com.claytonmuhoza.easybilling.data.local.configuration.RoomDocumentSettingsRepository
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomEbmsSettingsRepository
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomNumberingRepository
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxProfileRepository
@@ -24,6 +25,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.NumberingRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
 import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
+import com.claytonmuhoza.easybilling.domain.document.DocumentSettingsRepository
 import com.claytonmuhoza.easybilling.domain.identity.UserRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceListing
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
@@ -71,6 +73,9 @@ class LocalStorage private constructor(internal val database: EasyBillingDatabas
 
     /** The acknowledgements of the OBR. */
     val receipts: ReceiptArchive = RoomReceiptArchive(database.receiptDao())
+
+    /** The settings of the documents: footer, logo, QR code. */
+    val documentSettings: DocumentSettingsRepository = RoomDocumentSettingsRepository(database.documentSettingsDao())
 
     /** The numbering of the documents and its counters. */
     val numbering: NumberingRepository = RoomNumberingRepository(database.numberingDao())

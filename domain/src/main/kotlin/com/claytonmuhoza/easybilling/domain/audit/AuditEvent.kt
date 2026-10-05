@@ -184,6 +184,12 @@ sealed interface AuditEvent {
         override val details get() = "invoice=${invoice.value};profile=$profileVersion"
     }
 
+    /** A PDF of the invoice [invoice] was created, to open or to share. */
+    data class InvoicePdfCreated(override val actor: UserId, val invoice: InvoiceId) : AuditEvent {
+        override val action get() = "INVOICE_PDF_CREATED"
+        override val details get() = "invoice=${invoice.value}"
+    }
+
     /** The invoice [invoice] was issued with the number [number]. */
     data class InvoiceIssued(override val actor: UserId, val invoice: InvoiceId, val number: String) : AuditEvent {
         override val action get() = "INVOICE_ISSUED"

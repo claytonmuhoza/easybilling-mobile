@@ -23,6 +23,7 @@ import com.claytonmuhoza.easybilling.domain.identity.Session
 import com.claytonmuhoza.easybilling.ebms.EbmsConnectionRoute
 import com.claytonmuhoza.easybilling.ebms.ExchangeLogRoute
 import com.claytonmuhoza.easybilling.ebms.ExchangeRoute
+import com.claytonmuhoza.easybilling.documents.DocumentSettingsRoute
 import com.claytonmuhoza.easybilling.home.HomeActions
 import com.claytonmuhoza.easybilling.home.HomeRoute
 import com.claytonmuhoza.easybilling.invoices.InvoiceDetailRoute
@@ -99,21 +100,7 @@ fun EasyBillingNavHost(
             ResetPinRoute(onClose = { navController.popBackStack() })
         }
         mainTabs(access, navController)
-        composable<SettingsDestination> {
-            LoggedIn(access) { session ->
-                SettingsRoute(
-                    userName = session.userName,
-                    actions = SettingsActions(
-                        onBack = { navController.popBackStack() },
-                        onLogOut = onLogOut,
-                        onOpenTaxProfile = { navController.navigate(TaxProfileDestination) },
-                        onOpenEbmsConnection = { navController.navigate(EbmsConnectionDestination) },
-                        onOpenTaxes = { navController.navigate(TaxesDestination) },
-                        onOpenNumbering = { navController.navigate(NumberingDestination) },
-                    ),
-                )
-            }
-        }
+        settingsScreens(access, navController, onLogOut)
         taxProfileScreens(access, navController)
         ebmsScreens(access, navController)
         taxScreens(access, navController)
@@ -128,10 +115,39 @@ fun EasyBillingNavHost(
                 )
             }
         }
-        composable<NumberingDestination> {
-            LoggedIn(access) {
-                NumberingRoute(onBack = { navController.popBackStack() })
-            }
+    }
+}
+
+/** The settings, the header of the invoices and the numbering (UC-A06, UC-A08). */
+private fun NavGraphBuilder.settingsScreens(
+    access: AccessState.Ready,
+    navController: NavHostController,
+    onLogOut: () -> Unit,
+) {
+    composable<SettingsDestination> {
+        LoggedIn(access) { session ->
+            SettingsRoute(
+                userName = session.userName,
+                actions = SettingsActions(
+                    onBack = { navController.popBackStack() },
+                    onLogOut = onLogOut,
+                    onOpenTaxProfile = { navController.navigate(TaxProfileDestination) },
+                    onOpenEbmsConnection = { navController.navigate(EbmsConnectionDestination) },
+                    onOpenTaxes = { navController.navigate(TaxesDestination) },
+                    onOpenNumbering = { navController.navigate(NumberingDestination) },
+                    onOpenDocuments = { navController.navigate(DocumentSettingsDestination) },
+                ),
+            )
+        }
+    }
+    composable<DocumentSettingsDestination> {
+        LoggedIn(access) {
+            DocumentSettingsRoute(onBack = { navController.popBackStack() })
+        }
+    }
+    composable<NumberingDestination> {
+        LoggedIn(access) {
+            NumberingRoute(onBack = { navController.popBackStack() })
         }
     }
 }
