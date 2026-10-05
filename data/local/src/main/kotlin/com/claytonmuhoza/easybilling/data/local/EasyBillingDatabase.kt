@@ -24,6 +24,9 @@ import com.claytonmuhoza.easybilling.data.local.identity.UserEntity
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceDao
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceEntity
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceLineEntity
+import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceListDao
+import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceSellerDao
+import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceSellerEntity
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceStatusEntity
 import com.claytonmuhoza.easybilling.data.local.invoicing.SaleDraftDao
 import com.claytonmuhoza.easybilling.data.local.invoicing.SaleDraftEntity
@@ -46,7 +49,8 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
  * exchanges with the OBR (step 04); 4 taxes and their dated rates (step 05); 5 numbering and its
  * counters (step 06); 6 items of the catalogue (step 07); 7 customers (step 08); 8 sales that are not
  * issued, issued invoices with their status, and send queue (step 09); 9 state of the send queue and
- * acknowledgements of the OBR (step 10).
+ * acknowledgements of the OBR (step 10); 10 total and search text of the invoices, and seller of the
+ * invoices sent again (step 12).
  */
 @Database(
     entities = [
@@ -66,10 +70,11 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
         InvoiceEntity::class,
         InvoiceLineEntity::class,
         InvoiceStatusEntity::class,
+        InvoiceSellerEntity::class,
         OutboxEntryEntity::class,
         InvoiceReceiptEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = false,
 )
 // One accessor per DAO: the list grows with the schema.
@@ -96,6 +101,10 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
     abstract fun saleDraftDao(): SaleDraftDao
 
     abstract fun invoiceDao(): InvoiceDao
+
+    abstract fun invoiceSellerDao(): InvoiceSellerDao
+
+    abstract fun invoiceListDao(): InvoiceListDao
 
     abstract fun outboxDao(): OutboxDao
 

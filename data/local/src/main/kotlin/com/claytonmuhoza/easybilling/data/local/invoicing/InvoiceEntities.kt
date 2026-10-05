@@ -10,6 +10,7 @@ import androidx.room.Query
 import androidx.room.withTransaction
 import com.claytonmuhoza.easybilling.data.local.EasyBillingDatabase
 import com.claytonmuhoza.easybilling.domain.catalog.ItemId
+import com.claytonmuhoza.easybilling.domain.catalog.SearchText
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.customer.CustomerId
 import com.claytonmuhoza.easybilling.domain.identity.UserId
@@ -34,9 +35,14 @@ import java.time.Instant
 /**
  * Row of the `invoices` table: the header of an issued invoice. The table is append only (see
  * `AppendOnlyTables`). The number and the identifier are unique at the database level. [issuedAt]
- * is in milliseconds.
+ * is in milliseconds. [total] is the sum of the totals of the lines, as decimal text, and
+ * [searchText] the number and the name of the customer without case nor accents: both are written
+ * once, for the list of the invoices.
  */
-@Entity(tableName = "invoices", indices = [Index("number", unique = true), Index("identifier", unique = true)])
+@Entity(
+    tableName = "invoices",
+    indices = [Index("number", unique = true), Index("identifier", unique = true), Index("issuedAt")],
+)
 internal data class InvoiceEntity(
     @PrimaryKey(autoGenerate = true) val id: Long,
     val type: String,
@@ -53,6 +59,8 @@ internal data class InvoiceEntity(
     val paymentType: String,
     val currency: String,
     val issuedBy: Long,
+    val total: String,
+    val searchText: String,
 )
 
 /**
@@ -140,6 +148,7 @@ internal interface InvoiceDao {
 internal class RoomInvoiceRepository(private val database: EasyBillingDatabase) : InvoiceRepository {
 
     private val dao = database.invoiceDao()
+    private val sellers = database.invoiceSellerDao()
 
     override suspend fun create(content: InvoiceContent): Invoice = database.withTransaction {
         val id = dao.insert(content.toEntity())
@@ -174,34 +183,24 @@ internal class RoomInvoiceRepository(private val database: EasyBillingDatabase) 
     override suspend fun countRegisteredSince(since: Instant): Int =
         dao.countStatusSince(InvoiceStatus.Registered.code, since.toEpochMilli())
 
-    private fun InvoiceContent.toEntity() = InvoiceEntity(
-        id = 0,
-        type = type.name,
-        number = number,
-        identifier = identifier,
-        issuedAt = issuedAt.toEpochMilli(),
-        profileVersion = profileVersion,
-        environment = environment.name,
-        customerId = customer.id.value,
-        customerName = customer.name,
-        customerTin = customer.tin,
-        customerAddress = customer.address,
-        customerVatPayer = customer.vatPayer,
-        paymentType = paymentType.name,
-        currency = currency.name,
-        issuedBy = issuedBy.value,
-    )
+    override suspend fun replaceSeller(id: InvoiceId, profileVersion: Int, identifier: String): Invoice =
+        database.withTransaction {
+            check(dao.status(id.value)?.status == REJECTED) { "Invoice ${id.value} is not refused" }
+            sellers.write(InvoiceSellerEntity(id.value, profileVersion, identifier))
+            checkNotNull(dao.find(id.value)).toDomain()
+        }
 
     private suspend fun InvoiceEntity.toDomain(): Invoice {
         val currency = Currency.valueOf(currency)
+        val seller = sellers.find(id)
         return Invoice(
             id = InvoiceId(id),
             content = InvoiceContent(
                 type = DocumentType.valueOf(type),
                 number = number,
-                identifier = identifier,
+                identifier = seller?.identifier ?: identifier,
                 issuedAt = Instant.ofEpochMilli(issuedAt),
-                profileVersion = profileVersion,
+                profileVersion = seller?.profileVersion ?: profileVersion,
                 environment = EbmsEnvironment.valueOf(environment),
                 customer = InvoiceCustomer(
                     id = CustomerId(customerId),
@@ -219,6 +218,26 @@ internal class RoomInvoiceRepository(private val database: EasyBillingDatabase) 
     }
 }
 
+private fun InvoiceContent.toEntity() = InvoiceEntity(
+    id = 0,
+    type = type.name,
+    number = number,
+    identifier = identifier,
+    issuedAt = issuedAt.toEpochMilli(),
+    profileVersion = profileVersion,
+    environment = environment.name,
+    customerId = customer.id.value,
+    customerName = customer.name,
+    customerTin = customer.tin,
+    customerAddress = customer.address,
+    customerVatPayer = customer.vatPayer,
+    paymentType = paymentType.name,
+    currency = currency.name,
+    issuedBy = issuedBy.value,
+    total = totals.total.toPlainString(),
+    searchText = SearchText.normalize("$number ${customer.name}"),
+)
+
 /** Code of [InvoiceStatus.Rejected], the only status that is not an object. */
 private const val REJECTED = "REJECTED"
 
@@ -229,12 +248,15 @@ private fun InvoiceStatus.toEntity(invoiceId: Long, at: Instant) = InvoiceStatus
     changedAt = at.toEpochMilli(),
 )
 
-private fun InvoiceStatusEntity.toDomain(): InvoiceStatus = when (status) {
+private fun InvoiceStatusEntity.toDomain(): InvoiceStatus = invoiceStatusOf(status, message)
+
+/** @return the status stored as [code], with [message] for a refusal. */
+internal fun invoiceStatusOf(code: String, message: String): InvoiceStatus = when (code) {
     InvoiceStatus.Pending.code -> InvoiceStatus.Pending
     InvoiceStatus.Registered.code -> InvoiceStatus.Registered
     InvoiceStatus.Cancelled.code -> InvoiceStatus.Cancelled
     REJECTED -> InvoiceStatus.Rejected(message)
-    else -> error("Unknown invoice status $status")
+    else -> error("Unknown invoice status $code")
 }
 
 private fun InvoiceLine.toEntity(invoiceId: Long, position: Int) = InvoiceLineEntity(
