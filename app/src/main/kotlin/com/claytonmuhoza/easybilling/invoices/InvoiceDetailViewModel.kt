@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.claytonmuhoza.easybilling.documents.InvoicePdfActions
+import com.claytonmuhoza.easybilling.documents.InvoicePrintActions
 import com.claytonmuhoza.easybilling.documents.PdfOutcome
+import com.claytonmuhoza.easybilling.documents.PrintUiState
 import com.claytonmuhoza.easybilling.domain.identity.SessionManager
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
@@ -20,11 +22,11 @@ import com.claytonmuhoza.easybilling.navigation.InvoiceDestination
 import com.claytonmuhoza.easybilling.transmission.TransmissionRunner
 import com.claytonmuhoza.easybilling.ui.storageCall
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /**
  * What can be done with an invoice, grouped so the view model receives it as one.
@@ -33,12 +35,14 @@ import javax.inject.Inject
  * @property resend puts a refused invoice back in the send queue.
  * @property redo starts the sale of an invoice over.
  * @property pdf opens or shares the PDF of an invoice.
+ * @property print prints the ticket of an invoice.
  */
 class InvoiceUseCases @Inject constructor(
     val verify: VerifyInvoice,
     val resend: ResendRejectedInvoice,
     val redo: RedoSale,
     val pdf: InvoicePdfActions,
+    val print: InvoicePrintActions,
 )
 
 /** Where a check at the OBR stands. */
@@ -85,6 +89,7 @@ sealed interface InvoiceDetailUiState {
      * @property verification the check at the OBR, or null before the first one.
      * @property notice what the last action gave, or null.
      * @property pdfProblem why the PDF was not opened or shared at the last try, or null.
+     * @property print where the printing of the ticket stands, or null before the first print.
      * @property busy true while an action is written or a PDF created.
      */
     data class Ready(
@@ -94,6 +99,7 @@ sealed interface InvoiceDetailUiState {
         val verification: VerificationUiState? = null,
         val notice: InvoiceNotice? = null,
         val pdfProblem: PdfOutcome? = null,
+        val print: PrintUiState? = null,
         val busy: Boolean = false,
     ) : InvoiceDetailUiState
 }
@@ -136,6 +142,7 @@ class InvoiceDetailViewModel @Inject constructor(
                     verification = shown.verification,
                     notice = shown.notice,
                     pdfProblem = shown.pdfProblem,
+                    print = shown.print,
                     busy = shown.busy,
                 )
             } else {
@@ -183,6 +190,16 @@ class InvoiceDetailViewModel @Inject constructor(
         when (val result = useCases.redo(id)) {
             is RedoSale.Result.Started -> shown.copy(notice = InvoiceNotice.SaleStarted(result.skippedLines))
             RedoSale.Result.NotFound -> shown
+        }
+    }
+
+    /** Prints the ticket of the invoice on the associated printer (UC-G01). */
+    fun print() {
+        val shown = ready?.takeIf { it.print != PrintUiState.Printing } ?: return
+        mutableState.value = shown.copy(print = PrintUiState.Printing)
+        viewModelScope.launch {
+            val result = useCases.print.print(id)
+            ready?.let { mutableState.value = it.copy(print = PrintUiState.Done(result)) }
         }
     }
 

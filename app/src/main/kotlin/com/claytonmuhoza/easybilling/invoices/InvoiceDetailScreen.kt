@@ -38,6 +38,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
 import com.claytonmuhoza.easybilling.core.designsystem.theme.StatusTone
 import com.claytonmuhoza.easybilling.documents.PdfButtons
+import com.claytonmuhoza.easybilling.documents.PrintButton
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceContent
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCustomer
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceLine
@@ -82,6 +83,7 @@ fun InvoiceDetailRoute(
             onResend = viewModel::resend,
             onRedo = viewModel::redo,
             onOpenSale = openSale,
+            onPrint = viewModel::print,
             onOpenPdf = viewModel::openPdf,
             onSharePdf = viewModel::sharePdf,
             onRetry = viewModel::load,
@@ -97,6 +99,7 @@ fun InvoiceDetailRoute(
  * @property onResend called when the user sends a refused invoice again.
  * @property onRedo called when the user starts the sale of the invoice over.
  * @property onOpenSale called when the user opens the sale that was started over.
+ * @property onPrint called when the user prints the ticket of the invoice.
  * @property onOpenPdf called when the user opens the PDF of the invoice.
  * @property onSharePdf called when the user shares the PDF of the invoice.
  * @property onRetry called when the user asks to read the invoice again.
@@ -107,16 +110,17 @@ class InvoiceDetailActions(
     val onResend: () -> Unit = {},
     val onRedo: () -> Unit = {},
     val onOpenSale: () -> Unit = {},
+    val onPrint: () -> Unit = {},
     val onOpenPdf: () -> Unit = {},
     val onSharePdf: () -> Unit = {},
     val onRetry: () -> Unit = {},
 )
 
 /**
- * An invoice (UC-C08): its status with what it calls for, its PDF to open or to share (UC-G02,
- * UC-G03), its customer, its lines and its totals, and what the OBR acknowledged. The OBR is
- * asked for its own copy on request (UC-C09), and a refused invoice is sent again or its sale
- * started over (UC-D04).
+ * An invoice (UC-C08): its status with what it calls for, its ticket to print (UC-G01), its PDF
+ * to open or to share (UC-G02, UC-G03), its customer, its lines and its totals, and what the OBR
+ * acknowledged. The OBR is asked for its own copy on request (UC-C09), and a refused invoice is
+ * sent again or its sale started over (UC-D04).
  *
  * @param state the invoice state.
  * @param actions what the user can do.
@@ -137,6 +141,7 @@ fun InvoiceDetailScreen(state: InvoiceDetailUiState, actions: InvoiceDetailActio
             is InvoiceDetailUiState.Ready -> FormColumn {
                 val invoice = state.invoice.content
                 Summary(invoice, state.status.kind)
+                PrintButton(actions.onPrint, state.print, enabled = !state.busy)
                 PdfButtons(actions.onOpenPdf, actions.onSharePdf, state.pdfProblem, enabled = !state.busy)
                 StatusSection(state, actions)
                 state.notice?.let { Notice(it, actions.onOpenSale) }

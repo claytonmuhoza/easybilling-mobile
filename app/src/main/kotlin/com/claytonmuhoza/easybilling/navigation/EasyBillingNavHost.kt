@@ -19,11 +19,12 @@ import androidx.navigation.compose.rememberNavController
 import com.claytonmuhoza.easybilling.access.AccessState
 import com.claytonmuhoza.easybilling.customers.CustomerEditorRoute
 import com.claytonmuhoza.easybilling.customers.CustomerListRoute
+import com.claytonmuhoza.easybilling.documents.DocumentSettingsRoute
+import com.claytonmuhoza.easybilling.documents.PrinterSettingsRoute
 import com.claytonmuhoza.easybilling.domain.identity.Session
 import com.claytonmuhoza.easybilling.ebms.EbmsConnectionRoute
 import com.claytonmuhoza.easybilling.ebms.ExchangeLogRoute
 import com.claytonmuhoza.easybilling.ebms.ExchangeRoute
-import com.claytonmuhoza.easybilling.documents.DocumentSettingsRoute
 import com.claytonmuhoza.easybilling.home.HomeActions
 import com.claytonmuhoza.easybilling.home.HomeRoute
 import com.claytonmuhoza.easybilling.invoices.InvoiceDetailRoute
@@ -118,7 +119,7 @@ fun EasyBillingNavHost(
     }
 }
 
-/** The settings, the header of the invoices and the numbering (UC-A06, UC-A08). */
+/** The settings, the header of the invoices, the printer and the numbering (UC-A06, UC-A08, UC-A09). */
 private fun NavGraphBuilder.settingsScreens(
     access: AccessState.Ready,
     navController: NavHostController,
@@ -136,6 +137,7 @@ private fun NavGraphBuilder.settingsScreens(
                     onOpenTaxes = { navController.navigate(TaxesDestination) },
                     onOpenNumbering = { navController.navigate(NumberingDestination) },
                     onOpenDocuments = { navController.navigate(DocumentSettingsDestination) },
+                    onOpenPrinter = { navController.navigate(PrinterSettingsDestination) },
                 ),
             )
         }
@@ -143,6 +145,11 @@ private fun NavGraphBuilder.settingsScreens(
     composable<DocumentSettingsDestination> {
         LoggedIn(access) {
             DocumentSettingsRoute(onBack = { navController.popBackStack() })
+        }
+    }
+    composable<PrinterSettingsDestination> {
+        LoggedIn(access) {
+            PrinterSettingsRoute(onBack = { navController.popBackStack() })
         }
     }
     composable<NumberingDestination> {

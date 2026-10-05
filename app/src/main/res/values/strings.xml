@@ -712,4 +712,31 @@
     <string name="document_settings_not_saved">The settings could not be saved. Try again.</string>
     <string name="settings_documents">Invoices</string>
     <string name="document_bottom">Bottom of the invoice</string>
+    <!-- Printing -->
+    <string name="print_ticket">Print the ticket</string>
+    <string name="print_running">Printing…</string>
+    <string name="print_done">Ticket sent to the printer.</string>
+    <string name="print_no_printer">No printer is associated. Choose one in Settings › Printer.</string>
+    <string name="print_bluetooth_off">Bluetooth is off. Turn it on, then print again.</string>
+    <string name="print_permission_missing">The application is not allowed to use Bluetooth. Allow it in Settings › Printer.</string>
+    <string name="print_unreachable">The printer does not answer. Check that it is on, close by and has paper.</string>
+    <string name="printer_title">Printer</string>
+    <string name="printer_none">No printer</string>
+    <string name="printer_load_error">The settings of the printer could not be read.</string>
+    <string name="printer_intro">Tickets are printed on a Bluetooth printer already paired with this device in the Bluetooth settings of Android.</string>
+    <string name="printer_paired">Paired printers</string>
+    <string name="printer_none_paired">No device is paired. Pair the printer in the Bluetooth settings of Android, then come back.</string>
+    <string name="printer_not_paired_any_more">%1$s · no longer paired</string>
+    <string name="printer_bluetooth_off">Bluetooth is off. Turn it on to choose a printer.</string>
+    <string name="printer_permission_needed">The application needs your permission to connect to Bluetooth devices. It never searches for devices and does not use your location.</string>
+    <string name="printer_allow">Allow Bluetooth</string>
+    <string name="printer_check_again">Check again</string>
+    <string name="printer_width">Paper width</string>
+    <string name="printer_width_58">58 mm</string>
+    <string name="printer_width_80">80 mm</string>
+    <string name="printer_accents">Print accents</string>
+    <string name="printer_accents_help">Off, accented letters are printed plain (é becomes e), which every printer handles. Turn it on if the test page shows the accents correctly.</string>
+    <string name="printer_auto_print">Print the ticket as soon as a sale is validated</string>
+    <string name="printer_test_page">Print a test page</string>
+    <string name="printer_not_saved">The setting could not be saved. Try again.</string>
 </resources>

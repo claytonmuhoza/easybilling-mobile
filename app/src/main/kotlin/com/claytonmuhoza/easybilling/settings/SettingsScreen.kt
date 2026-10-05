@@ -50,6 +50,7 @@ fun SettingsRoute(userName: String, actions: SettingsActions, viewModel: Setting
  * @property onOpenTaxes called when the user opens the taxes.
  * @property onOpenNumbering called when the user opens the numbering.
  * @property onOpenDocuments called when the user opens the header of the invoices.
+ * @property onOpenPrinter called when the user opens the printer.
  */
 class SettingsActions(
     val onBack: () -> Unit = {},
@@ -59,6 +60,7 @@ class SettingsActions(
     val onOpenTaxes: () -> Unit = {},
     val onOpenNumbering: () -> Unit = {},
     val onOpenDocuments: () -> Unit = {},
+    val onOpenPrinter: () -> Unit = {},
 )
 
 /**
@@ -111,6 +113,12 @@ fun SettingsScreen(userName: String, state: SettingsUiState, actions: SettingsAc
                 onClick = actions.onOpenDocuments,
                 supporting = stringResource(R.string.document_settings_status),
                 icon = AppIcon.INVOICE,
+            )
+            NavigationRow(
+                title = stringResource(R.string.printer_title),
+                onClick = actions.onOpenPrinter,
+                supporting = state.printerName ?: stringResource(R.string.printer_none),
+                icon = AppIcon.TUNE,
             )
 
             SectionHeader(stringResource(R.string.settings_session))
