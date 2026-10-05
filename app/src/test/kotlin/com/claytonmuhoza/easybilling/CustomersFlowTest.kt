@@ -159,6 +159,16 @@ class CustomersFlowTest {
         composeRule.waitForText("Create the customer")
     }
 
+    /**
+     * Presses [button], which saves the form and closes it, and waits for the form to be gone. The
+     * name typed in the form is also the one the list then shows: looked for too early, it is
+     * found in the field of the form, which may be scrolled out of sight.
+     */
+    private fun saveAndLeave(button: String) {
+        composeRule.pressInForm(button)
+        composeRule.waitUntil(TIMEOUT_MILLIS) { composeRule.onAllNodesWithTextCount(button) == 0 }
+    }
+
     private fun shown(text: String) = composeRule.waitForText(text).performScrollTo().assertIsDisplayed()
 
     private fun active(): List<Customer> = runBlocking { customers.search("", archived = false, limit = 10) }
@@ -177,7 +187,7 @@ class CustomersFlowTest {
         composeRule.pressInForm("Natural person")
         composeRule.typeInForm("Name", "Aline Irakoze")
         composeRule.typeInForm("Phone", "79 123 456")
-        composeRule.pressInForm("Create the customer")
+        saveAndLeave("Create the customer")
 
         composeRule.waitForText("Aline Irakoze").assertIsDisplayed()
         composeRule.onNodeWithText("Local · Natural person").assertIsDisplayed()
@@ -200,7 +210,7 @@ class CustomersFlowTest {
         composeRule.pressInForm("Legal person")
         composeRule.typeInForm("TIN", ObrSimulator.KNOWN_TIN)
         composeRule.pressInForm("Registered for the VAT")
-        composeRule.pressInForm("Create the customer")
+        saveAndLeave("Create the customer")
 
         composeRule.waitForText(ObrSimulator.KNOWN_TAXPAYER).assertIsDisplayed()
         composeRule.onNodeWithText("Local · Legal person · TIN 4000202020 · VAT payer").assertIsDisplayed()
@@ -227,7 +237,7 @@ class CustomersFlowTest {
         shown("TIN recognised by the OBR: NDIKUMANA Jean Marie")
         composeRule.onNodeWithText("NDIKUMANA Jean Marie").assertExists()
         composeRule.replaceInForm("Name", "Jean Marie Ndikumana")
-        composeRule.pressInForm("Create the customer")
+        saveAndLeave("Create the customer")
 
         val customer = savedCustomer()
         composeRule.waitForText("Jean Marie Ndikumana").assertIsDisplayed()
@@ -272,7 +282,7 @@ class CustomersFlowTest {
 
         // The network is back.
         connectToObr()
-        composeRule.pressInForm("Create the customer")
+        saveAndLeave("Create the customer")
 
         assertEquals(ObrSimulator.KNOWN_TIN, savedCustomer().details.tin?.number)
         composeRule.waitForText("Brasserie du Lac SA").assertIsDisplayed()
@@ -343,7 +353,7 @@ class CustomersFlowTest {
         composeRule.pressInForm("Legal person")
         composeRule.typeInForm("Name", "Kigali Trading Ltd")
         composeRule.typeInForm("Address", "Kigali, Rwanda")
-        composeRule.pressInForm("Create the customer")
+        saveAndLeave("Create the customer")
 
         composeRule.waitForText("Kigali Trading Ltd").assertIsDisplayed()
         composeRule.onNodeWithText("Foreign · Legal person").assertIsDisplayed()
@@ -370,7 +380,7 @@ class CustomersFlowTest {
         assertEquals(listOf("Brasserie du Lac SA"), active().map { it.details.name })
 
         runBlocking { archiveCustomer(first.id, archived = true, actor = alice.id) }
-        composeRule.pressInForm("Create the customer")
+        saveAndLeave("Create the customer")
 
         composeRule.waitForText("Brasserie du Lac").assertIsDisplayed()
         val restored = active().single()
@@ -436,7 +446,7 @@ class CustomersFlowTest {
         assertEquals(0, composeRule.onAllNodesWithTextCount("TIN"))
 
         composeRule.replaceInForm("Name", "Client de passage")
-        composeRule.pressInForm("Save")
+        saveAndLeave("Save")
 
         composeRule.waitForText("Client de passage").assertIsDisplayed()
         assertEquals("Client de passage", runBlocking { customers.counter() }.details.name)
