@@ -81,6 +81,29 @@ fun ComposeTestRule.pressInSettings(text: String, settings: String = "Settings")
     waitForText(text).performScrollTo().performClick()
 }
 
+/** What the screen of an issued invoice says of each status. */
+object IssuedInvoiceStatus {
+    const val PENDING = "Awaiting transmission to the OBR"
+    const val REGISTERED = "Registered by the OBR"
+    const val REJECTED = "Rejected by the OBR"
+}
+
+/**
+ * Leaves the screen of an issued invoice for the home screen, once that screen shows [status].
+ *
+ * A test learns the status of an invoice from the storage before the screen has read it. The
+ * screen then changes under the button (the acknowledgement adds rows), and a press made at that
+ * moment is lost: the screen must say [status] before the button is pressed.
+ *
+ * @param status what the screen says of the status the invoice has, from [IssuedInvoiceStatus].
+ */
+fun ComposeTestRule.backToHomeOnce(status: String) {
+    waitForText(status, substring = true)
+    waitForIdle()
+    pressInForm("Back to home")
+    waitUntil(TIMEOUT_MILLIS) { onAllNodesWithText("Back to home").fetchSemanticsNodes().isEmpty() }
+}
+
 /** Presses "New sale" on the home screen: a floating button on a phone, not part of the scrolling content. */
 fun ComposeTestRule.pressNewSale() {
     waitForText("New sale").performClick()

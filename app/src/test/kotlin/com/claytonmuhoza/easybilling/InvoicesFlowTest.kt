@@ -47,8 +47,10 @@ import com.claytonmuhoza.easybilling.domain.invoicing.IssueSale
 import com.claytonmuhoza.easybilling.domain.invoicing.PriceMode
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
+import com.claytonmuhoza.easybilling.testing.IssuedInvoiceStatus
 import com.claytonmuhoza.easybilling.testing.TestCertificates
 import com.claytonmuhoza.easybilling.testing.TestClock
+import com.claytonmuhoza.easybilling.testing.backToHomeOnce
 import com.claytonmuhoza.easybilling.testing.obr.ObrSimulator
 import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
 import com.claytonmuhoza.easybilling.testing.pressInForm
@@ -266,9 +268,12 @@ class InvoicesFlowTest {
         return invoice
     }
 
-    /** Goes from the screen of the issued invoice to the detail of [number], through the list. */
-    private fun openFromHome(number: String) {
-        composeRule.pressInForm("Back to home")
+    /**
+     * Goes from the screen of the issued invoice, once it shows [status], to the detail of
+     * [number], through the list.
+     */
+    private fun openFromHome(number: String, status: String) {
+        composeRule.backToHomeOnce(status)
         openInvoices()
         composeRule.waitForText(number).performClick()
         composeRule.waitForText("At the OBR")
@@ -367,7 +372,7 @@ class InvoicesFlowTest {
         val invoice = sellOneSoap()
         composeRule.waitUntil(TIMEOUT_MILLIS) { statusOf(invoice) == InvoiceStatus.Registered }
 
-        openFromHome("FN-00001/2026")
+        openFromHome("FN-00001/2026", IssuedInvoiceStatus.REGISTERED)
 
         shown("Registered")
         shown("Client comptoir")
@@ -398,7 +403,7 @@ class InvoicesFlowTest {
         composeRule.waitUntil(TIMEOUT_MILLIS) { runBlocking { outbox.pending() }.singleOrNull()?.attempts == 1 }
         connectTo(simulator.baseUrl)
 
-        openFromHome("FN-00001/2026")
+        openFromHome("FN-00001/2026", IssuedInvoiceStatus.PENDING)
 
         shown("Pending")
         shown("This invoice leaves by itself as soon as the OBR can be reached.")
@@ -416,7 +421,7 @@ class InvoicesFlowTest {
         simulator.taxpayers["999"] = "INCONNU SA"
         runBlocking { profiles.append(TaxProfileVersion(2, profile.copy(tin = "4000000002"), clock.now(), alice.id)) }
 
-        openFromHome("FN-00001/2026")
+        openFromHome("FN-00001/2026", IssuedInvoiceStatus.REJECTED)
         shown("Rejected")
         shown("Reason given by the OBR: ${ObrSimulator.MESSAGE_UNKNOWN_CUSTOMER_TIN}")
         composeRule.pressInForm("Send again")
@@ -439,7 +444,7 @@ class InvoicesFlowTest {
     fun `the sale of a rejected invoice is started over, and the invoice stays rejected`() {
         val invoice = sellRejected()
 
-        openFromHome("FN-00001/2026")
+        openFromHome("FN-00001/2026", IssuedInvoiceStatus.REJECTED)
         composeRule.pressInForm("Start the sale over")
 
         // The cash register shows the new sale, with the line of the invoice.

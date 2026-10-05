@@ -55,8 +55,10 @@ import com.claytonmuhoza.easybilling.domain.shared.Quantity
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
 import com.claytonmuhoza.easybilling.domain.transmission.ReceiptArchive
+import com.claytonmuhoza.easybilling.testing.IssuedInvoiceStatus
 import com.claytonmuhoza.easybilling.testing.TestCertificates
 import com.claytonmuhoza.easybilling.testing.TestClock
+import com.claytonmuhoza.easybilling.testing.backToHomeOnce
 import com.claytonmuhoza.easybilling.testing.obr.ObrSimulator
 import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
 import com.claytonmuhoza.easybilling.testing.pressInForm
@@ -368,7 +370,7 @@ class SaleFlowTest {
         // The network is back and the wait of 30 seconds is over: the home screen tries again.
         connectTo(simulator.baseUrl)
         clock.advance(Duration.ofSeconds(30))
-        composeRule.pressInForm("Back to home")
+        composeRule.backToHomeOnce(IssuedInvoiceStatus.PENDING)
 
         composeRule.waitUntil(TIMEOUT_MILLIS) { statusOf(invoice) == InvoiceStatus.Registered }
         assertEquals(listOf("FN-00001/2026"), sentInvoices())
@@ -390,7 +392,7 @@ class SaleFlowTest {
         assertEquals(InvoiceStatus.Pending, statusOf(invoice))
 
         clock.advance(Duration.ofSeconds(30))
-        composeRule.pressInForm("Back to home")
+        composeRule.backToHomeOnce(IssuedInvoiceStatus.PENDING)
 
         composeRule.waitUntil(TIMEOUT_MILLIS) { statusOf(invoice) == InvoiceStatus.Registered }
         assertEquals(listOf("FN-00001/2026"), sentInvoices())
