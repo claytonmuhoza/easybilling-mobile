@@ -3,6 +3,7 @@ package com.claytonmuhoza.easybilling.di
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.identity.AccessGuard
+import com.claytonmuhoza.easybilling.domain.identity.AuthorizeSensitiveAction
 import com.claytonmuhoza.easybilling.domain.identity.ChangeTemporaryPin
 import com.claytonmuhoza.easybilling.domain.identity.CreateUser
 import com.claytonmuhoza.easybilling.domain.identity.FixedPermissionPolicy
@@ -12,6 +13,7 @@ import com.claytonmuhoza.easybilling.domain.identity.SecretGuard
 import com.claytonmuhoza.easybilling.domain.identity.SecretHasher
 import com.claytonmuhoza.easybilling.domain.identity.SessionManager
 import com.claytonmuhoza.easybilling.domain.identity.SetUserActive
+import com.claytonmuhoza.easybilling.domain.identity.SwitchUser
 import com.claytonmuhoza.easybilling.domain.identity.UpdateUser
 import com.claytonmuhoza.easybilling.domain.identity.UserRepository
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
@@ -83,4 +85,18 @@ object UserAccountsModule {
         auditLog: AuditLog,
         transactions: TransactionRunner,
     ): ChangeTemporaryPin = ChangeTemporaryPin(users, guard, hasher, sessions, auditLog, transactions)
+
+    /** @return the use case handing the session over to another user (UC-H03). */
+    @Provides
+    fun switchUser(users: UserRepository, guard: SecretGuard, sessions: SessionManager): SwitchUser =
+        SwitchUser(users, guard, sessions)
+
+    /** @return the use case approving a sensitive action with the PIN of a manager (UC-H04). */
+    @Provides
+    fun authorizeSensitiveAction(
+        users: UserRepository,
+        guard: SecretGuard,
+        policy: PermissionPolicy,
+        auditLog: AuditLog,
+    ): AuthorizeSensitiveAction = AuthorizeSensitiveAction(users, guard, policy, auditLog)
 }

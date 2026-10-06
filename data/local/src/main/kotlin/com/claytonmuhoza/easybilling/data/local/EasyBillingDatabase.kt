@@ -14,6 +14,8 @@ import com.claytonmuhoza.easybilling.data.local.configuration.EbmsSettingsEntity
 import com.claytonmuhoza.easybilling.data.local.configuration.NumberCounterEntity
 import com.claytonmuhoza.easybilling.data.local.configuration.NumberingDao
 import com.claytonmuhoza.easybilling.data.local.configuration.NumberingSettingsEntity
+import com.claytonmuhoza.easybilling.data.local.configuration.DiscountSettingsDao
+import com.claytonmuhoza.easybilling.data.local.configuration.DiscountSettingsEntity
 import com.claytonmuhoza.easybilling.data.local.configuration.PrinterSettingsDao
 import com.claytonmuhoza.easybilling.data.local.configuration.PrinterSettingsEntity
 import com.claytonmuhoza.easybilling.data.local.configuration.TaxDao
@@ -55,7 +57,8 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
  * issued, issued invoices with their status, and send queue (step 09); 9 state of the send queue and
  * acknowledgements of the OBR (step 10); 10 total and search text of the invoices, and seller of the
  * invoices sent again (step 12); 11 settings of the documents (step 13); 12 settings of the printer
- * (step 13).
+ * (step 13); 13 several roles per user, disabled accounts and temporary PINs (step 14a); 14 approval
+ * of the discount of a line and cap of the discount (step 14b).
  */
 @Database(
     entities = [
@@ -80,8 +83,9 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
         InvoiceReceiptEntity::class,
         DocumentSettingsEntity::class,
         PrinterSettingsEntity::class,
+        DiscountSettingsEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = false,
 )
 // One accessor per DAO: the list grows with the schema.
@@ -120,6 +124,8 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
     abstract fun documentSettingsDao(): DocumentSettingsDao
 
     abstract fun printerSettingsDao(): PrinterSettingsDao
+
+    abstract fun discountSettingsDao(): DiscountSettingsDao
 }
 
 /**

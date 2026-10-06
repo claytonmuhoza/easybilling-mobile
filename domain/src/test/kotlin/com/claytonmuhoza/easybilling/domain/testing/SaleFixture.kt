@@ -19,10 +19,13 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileVersion
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
 import com.claytonmuhoza.easybilling.domain.configuration.TaxVersion
 import com.claytonmuhoza.easybilling.domain.identity.Credentials
+import com.claytonmuhoza.easybilling.domain.identity.FixedPermissionPolicy
 import com.claytonmuhoza.easybilling.domain.identity.NewUser
 import com.claytonmuhoza.easybilling.domain.identity.Role
 import com.claytonmuhoza.easybilling.domain.identity.SecretHash
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.invoicing.DiscountLimits
+import com.claytonmuhoza.easybilling.domain.invoicing.SaveDiscountSettings
 import com.claytonmuhoza.easybilling.domain.invoicing.AllocateInvoiceNumber
 import com.claytonmuhoza.easybilling.domain.invoicing.DraftId
 import com.claytonmuhoza.easybilling.domain.invoicing.EditSale
@@ -306,6 +309,9 @@ class SaleFixture {
     val priceSale = PriceSale(items, taxes, customers, profiles, time)
     val editSale = EditSale(drafts, time, DirectTransactionRunner)
     val access = FakeAccessControl()
+    val discountSettings = InMemoryDiscountSettingsRepository()
+    val discountLimits = DiscountLimits(users, discountSettings, FixedPermissionPolicy)
+    val saveDiscountSettings = SaveDiscountSettings(access, discountSettings, audit)
     val issueSale = IssueSale(
         access,
         IssueConfiguration(
@@ -313,6 +319,7 @@ class SaleFixture {
             ebmsSettings,
             vault,
             CheckBillingReadiness(profiles, ebmsSettings, taxes, numbering, time),
+            discountLimits,
         ),
         IssueStorage(drafts, invoices, outbox, audit),
         priceSale,

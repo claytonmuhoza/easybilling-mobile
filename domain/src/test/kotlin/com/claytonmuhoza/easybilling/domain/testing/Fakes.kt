@@ -50,6 +50,8 @@ import com.claytonmuhoza.easybilling.domain.identity.SecretHasher
 import com.claytonmuhoza.easybilling.domain.identity.User
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.identity.UserRepository
+import com.claytonmuhoza.easybilling.domain.invoicing.DiscountSettings
+import com.claytonmuhoza.easybilling.domain.invoicing.DiscountSettingsRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.DocumentType
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
@@ -407,5 +409,15 @@ class FakeAccessControl : AccessControl {
     override suspend fun require(actor: UserId, permission: Permission) {
         required += actor to permission
         if (permission in denied) throw PermissionDeniedException(actor, permission)
+    }
+}
+
+/** Settings of the discounts kept in a field. */
+class InMemoryDiscountSettingsRepository(private var settings: DiscountSettings = DiscountSettings()) :
+    DiscountSettingsRepository {
+    override suspend fun read(): DiscountSettings = settings
+
+    override suspend fun write(settings: DiscountSettings) {
+        this.settings = settings
     }
 }

@@ -42,12 +42,18 @@ class EditSale(
     /**
      * @param itemId the item of the line.
      * @param line the quantity, the discount and the tax amounts that replace the ones of the line.
+     * @param approval the approval of the discount of [line] by a manager, or null. The approval
+     * the line already has is kept while its discount stays the same; an approval of another
+     * discount is not kept.
      * @return the sale once changed.
      */
-    suspend fun setLine(itemId: ItemId, line: SaleLineCheck.Valid): SaleDraft = change { draft ->
-        val changed = DraftLine(itemId, line.quantity, line.discount, line.freeAmounts)
-        draft.copy(lines = draft.lines.map { if (it.itemId == itemId) changed else it })
-    }
+    suspend fun setLine(itemId: ItemId, line: SaleLineCheck.Valid, approval: DiscountApproval? = null): SaleDraft =
+        change { draft ->
+            val previous = draft.lines.firstOrNull { it.itemId == itemId }?.approval
+            val kept = (approval ?: previous)?.takeIf { line.discount != null && it.discount == line.discount }
+            val changed = DraftLine(itemId, line.quantity, line.discount, line.freeAmounts, kept)
+            draft.copy(lines = draft.lines.map { if (it.itemId == itemId) changed else it })
+        }
 
     /**
      * @param itemId the item of the line to take out.

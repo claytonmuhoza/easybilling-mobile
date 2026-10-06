@@ -84,12 +84,15 @@ sealed interface Discount {
  * @property quantity the quantity sold.
  * @property discount the discount on the unit price, or null.
  * @property freeAmounts the amounts typed for the taxes of the item computed as a free amount.
+ * @property approval the approval of [discount] by a manager, or null; it always approves
+ * [discount] itself.
  */
 data class DraftLine(
     val itemId: ItemId,
     val quantity: Quantity,
     val discount: Discount? = null,
     val freeAmounts: Map<TaxKind, Money> = emptyMap(),
+    val approval: DiscountApproval? = null,
 )
 
 /**

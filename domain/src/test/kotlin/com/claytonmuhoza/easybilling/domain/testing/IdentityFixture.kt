@@ -1,6 +1,7 @@
 package com.claytonmuhoza.easybilling.domain.testing
 
 import com.claytonmuhoza.easybilling.domain.identity.AccessGuard
+import com.claytonmuhoza.easybilling.domain.identity.AuthorizeSensitiveAction
 import com.claytonmuhoza.easybilling.domain.identity.ChangeTemporaryPin
 import com.claytonmuhoza.easybilling.domain.identity.CreateAdministrator
 import com.claytonmuhoza.easybilling.domain.identity.CreateUser
@@ -10,8 +11,10 @@ import com.claytonmuhoza.easybilling.domain.identity.LogIn
 import com.claytonmuhoza.easybilling.domain.identity.ResetPin
 import com.claytonmuhoza.easybilling.domain.identity.ResetUserPin
 import com.claytonmuhoza.easybilling.domain.identity.SecretGuard
+import com.claytonmuhoza.easybilling.domain.identity.SensitiveAction
 import com.claytonmuhoza.easybilling.domain.identity.SessionManager
 import com.claytonmuhoza.easybilling.domain.identity.SetUserActive
+import com.claytonmuhoza.easybilling.domain.identity.SwitchUser
 import com.claytonmuhoza.easybilling.domain.identity.UpdateUser
 import com.claytonmuhoza.easybilling.domain.identity.User
 import com.claytonmuhoza.easybilling.domain.identity.UserForm
@@ -39,6 +42,12 @@ class IdentityFixture {
     val setUserActive = SetUserActive(users, access, audit, DirectTransactionRunner)
     val resetUserPin = ResetUserPin(users, hasher, access, audit, DirectTransactionRunner)
     val changeTemporaryPin = ChangeTemporaryPin(users, guard, hasher, sessions, audit, DirectTransactionRunner)
+    val switchUser = SwitchUser(users, guard, sessions)
+    val authorizeSensitiveAction = AuthorizeSensitiveAction(users, guard, FixedPermissionPolicy, audit)
+
+    /** Asks [approver] to approve [action] of [requester] with [pin]. */
+    suspend fun authorize(requester: UserId, approver: UserId, pin: String, action: SensitiveAction) =
+        authorizeSensitiveAction(requester, approver, pin, action)
 
     /** Creates the administrator "Alice" and fails the test if that is refused. */
     suspend fun administrator(pin: String = PIN): CreateAdministrator.Result.Created =
