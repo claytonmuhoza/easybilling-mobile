@@ -181,3 +181,11 @@ data class InvoiceDestination(val id: Long)
 /** The transmission to the OBR: the network, the send queue and the refused invoices. */
 @Serializable
 data object TransmissionDestination
+
+/** Quick switch to another user, without closing the register. */
+@Serializable
+data object SwitchUserDestination
+
+/** The cap of the discount of the cashier. */
+@Serializable
+data object DiscountCapDestination

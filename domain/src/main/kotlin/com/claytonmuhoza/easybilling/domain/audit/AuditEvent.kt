@@ -8,8 +8,10 @@ import com.claytonmuhoza.easybilling.domain.customer.CustomerId
 import com.claytonmuhoza.easybilling.domain.identity.LogoutReason
 import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.identity.Role
+import com.claytonmuhoza.easybilling.domain.identity.SensitiveAction
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
+import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
 
@@ -98,6 +100,32 @@ sealed interface AuditEvent {
     data class PermissionDenied(override val actor: UserId, val permission: Permission) : AuditEvent {
         override val action get() = "PERMISSION_DENIED"
         override val details get() = "permission=$permission"
+    }
+
+    /** The user approved [sensitiveAction], which [requester] asked for, with their own PIN. */
+    data class SensitiveActionAuthorized(
+        override val actor: UserId,
+        val requester: UserId,
+        val sensitiveAction: SensitiveAction,
+    ) : AuditEvent {
+        override val action get() = "SENSITIVE_ACTION_AUTHORIZED"
+        override val details get() = "requester=${requester.value};${sensitiveAction.details}"
+    }
+
+    /** The approval of [sensitiveAction] by [approver] was refused: wrong PIN or locked account. */
+    data class SensitiveActionRefused(
+        override val actor: UserId,
+        val approver: UserId,
+        val sensitiveAction: SensitiveAction,
+    ) : AuditEvent {
+        override val action get() = "SENSITIVE_ACTION_REFUSED"
+        override val details get() = "approver=${approver.value};${sensitiveAction.details}"
+    }
+
+    /** The cap of the discount a cashier gives alone became [cap] percent; null for none. */
+    data class DiscountCapChanged(override val actor: UserId, val cap: BigDecimal?) : AuditEvent {
+        override val action get() = "DISCOUNT_CAP_CHANGED"
+        override val details get() = "cap=${cap?.stripTrailingZeros()?.toPlainString() ?: "none"}"
     }
 
     /** The address and the credentials of [environment] were saved. No secret is kept here. */

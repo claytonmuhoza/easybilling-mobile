@@ -1,5 +1,6 @@
 package com.claytonmuhoza.easybilling.domain.invoicing
 
+import com.claytonmuhoza.easybilling.domain.catalog.ItemId
 import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
@@ -26,12 +27,14 @@ import java.time.temporal.ChronoUnit
  * @property ebmsSettings where the active environment is kept.
  * @property vault where the system identifiers are kept.
  * @property readiness tells whether invoices can be issued.
+ * @property discountLimits tells which discounts need the approval of a manager.
  */
 class IssueConfiguration(
     val profiles: TaxProfileRepository,
     val ebmsSettings: EbmsSettingsRepository,
     val vault: EbmsCredentialsVault,
     val readiness: CheckBillingReadiness,
+    val discountLimits: DiscountLimits,
 )
 
 /**
@@ -84,6 +87,12 @@ class IssueSale(
         /** The sale cannot be issued as it is; nothing was issued. */
         data class Invalid(val sale: PricedSale) : Result
 
+        /**
+         * The discount of the lines of [itemIds] goes beyond the cap of the user without the
+         * approval of a manager (UC-C03); nothing was issued.
+         */
+        data class DiscountNotApproved(val itemIds: Set<ItemId>) : Result
+
         /** The counter reached the last number its digits allow; nothing was issued. */
         data object NumbersExhausted : Result
 
@@ -115,8 +124,7 @@ class IssueSale(
     private suspend fun issued(draftId: DraftId, actor: UserId): Result {
         val draft = storage.drafts.find(draftId) ?: return Result.NotFound
         val seller = seller()
-        val sale = priceSale(draft)
-        if (!sale.issuable) throw Aborted(Result.Invalid(sale))
+        val sale = issuable(draft, actor)
 
         // The OBR reads the date to the second.
         val issuedAt = time.now().truncatedTo(ChronoUnit.SECONDS)
@@ -144,6 +152,15 @@ class IssueSale(
         storage.drafts.delete(draft.id)
         storage.auditLog.record(AuditEvent.InvoiceIssued(actor, invoice.id, number))
         return Result.Issued(invoice)
+    }
+
+    /** @return [draft] priced, once nothing in it nor in its discounts prevents its issue by [actor]. */
+    private suspend fun issuable(draft: SaleDraft, actor: UserId): PricedSale {
+        val sale = priceSale(draft)
+        if (!sale.issuable) throw Aborted(Result.Invalid(sale))
+        val unapproved = configuration.discountLimits.unapproved(actor, sale)
+        if (unapproved.isNotEmpty()) throw Aborted(Result.DiscountNotApproved(unapproved.map { it.item.id }.toSet()))
+        return sale
     }
 
     /** What the invoice takes from the configuration. */

@@ -55,6 +55,13 @@ import com.claytonmuhoza.easybilling.domain.shared.Quantity
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
 import com.claytonmuhoza.easybilling.domain.transmission.ReceiptArchive
+import com.claytonmuhoza.easybilling.domain.identity.ChangeTemporaryPin
+import com.claytonmuhoza.easybilling.domain.identity.CreateUser
+import com.claytonmuhoza.easybilling.domain.identity.Role
+import com.claytonmuhoza.easybilling.domain.identity.UserForm
+import com.claytonmuhoza.easybilling.domain.invoicing.SaveDiscountSettings
+import com.claytonmuhoza.easybilling.testing.enterPin
+import com.claytonmuhoza.easybilling.testing.pressKey
 import com.claytonmuhoza.easybilling.testing.IssuedInvoiceStatus
 import com.claytonmuhoza.easybilling.testing.TestCertificates
 import com.claytonmuhoza.easybilling.testing.TestClock
@@ -86,6 +93,7 @@ import javax.inject.Inject
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.test.assertNull
 
 /**
@@ -148,6 +156,15 @@ class SaleFlowTest {
 
     @Inject
     lateinit var receipts: ReceiptArchive
+
+    @Inject
+    lateinit var createUser: CreateUser
+
+    @Inject
+    lateinit var changeTemporaryPin: ChangeTemporaryPin
+
+    @Inject
+    lateinit var saveDiscountSettings: SaveDiscountSettings
 
     private val simulator: ObrSimulator = TestCertificates.startSimulator()
     private lateinit var alice: User
@@ -256,7 +273,8 @@ class SaleFlowTest {
         composeRule.waitForText("Validate the sale")
     }
 
-    private fun shown(text: String) = composeRule.waitForText(text).performScrollTo().assertIsDisplayed()
+    private fun shown(text: String, substring: Boolean = false) =
+        composeRule.waitForText(text, substring).performScrollTo().assertIsDisplayed()
 
     private fun pressDescribed(description: String) =
         composeRule.onNodeWithContentDescription(description).performScrollTo().performClick()
@@ -646,6 +664,97 @@ class SaleFlowTest {
 
         composeRule.waitForText("1 item · 1,180 BIF").assertIsDisplayed()
         composeRule.onNodeWithText("× 1").assertIsDisplayed()
+    }
+
+    /** Creates [name] with [roles], who then chooses the PIN [pin], as Alice. */
+    private fun account(name: String, vararg roles: Role, pin: String = "222222"): User = runBlocking {
+        val user = assertIs<CreateUser.Result.Created>(
+            createUser(UserForm(name, roles.toSet()), "111111", "111111", alice.id),
+        ).user
+        assertEquals(ChangeTemporaryPin.Result.Changed, changeTemporaryPin(user.id, "111111", pin, pin))
+        // Choosing the PIN opened a session: the session of the test comes back to Alice.
+        sessions.open(alice)
+        user
+    }
+
+    @Test
+    fun `a discount beyond the cap of the cashier is applied once a manager approves it with their PIN`() {
+        readyToSell()
+        runBlocking { saveDiscountSettings(BigDecimal("10"), alice.id) }
+        account("Marc", Role.MANAGER, pin = "333333")
+        val bob = account("Bob", Role.CASHIER)
+        runBlocking { sessions.open(bob) }
+        launch()
+        openRegister()
+        add("Savon de Marseille", inSale = "1")
+        viewSale("1 item · 1,180 BIF")
+
+        pressDescribed("Modify: Savon de Marseille")
+        composeRule.pressInForm("Percent")
+        composeRule.typeInForm("Discount in percent", "25")
+        composeRule.pressInForm("Apply")
+        composeRule.waitForText("Approval of a manager")
+        shown("A discount of 25 % goes beyond your cap of 10 %.", substring = true)
+        composeRule.onNodeWithText("Marc").performClick()
+        composeRule.enterPin("000000")
+        composeRule.pressKey("Approve")
+        composeRule.waitForText("Wrong PIN. 9 attempts left.")
+        composeRule.enterPin("333333")
+        composeRule.pressKey("Approve")
+
+        shown("Discount 25 %")
+        composeRule.pressInForm("Validate the sale")
+        val invoice = issuedInvoice()
+        assertEquals(Discount.Percent(BigDecimal("25")), invoice.content.lines.single().discount)
+        assertEquals(bob.id, invoice.content.issuedBy)
+        val audited = runBlocking { auditStore.readAll() }.map { it.action }
+        assertTrue("SENSITIVE_ACTION_REFUSED" in audited, audited.toString())
+        assertTrue("SENSITIVE_ACTION_AUTHORIZED" in audited, audited.toString())
+    }
+
+    @Test
+    fun `a discount within the cap needs no approval, and giving the approval up keeps the line`() {
+        readyToSell()
+        runBlocking { saveDiscountSettings(BigDecimal("10"), alice.id) }
+        account("Marc", Role.MANAGER)
+        runBlocking { sessions.open(account("Bob", Role.CASHIER)) }
+        launch()
+        openRegister()
+        add("Savon de Marseille", inSale = "1")
+        viewSale("1 item · 1,180 BIF")
+
+        pressDescribed("Modify: Savon de Marseille")
+        composeRule.pressInForm("Percent")
+        composeRule.typeInForm("Discount in percent", "30")
+        composeRule.pressInForm("Apply")
+        composeRule.waitForText("Approval of a manager")
+        composeRule.onNodeWithText("Cancel").performClick()
+        composeRule.onNodeWithText("Approval of a manager").assertDoesNotExist()
+        composeRule.replaceInForm("Discount in percent", "10")
+        composeRule.pressInForm("Apply")
+
+        shown("Discount 10 %")
+        composeRule.onNodeWithText("Approval of a manager").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the register is handed over during a sale, and the invoice carries the new cashier`() {
+        readyToSell()
+        val bob = account("Bob", Role.CASHIER)
+        launch()
+        openRegister()
+        add("Savon de Marseille", inSale = "1")
+
+        composeRule.onNodeWithContentDescription("Change user").performClick()
+        composeRule.waitForText("Enter your PIN to continue")
+        composeRule.enterPin("222222")
+        composeRule.pressKey("Change user")
+
+        viewSale("1 item · 1,180 BIF")
+        composeRule.pressInForm("Validate the sale")
+        assertEquals(bob.id, issuedInvoice().content.issuedBy)
+        val audit = runBlocking { auditStore.readAll() }
+        assertTrue(audit.any { it.action == "SESSION_CLOSED" && it.details == "reason=SWITCH" }, audit.toString())
     }
 
     private companion object {

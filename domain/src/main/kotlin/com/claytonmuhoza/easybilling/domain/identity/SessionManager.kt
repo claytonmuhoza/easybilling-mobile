@@ -34,6 +34,9 @@ enum class LogoutReason {
 
     /** Nobody used the application for the inactivity timeout. */
     INACTIVITY,
+
+    /** Another user took the session over with a quick switch (UC-H03). */
+    SWITCH,
 }
 
 /**
@@ -66,6 +69,20 @@ class SessionManager(
     suspend fun open(user: User) {
         lastActivity = time.now()
         session.value = Session(user.id, user.name, user.roles)
+        auditLog.record(AuditEvent.SessionOpened(user.id))
+    }
+
+    /**
+     * Hands the session over to a user whose identity was just verified, in one step: the
+     * application never shows a moment without a session.
+     *
+     * @param user the verified user.
+     */
+    suspend fun switchTo(user: User) {
+        val previous = session.value
+        lastActivity = time.now()
+        session.value = Session(user.id, user.name, user.roles)
+        previous?.let { auditLog.record(AuditEvent.SessionClosed(it.userId, LogoutReason.SWITCH)) }
         auditLog.record(AuditEvent.SessionOpened(user.id))
     }
 

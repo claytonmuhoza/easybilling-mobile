@@ -12,6 +12,8 @@ import com.claytonmuhoza.easybilling.data.local.EasyBillingDatabase
 import com.claytonmuhoza.easybilling.domain.catalog.ItemId
 import com.claytonmuhoza.easybilling.domain.configuration.TaxKind
 import com.claytonmuhoza.easybilling.domain.customer.CustomerId
+import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.invoicing.DiscountApproval
 import com.claytonmuhoza.easybilling.domain.invoicing.Discount
 import com.claytonmuhoza.easybilling.domain.invoicing.DiscountKind
 import com.claytonmuhoza.easybilling.domain.invoicing.DraftId
@@ -38,7 +40,8 @@ internal data class SaleDraftEntity(
 /**
  * Row of the `sale_draft_lines` table, deleted with its sale. Numbers are stored as decimal text,
  * never as floating numbers. The four free amounts are the taxes typed on the line; the VAT is
- * always a percentage.
+ * always a percentage. [approvedBy] is the manager who approved the discount of the line, or
+ * null: an approval always approves the discount of its line.
  */
 @Entity(
     tableName = "sale_draft_lines",
@@ -63,6 +66,7 @@ internal data class SaleDraftLineEntity(
     val freeFlatRateWithholding: String?,
     val freeOtt: String?,
     val freeTsce: String?,
+    val approvedBy: Long?,
 )
 
 /** Queries on the sales that are not issued. */
@@ -144,19 +148,24 @@ internal class RoomSaleDraftRepository(private val database: EasyBillingDatabase
         freeFlatRateWithholding = freeAmounts[TaxKind.FLAT_RATE_WITHHOLDING]?.toPlainString(),
         freeOtt = freeAmounts[TaxKind.OTT]?.toPlainString(),
         freeTsce = freeAmounts[TaxKind.TSCE]?.toPlainString(),
+        approvedBy = approval?.approver?.value,
     )
 
-    private fun SaleDraftLineEntity.toDomain() = DraftLine(
-        itemId = ItemId(itemId),
-        quantity = Quantity.of(quantity),
-        discount = discountOf(discountKind, discountValue),
-        freeAmounts = listOfNotNull(
-            freeConsumptionTax?.let { TaxKind.CONSUMPTION_TAX to it },
-            freeFlatRateWithholding?.let { TaxKind.FLAT_RATE_WITHHOLDING to it },
-            freeOtt?.let { TaxKind.OTT to it },
-            freeTsce?.let { TaxKind.TSCE to it },
-        ).associate { (kind, amount) -> kind to Money.of(amount, Currency.BIF) },
-    )
+    private fun SaleDraftLineEntity.toDomain(): DraftLine {
+        val discount = discountOf(discountKind, discountValue)
+        return DraftLine(
+            itemId = ItemId(itemId),
+            quantity = Quantity.of(quantity),
+            discount = discount,
+            freeAmounts = listOfNotNull(
+                freeConsumptionTax?.let { TaxKind.CONSUMPTION_TAX to it },
+                freeFlatRateWithholding?.let { TaxKind.FLAT_RATE_WITHHOLDING to it },
+                freeOtt?.let { TaxKind.OTT to it },
+                freeTsce?.let { TaxKind.TSCE to it },
+            ).associate { (kind, amount) -> kind to Money.of(amount, Currency.BIF) },
+            approval = discount?.let { approved -> approvedBy?.let { DiscountApproval(UserId(it), approved) } },
+        )
+    }
 }
 
 /** @return how the discount is given, or null for no discount. */

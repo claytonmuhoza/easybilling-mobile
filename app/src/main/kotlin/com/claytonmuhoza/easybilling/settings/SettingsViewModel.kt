@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.claytonmuhoza.easybilling.domain.configuration.CheckBillingReadiness
 import com.claytonmuhoza.easybilling.domain.document.PrinterSettingsRepository
+import com.claytonmuhoza.easybilling.domain.invoicing.DiscountSettingsRepository
 import com.claytonmuhoza.easybilling.home.EbmsStatus
 import com.claytonmuhoza.easybilling.home.HomeStatusReader
 import com.claytonmuhoza.easybilling.home.NumberingStatus
@@ -12,6 +13,7 @@ import com.claytonmuhoza.easybilling.home.TaxProfileStatus
 import com.claytonmuhoza.easybilling.home.TaxesStatus
 import com.claytonmuhoza.easybilling.ui.storageCall
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.math.BigDecimal
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +31,8 @@ import kotlinx.coroutines.launch
  * @property numberingStatus where the numbering stands.
  * @property printerName the name of the associated printer, or null when there is none or it is
  * not read yet.
+ * @property discountCap the cap of the discount of the cashier in percent, or null when there is
+ * none or it is not read yet.
  */
 data class SettingsUiState(
     val readiness: ReadinessStatus = ReadinessStatus.Loading,
@@ -37,6 +41,7 @@ data class SettingsUiState(
     val taxesStatus: TaxesStatus = TaxesStatus.Loading,
     val numberingStatus: NumberingStatus = NumberingStatus.Loading,
     val printerName: String? = null,
+    val discountCap: BigDecimal? = null,
 )
 
 /** Reads where each setting stands. */
@@ -45,6 +50,7 @@ class SettingsViewModel @Inject constructor(
     private val reader: HomeStatusReader,
     private val checkReadiness: CheckBillingReadiness,
     private val printerSettings: PrinterSettingsRepository,
+    private val discountSettings: DiscountSettingsRepository,
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow(SettingsUiState())
@@ -64,6 +70,7 @@ class SettingsViewModel @Inject constructor(
             val taxes = storageCall { reader.taxes() }.getOrElse { TaxesStatus.Unreadable }
             val numbering = storageCall { reader.numbering() }.getOrElse { NumberingStatus.Unreadable }
             val printer = storageCall { printerSettings.read().printer?.name }.getOrNull()
+            val discountCap = storageCall { discountSettings.read().cashierCap }.getOrNull()
             mutableState.update {
                 it.copy(
                     taxProfileStatus = taxProfile,
@@ -71,6 +78,7 @@ class SettingsViewModel @Inject constructor(
                     taxesStatus = taxes,
                     numberingStatus = numbering,
                     printerName = printer,
+                    discountCap = discountCap,
                 )
             }
         }

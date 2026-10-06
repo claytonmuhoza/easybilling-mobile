@@ -29,10 +29,13 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxVersion
 import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
 import com.claytonmuhoza.easybilling.domain.customer.Customer
 import com.claytonmuhoza.easybilling.domain.customer.CustomerId
+import com.claytonmuhoza.easybilling.domain.identity.FixedPermissionPolicy
 import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.invoicing.DiscountLimits
 import com.claytonmuhoza.easybilling.domain.invoicing.AllocateInvoiceNumber
 import com.claytonmuhoza.easybilling.domain.invoicing.Discount
+import com.claytonmuhoza.easybilling.domain.invoicing.DiscountApproval
 import com.claytonmuhoza.easybilling.domain.invoicing.DocumentType
 import com.claytonmuhoza.easybilling.domain.invoicing.DraftId
 import com.claytonmuhoza.easybilling.domain.invoicing.DraftLine
@@ -173,7 +176,13 @@ class SaleStorageTest {
         }
         return IssueSale(
             AccessControl { _, _ -> },
-            IssueConfiguration(storage.taxProfiles, storage.ebmsSettings, vault, readiness),
+            IssueConfiguration(
+                storage.taxProfiles,
+                storage.ebmsSettings,
+                vault,
+                readiness,
+                DiscountLimits(storage.users, storage.discountSettings, FixedPermissionPolicy),
+            ),
             IssueStorage(drafts, invoices, outbox, auditLog),
             PriceSale(storage.items, storage.taxes, storage.customers, storage.taxProfiles, time),
             AllocateInvoiceNumber(storage.numbering, time, storage.transactions),
@@ -206,7 +215,12 @@ class SaleStorageTest {
             customerId = customer.id,
             paymentType = PaymentType.CREDIT,
             lines = listOf(
-                DraftLine(soap.id, Quantity.of("2.5"), Discount.Percent(BigDecimal("12.5"))),
+                DraftLine(
+                    soap.id,
+                    Quantity.of("2.5"),
+                    Discount.Percent(BigDecimal("12.5")),
+                    approval = DiscountApproval(UserId(7), Discount.Percent(BigDecimal("12.5"))),
+                ),
                 DraftLine(
                     sugar.id,
                     Quantity.of("1"),

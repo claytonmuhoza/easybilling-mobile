@@ -125,7 +125,7 @@ fun LoginScreen(state: LoginUiState, actions: LoginActions, modifier: Modifier =
             modifier = modifier,
             header = { BusinessHeader(state.business, state.environment) },
         ) {
-            AccountChoice(state, actions.onChooseUser)
+            AccountChoice(stringResource(R.string.login_choose_user), state.accounts, actions.onChooseUser)
         }
         is LoginUiState.Ready -> {
             BackHandler(enabled = state.canChangeUser, onBack = actions.onChangeUser)
@@ -140,15 +140,21 @@ fun LoginScreen(state: LoginUiState, actions: LoginActions, modifier: Modifier =
     }
 }
 
-/** The accounts that can log in, each with its initials. */
+/**
+ * The accounts to pick from, each with its initials.
+ *
+ * @param title the question asked.
+ * @param accounts the accounts, oldest first.
+ * @param onChooseUser called with the identifier of the account picked.
+ */
 @Composable
-private fun ColumnScope.AccountChoice(state: LoginUiState.ChooseUser, onChooseUser: (Long) -> Unit) {
+internal fun ColumnScope.AccountChoice(title: String, accounts: List<LoginAccount>, onChooseUser: (Long) -> Unit) {
     Text(
-        text = stringResource(R.string.login_choose_user),
+        text = title,
         style = MaterialTheme.typography.titleMedium,
         modifier = Modifier.align(Alignment.CenterHorizontally),
     )
-    state.accounts.forEach { account ->
+    accounts.forEach { account ->
         TonalCard(onClick = { onChooseUser(account.id) }, modifier = Modifier.fillMaxWidth()) {
             CardListItem(
                 leadingContent = { InitialsAvatar(account.name) },

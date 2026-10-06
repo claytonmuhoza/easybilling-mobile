@@ -80,6 +80,7 @@ fun HomeRoute(
  * @property onOpenCustomers called when the user opens the customers.
  * @property onOpenInvoices called when the user asks for every invoice.
  * @property onOpenInvoice called with the identifier of the invoice the user opens.
+ * @property onSwitchUser called when the user hands the register over to another user.
  */
 class HomeActions(
     val onOpenSettings: () -> Unit = {},
@@ -88,6 +89,7 @@ class HomeActions(
     val onOpenCustomers: () -> Unit = {},
     val onOpenInvoices: () -> Unit = {},
     val onOpenInvoice: (Long) -> Unit = {},
+    val onSwitchUser: () -> Unit = {},
 )
 
 /**
@@ -115,6 +117,9 @@ fun HomeScreen(
         title = stringResource(R.string.app_name),
         modifier = modifier,
         actions = {
+            IconButton(onClick = actions.onSwitchUser) {
+                AppIconImage(AppIcon.SWITCH_ACCOUNT, contentDescription = stringResource(R.string.switch_user))
+            }
             IconButton(onClick = actions.onOpenSettings) {
                 AppIconImage(AppIcon.SETTINGS, contentDescription = stringResource(R.string.settings_title))
             }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,6 +46,8 @@ import com.claytonmuhoza.easybilling.domain.invoicing.PaymentType
 import com.claytonmuhoza.easybilling.domain.invoicing.PricedSale
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleLineForm
 import com.claytonmuhoza.easybilling.items.shortLabel
+import com.claytonmuhoza.easybilling.identity.ApprovalActions
+import com.claytonmuhoza.easybilling.identity.ApprovalDialog
 import com.claytonmuhoza.easybilling.transmission.TransmissionBannerRoute
 import com.claytonmuhoza.easybilling.ui.MoneyText
 import com.claytonmuhoza.easybilling.ui.amountText
@@ -64,6 +67,7 @@ private val TwoPaneMinWidth = 720.dp
  * @param onOpenHeld called when the user opens the sales on hold.
  * @param onIssued called with the identifier of the invoice once the sale is issued.
  * @param onOpenTransmission called when the user opens the transmission to the OBR.
+ * @param onSwitchUser called when the user hands the register over to another user.
  * @param viewModel holder of the sale state.
  */
 @Composable
@@ -73,6 +77,7 @@ fun SaleRoute(
     onOpenHeld: () -> Unit,
     onIssued: (Long) -> Unit,
     onOpenTransmission: () -> Unit,
+    onSwitchUser: () -> Unit,
     viewModel: SaleViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -101,6 +106,13 @@ fun SaleRoute(
             onShowPane = viewModel::showPane,
             onHold = viewModel::hold,
             onIssue = viewModel::issue,
+            onSwitchUser = onSwitchUser,
+        ),
+        approvalActions = ApprovalActions(
+            onChoose = viewModel.approval::choose,
+            onPinChange = viewModel.approval::onPinChange,
+            onSubmit = viewModel.approval::submit,
+            onCancel = viewModel.approval::cancel,
         ),
         banner = {
             TransmissionBannerRoute(
@@ -132,6 +144,7 @@ fun SaleRoute(
  * @property onShowPane called with the part a narrow screen must show.
  * @property onHold called when the user puts the sale on hold.
  * @property onIssue called when the user validates the sale.
+ * @property onSwitchUser called when the user hands the register over to another user.
  */
 class SaleActions(
     val onBack: () -> Unit = {},
@@ -151,6 +164,7 @@ class SaleActions(
     val onShowPane: (SalePane) -> Unit = {},
     val onHold: () -> Unit = {},
     val onIssue: () -> Unit = {},
+    val onSwitchUser: () -> Unit = {},
 )
 
 /**
@@ -161,6 +175,7 @@ class SaleActions(
  * @param actions what the user can do.
  * @param modifier modifier applied to the screen.
  * @param banner the state of the transmission to the OBR, shown above the sale when it needs attention.
+ * @param approvalActions what the user can do on the approval of a discount beyond the cap.
  */
 @Composable
 fun SaleScreen(
@@ -168,8 +183,10 @@ fun SaleScreen(
     actions: SaleActions,
     modifier: Modifier = Modifier,
     banner: @Composable () -> Unit = {},
+    approvalActions: ApprovalActions = ApprovalActions(),
 ) {
-    val held = (state as? SaleUiState.Ready)?.heldCount ?: 0
+    val ready = state as? SaleUiState.Ready
+    val held = ready?.heldCount ?: 0
     TitledScreen(
         title = stringResource(R.string.sale_title),
         modifier = modifier,
@@ -178,8 +195,23 @@ fun SaleScreen(
             if (held > 0) {
                 TextAction(label = stringResource(R.string.sale_held_action, held), onClick = actions.onOpenHeld)
             }
+            IconButton(onClick = actions.onSwitchUser) {
+                AppIconImage(AppIcon.SWITCH_ACCOUNT, contentDescription = stringResource(R.string.switch_user))
+            }
         },
     ) {
+        ready?.approval?.let { approval ->
+            ApprovalDialog(
+                message = stringResource(
+                    R.string.approval_discount_message,
+                    decimalText(approval.rate),
+                    decimalText(approval.cap),
+                ),
+                state = approval.dialog,
+                actions = approvalActions,
+                busy = ready.busy,
+            )
+        }
         when (state) {
             SaleUiState.Loading, is SaleUiState.Issued -> LoadingState()
             SaleUiState.Failed -> ErrorState(

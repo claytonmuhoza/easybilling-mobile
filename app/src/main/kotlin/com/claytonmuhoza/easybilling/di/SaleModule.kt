@@ -10,6 +10,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
 import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
 import com.claytonmuhoza.easybilling.domain.identity.AccessControl
+import com.claytonmuhoza.easybilling.domain.invoicing.DiscountLimits
 import com.claytonmuhoza.easybilling.domain.invoicing.AllocateInvoiceNumber
 import com.claytonmuhoza.easybilling.domain.invoicing.EditSale
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
@@ -65,7 +66,8 @@ object SaleModule {
         ebmsSettings: EbmsSettingsRepository,
         vault: EbmsCredentialsVault,
         readiness: CheckBillingReadiness,
-    ): IssueConfiguration = IssueConfiguration(profiles, ebmsSettings, vault, readiness)
+        discountLimits: DiscountLimits,
+    ): IssueConfiguration = IssueConfiguration(profiles, ebmsSettings, vault, readiness, discountLimits)
 
     /** @return where the issue of a sale writes. */
     @Provides

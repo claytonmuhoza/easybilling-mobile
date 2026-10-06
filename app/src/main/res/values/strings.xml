@@ -782,4 +782,30 @@
     <string name="error_user_no_role">Tick at least one role</string>
     <string name="error_user_last_administrator">At least one active administrator must remain</string>
     <string name="error_user_own_account">You cannot disable the account you are logged in with</string>
+
+    <!-- Switch, approval of a manager, discount cap -->
+    <string name="approval_title">Approval of a manager</string>
+    <string name="approval_choose">Who approves?</string>
+    <string name="approval_submit">Approve</string>
+    <string name="approval_cancel">Cancel</string>
+    <string name="approval_none">No manager nor administrator can approve it on this device.</string>
+    <string name="approval_not_allowed">This account cannot approve it.</string>
+    <string name="approval_discount_message">A discount of %1$s %% goes beyond your cap of %2$s %%. A manager or an administrator approves it with their PIN.</string>
+    <string name="sale_refusal_discount_not_approved">A discount goes beyond your cap without approval: open the line and apply it again to have it approved.</string>
+    <string name="switch_user">Change user</string>
+    <string name="switch_user_title">Who takes over?</string>
+    <string name="switch_user_none">No other account can take over on this device.</string>
+    <string name="switch_user_pin_change_required">First login of this account: log out, then log in with it.</string>
+    <string name="switch_user_disabled">This account is disabled.</string>
+    <string name="discount_cap_title">Discount cap</string>
+    <string name="discount_cap_none">No cap</string>
+    <string name="discount_cap_status">Cashier: %1$s %%</string>
+    <string name="discount_cap_limit">Limit the discount of the cashier</string>
+    <string name="discount_cap_field">Highest discount without approval (%)</string>
+    <string name="discount_cap_help">Beyond it, a manager or an administrator approves the discount with their PIN. Managers and administrators have no cap.</string>
+    <string name="discount_cap_out_of_range">Enter a percentage from 0 to 99.99, with two decimals at most.</string>
+    <string name="discount_cap_save">Save</string>
+    <string name="discount_cap_saved">Cap saved.</string>
+    <string name="discount_cap_load_error">The cap could not be read.</string>
+    <string name="discount_cap_save_error">The cap could not be saved. Try again.</string>
 </resources>

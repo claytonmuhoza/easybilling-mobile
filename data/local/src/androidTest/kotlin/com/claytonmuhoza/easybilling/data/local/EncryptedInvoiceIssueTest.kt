@@ -23,8 +23,10 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileVersion
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
 import com.claytonmuhoza.easybilling.domain.configuration.TaxVersion
 import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
+import com.claytonmuhoza.easybilling.domain.identity.FixedPermissionPolicy
 import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.invoicing.DiscountLimits
 import com.claytonmuhoza.easybilling.domain.invoicing.AllocateInvoiceNumber
 import com.claytonmuhoza.easybilling.domain.invoicing.EditSale
 import com.claytonmuhoza.easybilling.domain.invoicing.IssueConfiguration
@@ -73,12 +75,13 @@ class EncryptedInvoiceIssueTest {
     private val vault = SecretStoreCredentialsVault(secrets)
     private val edit = EditSale(storage.saleDrafts, time, storage.transactions)
     private val issue = IssueSale(
-            AccessControl { _, _ -> },
+        AccessControl { _, _ -> },
         IssueConfiguration(
             storage.taxProfiles,
             storage.ebmsSettings,
             vault,
             CheckBillingReadiness(storage.taxProfiles, storage.ebmsSettings, storage.taxes, storage.numbering, time),
+            DiscountLimits(storage.users, storage.discountSettings, FixedPermissionPolicy),
         ),
         IssueStorage(
             storage.saleDrafts,

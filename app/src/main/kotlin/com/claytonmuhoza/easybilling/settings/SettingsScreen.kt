@@ -21,6 +21,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.StatusChip
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
 import com.claytonmuhoza.easybilling.core.designsystem.theme.StatusTone
 import com.claytonmuhoza.easybilling.domain.identity.Permission
+import com.claytonmuhoza.easybilling.ui.decimalText
 import com.claytonmuhoza.easybilling.domain.configuration.ReadinessStep
 import com.claytonmuhoza.easybilling.home.ReadinessStatus
 import com.claytonmuhoza.easybilling.home.text
@@ -54,6 +55,7 @@ fun SettingsRoute(userName: String, actions: SettingsActions, viewModel: Setting
  * @property onOpenDocuments called when the user opens the header of the invoices.
  * @property onOpenPrinter called when the user opens the printer.
  * @property onOpenUsers called when the user opens the accounts of the users.
+ * @property onOpenDiscountCap called when the user opens the cap of the discount.
  */
 class SettingsActions(
     val onBack: () -> Unit = {},
@@ -65,6 +67,7 @@ class SettingsActions(
     val onOpenDocuments: () -> Unit = {},
     val onOpenPrinter: () -> Unit = {},
     val onOpenUsers: () -> Unit = {},
+    val onOpenDiscountCap: () -> Unit = {},
 )
 
 /**
@@ -90,6 +93,14 @@ fun SettingsScreen(userName: String, state: SettingsUiState, actions: SettingsAc
                     onClick = actions.onOpenUsers,
                     supporting = stringResource(R.string.users_status),
                     icon = AppIcon.GROUP,
+                )
+                NavigationRow(
+                    title = stringResource(R.string.discount_cap_title),
+                    onClick = actions.onOpenDiscountCap,
+                    supporting = state.discountCap
+                        ?.let { stringResource(R.string.discount_cap_status, decimalText(it)) }
+                        ?: stringResource(R.string.discount_cap_none),
+                    icon = AppIcon.TAG,
                 )
             }
 
