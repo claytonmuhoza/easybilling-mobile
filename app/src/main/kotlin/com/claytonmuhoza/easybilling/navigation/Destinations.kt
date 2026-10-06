@@ -10,9 +10,31 @@ data object SetupDestination
 @Serializable
 data object LoginDestination
 
-/** Choice of a new PIN with the recovery code. */
+/**
+ * Choice of a new PIN with the recovery code.
+ *
+ * @property userId identifier of the user who forgot the PIN.
+ */
 @Serializable
-data object ResetPinDestination
+data class ResetPinDestination(val userId: Long)
+
+/** The accounts of the users. */
+@Serializable
+data object UsersDestination
+
+/**
+ * Creation or change of an account.
+ *
+ * @property id identifier of the account, or [NEW_USER] for a new one.
+ */
+@Serializable
+data class UserEditorDestination(val id: Long = NEW_USER) {
+    /** Identifiers of the destination. */
+    companion object {
+        /** The identifier meaning "a new account". */
+        const val NEW_USER = 0L
+    }
+}
 
 /** Home screen, the "Register" tab: the start of the application once logged in. */
 @Serializable

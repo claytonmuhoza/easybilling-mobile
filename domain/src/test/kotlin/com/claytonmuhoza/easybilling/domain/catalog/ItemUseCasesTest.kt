@@ -1,6 +1,7 @@
 package com.claytonmuhoza.easybilling.domain.catalog
 
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
+import com.claytonmuhoza.easybilling.domain.catalog.ItemId
 import com.claytonmuhoza.easybilling.domain.configuration.NumberingCheck
 import com.claytonmuhoza.easybilling.domain.configuration.NumberingForm
 import com.claytonmuhoza.easybilling.domain.configuration.PercentageBase
@@ -9,11 +10,14 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileCheck
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileVersion
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
 import com.claytonmuhoza.easybilling.domain.configuration.TaxVersion
+import com.claytonmuhoza.easybilling.domain.identity.Permission
+import com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.invoicing.PriceMode
 import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.testing.DirectTransactionRunner
+import com.claytonmuhoza.easybilling.domain.testing.FakeAccessControl
 import com.claytonmuhoza.easybilling.domain.testing.InMemoryItemRepository
 import com.claytonmuhoza.easybilling.domain.testing.InMemoryNumberingRepository
 import com.claytonmuhoza.easybilling.domain.testing.InMemoryTaxProfileRepository
@@ -26,6 +30,7 @@ import java.time.Instant
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 
@@ -38,9 +43,10 @@ class ItemUseCasesTest {
     private val taxes = InMemoryTaxRepository()
     private val audit = RecordingAuditLog()
     private val rules = ReadItemRules(profiles, numbering, taxes)
-    private val create = CreateItem(items, rules, audit, DirectTransactionRunner)
-    private val update = UpdateItem(items, rules, audit, DirectTransactionRunner)
-    private val archive = ArchiveItem(items, audit, DirectTransactionRunner)
+    private val access = FakeAccessControl()
+    private val create = CreateItem(access, items, rules, audit, DirectTransactionRunner)
+    private val update = UpdateItem(access, items, rules, audit, DirectTransactionRunner)
+    private val archive = ArchiveItem(access, items, audit, DirectTransactionRunner)
     private val suggest = SuggestItemCode(items)
     private val alice = UserId(1)
 
@@ -233,5 +239,17 @@ class ItemUseCasesTest {
         assertEquals(listOf(soap), items.search("12345", archived = false, limit = 10))
         assertEquals(soap, items.findByBarcode("6001234567890"))
         assertNull(items.findByBarcode("999"))
+    }
+
+    @Test
+    fun `a user who may not edit the items changes none`() = runTest {
+        access.denied += Permission.EDIT_ITEMS
+
+        assertFailsWith<PermissionDeniedException> { create(form, alice) }
+        assertFailsWith<PermissionDeniedException> { update(ItemId(1), form, alice) }
+        assertFailsWith<PermissionDeniedException> { archive(ItemId(1), true, alice) }
+
+        assertEquals(List(3) { alice to Permission.EDIT_ITEMS }, access.required)
+        assertEquals(emptyList(), audit.events)
     }
 }

@@ -4,6 +4,7 @@ import com.claytonmuhoza.easybilling.data.local.LocalStorage
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.configuration.SaveTaxProfile
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
 import dagger.Module
@@ -23,9 +24,10 @@ object ConfigurationModule {
     /** @return the use case saving the tax profile as a new version. */
     @Provides
     fun saveTaxProfile(
+        access: AccessControl,
         profiles: TaxProfileRepository,
         auditLog: AuditLog,
         time: TimeProvider,
         transactions: TransactionRunner,
-    ): SaveTaxProfile = SaveTaxProfile(profiles, auditLog, time, transactions)
+    ): SaveTaxProfile = SaveTaxProfile(access, profiles, auditLog, time, transactions)
 }

@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.access.allowed
 import com.claytonmuhoza.easybilling.core.designsystem.component.AppIcon
 import com.claytonmuhoza.easybilling.core.designsystem.component.AppIconImage
 import com.claytonmuhoza.easybilling.core.designsystem.component.CardListItem
@@ -39,6 +40,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
 import com.claytonmuhoza.easybilling.core.designsystem.theme.StatusTone
 import com.claytonmuhoza.easybilling.documents.PdfButtons
 import com.claytonmuhoza.easybilling.documents.PrintButton
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceContent
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCustomer
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceLine
@@ -177,6 +179,10 @@ private fun StatusSection(state: InvoiceDetailUiState.Ready, actions: InvoiceDet
         is InvoiceStatus.Rejected -> {
             // The message of the OBR is shown as it gave it.
             StatusBanner(StatusTone.ERROR, stringResource(R.string.transmission_obr_reason, status.message))
+            if (!allowed(Permission.RESOLVE_INVOICES)) {
+                Help(stringResource(R.string.invoice_rejected_ask_manager))
+                return
+            }
             Help(stringResource(R.string.invoice_rejected_help))
             Button(onClick = actions.onResend, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
                 AppIconImage(AppIcon.REFRESH, contentDescription = null)

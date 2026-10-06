@@ -28,7 +28,7 @@ class LogInTest {
         val result = fixture.logIn(user.id, PIN)
 
         assertEquals(LogIn.Result.Success, result)
-        assertEquals(Session(user.id, "Alice", Role.ADMINISTRATOR), fixture.sessions.current.value)
+        assertEquals(Session(user.id, "Alice", setOf(Role.ADMINISTRATOR)), fixture.sessions.current.value)
         assertEquals(AuditEvent.SessionOpened(user.id), fixture.audit.events.last())
     }
 

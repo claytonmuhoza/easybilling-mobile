@@ -60,7 +60,7 @@ enum class DocumentNotice(val text: String) {
  * @property notice what to say of an invoice that is not registered, or null.
  * @property seller the seller: the tax profile the invoice is sent with.
  * @property customer the customer.
- * @property payment how the invoice is paid, and in which currency.
+ * @property payment how the invoice is paid, in which currency, and the cashier who issued it.
  * @property columns the names of the columns of [lines].
  * @property lines the lines.
  * @property totals the totals, the amount to pay last.
@@ -114,6 +114,7 @@ data class InvoiceDocument(
          * @param status where the invoice stands with the OBR.
          * @param receipt the acknowledgement of the OBR, or null.
          * @param settings the footer, the logo and whether the QR code is shown.
+         * @param cashier the name of the user who issued the invoice, or null if it cannot be read.
          * @return the document of the invoice.
          */
         fun of(
@@ -122,6 +123,7 @@ data class InvoiceDocument(
             status: InvoiceStatus,
             receipt: ObrReceipt?,
             settings: DocumentSettings,
+            cashier: String?,
         ): InvoiceDocument {
             val content = invoice.content
             return InvoiceDocument(
@@ -146,9 +148,10 @@ data class InvoiceDocument(
                         },
                     )
                 },
-                payment = listOf(
+                payment = listOfNotNull(
                     DocumentField("payment_type", "Paiement", PAYMENTS.getValue(content.paymentType)),
                     DocumentField("invoice_currency", "Devise", content.currency.name),
+                    cashier?.let { DocumentField(null, "Caissier", it) },
                 ),
                 columns = COLUMNS.map { it.second },
                 lines = content.lines.map { line(it) },

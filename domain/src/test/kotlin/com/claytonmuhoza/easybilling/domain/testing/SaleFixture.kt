@@ -18,6 +18,10 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileCheck
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileVersion
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
 import com.claytonmuhoza.easybilling.domain.configuration.TaxVersion
+import com.claytonmuhoza.easybilling.domain.identity.Credentials
+import com.claytonmuhoza.easybilling.domain.identity.NewUser
+import com.claytonmuhoza.easybilling.domain.identity.Role
+import com.claytonmuhoza.easybilling.domain.identity.SecretHash
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.invoicing.AllocateInvoiceNumber
 import com.claytonmuhoza.easybilling.domain.invoicing.DraftId
@@ -285,6 +289,7 @@ class FakeObrGateway : ObrGateway {
  */
 class SaleFixture {
     val time = MutableTimeProvider(Instant.parse("2026-10-03T08:00:00Z"))
+    val users = InMemoryUserRepository()
     val alice = UserId(1)
     val items = InMemoryItemRepository()
     val taxes = InMemoryTaxRepository()
@@ -300,7 +305,9 @@ class SaleFixture {
 
     val priceSale = PriceSale(items, taxes, customers, profiles, time)
     val editSale = EditSale(drafts, time, DirectTransactionRunner)
+    val access = FakeAccessControl()
     val issueSale = IssueSale(
+        access,
         IssueConfiguration(
             profiles,
             ebmsSettings,
@@ -320,6 +327,10 @@ class SaleFixture {
 
     /** Makes the business ready to issue invoices. */
     suspend fun ready(registrations: TaxRegistrations = TaxRegistrations(vat = true)) {
+        if (users.find(alice) == null) {
+            val secret = Credentials(SecretHash(byteArrayOf(1), byteArrayOf(1), 1), recoveryHash = null)
+            users.create(NewUser("Alice", setOf(Role.CASHIER), secret))
+        }
         saveProfile(registrations)
         vault.write(EbmsEnvironment.TEST, EbmsCredentials("ws400000000100001", "password"))
         ebmsSettings.write(EbmsSettings(lastSuccessfulLogins = mapOf(EbmsEnvironment.TEST to time.now())))

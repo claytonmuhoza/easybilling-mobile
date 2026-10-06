@@ -31,6 +31,7 @@ import com.claytonmuhoza.easybilling.ebms.ExchangeScreen
 import com.claytonmuhoza.easybilling.ebms.ExchangeUiState
 import com.claytonmuhoza.easybilling.ebms.PinPrompt
 import com.claytonmuhoza.easybilling.login.BusinessIdentity
+import com.claytonmuhoza.easybilling.login.LoginActions
 import com.claytonmuhoza.easybilling.login.LoginScreen
 import com.claytonmuhoza.easybilling.login.LoginUiState
 import com.claytonmuhoza.easybilling.recovery.RecoveryCodeError
@@ -120,16 +121,14 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
 
     @Test
     fun loginLoading() = capture("login_loading", animated = true) {
-        LoginScreen(state = LoginUiState.Loading, onPinChange = {}, onSubmit = {}, onForgotPin = {})
+        LoginScreen(state = LoginUiState.Loading, actions = LoginActions())
     }
 
     @Test
     fun login() = capture("login") {
         LoginScreen(
             state = LoginUiState.Ready(userName = "Alice"),
-            onPinChange = {},
-            onSubmit = {},
-            onForgotPin = {},
+            actions = LoginActions(),
         )
     }
 
@@ -142,9 +141,7 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
                 environment = EbmsEnvironment.PRODUCTION,
                 pin = "1234",
             ),
-            onPinChange = {},
-            onSubmit = {},
-            onForgotPin = {},
+            actions = LoginActions(),
         )
     }
 
@@ -152,9 +149,7 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
     fun loginWrongPin() = capture("login_wrong_pin") {
         LoginScreen(
             state = LoginUiState.Ready(userName = "Alice", remainingAttempts = 9),
-            onPinChange = {},
-            onSubmit = {},
-            onForgotPin = {},
+            actions = LoginActions(),
         )
     }
 
@@ -167,9 +162,7 @@ class ScreensScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant
                 environment = EbmsEnvironment.TEST,
                 lockSecondsRemaining = 60,
             ),
-            onPinChange = {},
-            onSubmit = {},
-            onForgotPin = {},
+            actions = LoginActions(),
         )
     }
 

@@ -31,6 +31,9 @@ class ResetPin(
         /** The new PIN breaks a rule. No attempt was spent. */
         data class InvalidPin(val problem: PinProblem) : Result
 
+        /** The account has no recovery code: an administrator resets its PIN. No attempt was spent. */
+        data object NoRecoveryCode : Result
+
         /** There is no user with that identifier. */
         data object UnknownUser : Result
     }
@@ -48,19 +51,23 @@ class ResetPin(
         newPin: String,
         newPinConfirmation: String,
     ): Result {
-        val user = users.find(userId) ?: return Result.UnknownUser
+        val user = users.find(userId)
+        val recoveryHash = user?.credentials?.recoveryHash
         // The new PIN is checked first, so a typing mistake in it never spends an attempt.
-        return when (val choice = Pin.choose(newPin, newPinConfirmation)) {
-            is PinChoice.Refused -> Result.InvalidPin(choice.problem)
-            is PinChoice.Accepted -> resetWithCode(user, recoveryCode, choice.pin)
+        val choice = Pin.choose(newPin, newPinConfirmation)
+        return when {
+            user == null -> Result.UnknownUser
+            recoveryHash == null -> Result.NoRecoveryCode
+            choice is PinChoice.Refused -> Result.InvalidPin(choice.problem)
+            else -> resetWithCode(user, recoveryHash, recoveryCode, (choice as PinChoice.Accepted).pin)
         }
     }
 
-    private suspend fun resetWithCode(user: User, recoveryCode: String, pin: Pin): Result {
+    private suspend fun resetWithCode(user: User, expected: SecretHash, recoveryCode: String, pin: Pin): Result {
         val check = guard.check(
             user = user,
             secret = RecoveryCode.normalize(recoveryCode),
-            expected = user.credentials.recoveryHash,
+            expected = expected,
             failureEvent = AuditEvent.RecoveryCodeRejected(user.id),
         )
         return when (check) {
@@ -77,7 +84,7 @@ class ResetPin(
             recoveryHash = hasher.hash(newCode.value),
         )
         transactions.run {
-            users.update(user.copy(credentials = credentials))
+            users.update(user.copy(credentials = credentials, pinTemporary = false))
             auditLog.record(AuditEvent.PinReset(user.id))
         }
         return newCode

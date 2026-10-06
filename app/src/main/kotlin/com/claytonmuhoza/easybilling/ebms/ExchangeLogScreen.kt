@@ -23,6 +23,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.access.allowed
 import com.claytonmuhoza.easybilling.core.designsystem.component.CardListItem
 import com.claytonmuhoza.easybilling.core.designsystem.component.EmptyState
 import com.claytonmuhoza.easybilling.core.designsystem.component.ErrorState
@@ -31,6 +32,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.LoadingState
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
 import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.transmission.ObrExchange
 import com.claytonmuhoza.easybilling.ui.dateTimeText
 
@@ -135,7 +137,7 @@ private fun Retention(days: Int, editor: RetentionEditor?, actions: ExchangeLogA
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyLarge,
             )
-            if (editor == null) {
+            if (editor == null && allowed(Permission.CONFIGURE_BILLING)) {
                 TextButton(onClick = actions.onOpenRetention) { Text(stringResource(R.string.exchanges_change)) }
             }
         }

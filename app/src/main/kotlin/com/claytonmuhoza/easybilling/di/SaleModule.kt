@@ -9,6 +9,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
 import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.invoicing.AllocateInvoiceNumber
 import com.claytonmuhoza.easybilling.domain.invoicing.EditSale
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
@@ -78,11 +79,12 @@ object SaleModule {
     /** @return the use case issuing a sale as an invoice. */
     @Provides
     fun issueSale(
+        access: AccessControl,
         configuration: IssueConfiguration,
         storage: IssueStorage,
         priceSale: PriceSale,
         allocateNumber: AllocateInvoiceNumber,
         transactions: TransactionRunner,
         time: TimeProvider,
-    ): IssueSale = IssueSale(configuration, storage, priceSale, allocateNumber, transactions, time)
+    ): IssueSale = IssueSale(access, configuration, storage, priceSale, allocateNumber, transactions, time)
 }

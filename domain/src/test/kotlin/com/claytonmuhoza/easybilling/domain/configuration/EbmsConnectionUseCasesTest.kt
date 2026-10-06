@@ -1,7 +1,10 @@
 package com.claytonmuhoza.easybilling.domain.configuration
 
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
+import com.claytonmuhoza.easybilling.domain.identity.Permission
+import com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.testing.FakeAccessControl
 import com.claytonmuhoza.easybilling.domain.testing.FakeObrAuthentication
 import com.claytonmuhoza.easybilling.domain.testing.IdentityFixture
 import com.claytonmuhoza.easybilling.domain.testing.InMemoryCredentialsVault
@@ -12,6 +15,7 @@ import kotlinx.coroutines.test.runTest
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
@@ -24,9 +28,10 @@ class EbmsConnectionUseCasesTest {
     private val vault = InMemoryCredentialsVault()
     private val authentication = FakeObrAuthentication()
 
-    private val save = SaveEbmsConnection(settings, vault, identity.audit)
-    private val switch = SwitchEbmsEnvironment(settings, identity.users, identity.guard, identity.audit)
-    private val test = TestEbmsConnection(settings, vault, authentication, identity.time, identity.audit)
+    private val access = FakeAccessControl()
+    private val save = SaveEbmsConnection(access, settings, vault, identity.audit)
+    private val switch = SwitchEbmsEnvironment(access, settings, identity.users, identity.guard, identity.audit)
+    private val test = TestEbmsConnection(access, settings, vault, authentication, identity.time, identity.audit)
 
     private val alice = UserId(1)
     private val testCredentials = EbmsCredentials("ws1", "test-pass")
@@ -113,7 +118,13 @@ class EbmsConnectionUseCasesTest {
     @Test
     fun `fiscal documents that prevent a switch refuse it before the PIN is asked`() = runTest {
         val alice = identity.administrator().user
-        val locked = SwitchEbmsEnvironment(settings, identity.users, identity.guard, identity.audit) { from, to ->
+        val locked = SwitchEbmsEnvironment(
+            access,
+            settings,
+            identity.users,
+            identity.guard,
+            identity.audit,
+        ) { from, to ->
             EnvironmentRefusal.PENDING_TRANSMISSIONS.takeIf { from != to }
         }
         identity.audit.events.clear()
@@ -233,5 +244,17 @@ class EbmsConnectionUseCasesTest {
             assertEquals("environment=TEST;outcome=$code", identity.audit.events.last().details)
         }
         assertNull(settings.read().lastSuccessfulLogin(EbmsEnvironment.TEST))
+    }
+
+    @Test
+    fun `a user who may not configure the billing does not touch the connection`() = runTest {
+        access.denied += Permission.CONFIGURE_BILLING
+
+        assertFailsWith<PermissionDeniedException> { save(EbmsEnvironment.TEST, form, alice) }
+        assertFailsWith<PermissionDeniedException> { switch(EbmsEnvironment.PRODUCTION, alice, null) }
+        assertFailsWith<PermissionDeniedException> { test(alice) }
+
+        assertEquals(List(3) { alice to Permission.CONFIGURE_BILLING }, access.required)
+        assertEquals(emptyList(), identity.audit.events)
     }
 }

@@ -16,7 +16,7 @@ internal class RoomUserRepository(private val dao: UserDao) : UserRepository {
 
     override suspend fun create(newUser: NewUser): User {
         val id = dao.insert(newUser.toEntity())
-        return User(UserId(id), newUser.name, newUser.role, newUser.credentials)
+        return User(UserId(id), newUser.name, newUser.roles, newUser.credentials, pinTemporary = newUser.pinTemporary)
     }
 
     override suspend fun update(user: User) = dao.update(user.toEntity())

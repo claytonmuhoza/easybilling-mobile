@@ -20,6 +20,7 @@ import com.claytonmuhoza.easybilling.domain.identity.PinProblem
  * @param submitDescription what submitting the step does, read by the screen readers.
  * @param hint the rule shown while nothing is wrong, or null.
  * @param problem the rule broken by what was last submitted at this step, or null.
+ * @param error a refusal that is not a broken rule of the PIN, said like a problem; null for none.
  * @param enabled whether the pad accepts input.
  */
 @Composable
@@ -32,6 +33,7 @@ fun ColumnScope.PinStep(
     hint: String?,
     problem: PinProblem?,
     enabled: Boolean,
+    error: String? = null,
 ) {
     Text(text = title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
     PinEntry(
@@ -41,8 +43,8 @@ fun ColumnScope.PinStep(
         onSubmit = onSubmit,
         submitDescription = submitDescription,
         slots = Pin.MIN_LENGTH,
-        message = problem?.message() ?: hint,
-        isError = problem != null,
+        message = error ?: problem?.message() ?: hint,
+        isError = error != null || problem != null,
         enabled = enabled,
     )
 }

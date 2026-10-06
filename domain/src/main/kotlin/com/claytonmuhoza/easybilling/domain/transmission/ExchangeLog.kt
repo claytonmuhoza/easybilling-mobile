@@ -1,5 +1,7 @@
 package com.claytonmuhoza.easybilling.domain.transmission
 
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
@@ -102,6 +104,7 @@ class ExchangeJournal(
  * @param auditLog log that records each change.
  */
 class SetExchangeRetention(
+    private val access: AccessControl,
     private val settings: EbmsSettingsRepository,
     private val journal: ExchangeJournal,
     private val auditLog: AuditLog,
@@ -119,8 +122,14 @@ class SetExchangeRetention(
      * @param days the new retention, in days.
      * @param actor the user who chooses it.
      * @return whether it was saved.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
     suspend operator fun invoke(days: Int, actor: UserId): Result {
+        access.require(actor, Permission.CONFIGURE_BILLING)
+        return allowed(days, actor)
+    }
+
+    private suspend fun allowed(days: Int, actor: UserId): Result {
         if (days !in EbmsSettings.MIN_RETENTION_DAYS..EbmsSettings.MAX_RETENTION_DAYS) return Result.OutOfRange
         settings.write(settings.read().copy(exchangeRetentionDays = days))
         journal.purge()

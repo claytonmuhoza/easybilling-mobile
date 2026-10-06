@@ -16,7 +16,7 @@ class CreateAdministratorTest {
         val created = fixture.administrator()
 
         assertEquals("Alice", created.user.name)
-        assertEquals(Role.ADMINISTRATOR, created.user.role)
+        assertEquals(setOf(Role.ADMINISTRATOR), created.user.roles)
         assertEquals(RecoveryCode("RECOVERY0001"), created.recoveryCode)
         assertEquals(listOf(created.user), fixture.users.findAll())
     }

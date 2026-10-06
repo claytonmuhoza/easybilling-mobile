@@ -5,8 +5,12 @@ import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentials
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsServerAddress
 import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
+import com.claytonmuhoza.easybilling.domain.customer.CustomerId
+import com.claytonmuhoza.easybilling.domain.identity.Permission
+import com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.testing.DirectTransactionRunner
+import com.claytonmuhoza.easybilling.domain.testing.FakeAccessControl
 import com.claytonmuhoza.easybilling.domain.testing.FakeTinLookup
 import com.claytonmuhoza.easybilling.domain.testing.FixedTokenProvider
 import com.claytonmuhoza.easybilling.domain.testing.InMemoryCustomerRepository
@@ -17,6 +21,7 @@ import kotlinx.coroutines.test.runTest
 import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
@@ -35,9 +40,10 @@ class CustomerUseCasesTest {
     private val target =
         LoginTarget(EbmsEnvironment.TEST, EbmsServerAddress.DEFAULT_TEST, EbmsCredentials("ws1", "pass"))
     private val verify = VerifyTin({ target }, FixedTokenProvider(), lookup)
-    private val create = CreateCustomer(customers, verify, audit, DirectTransactionRunner, time)
-    private val update = UpdateCustomer(customers, verify, audit, DirectTransactionRunner, time)
-    private val archive = ArchiveCustomer(customers, audit, DirectTransactionRunner)
+    private val access = FakeAccessControl()
+    private val create = CreateCustomer(access, customers, verify, audit, DirectTransactionRunner, time)
+    private val update = UpdateCustomer(access, customers, verify, audit, DirectTransactionRunner, time)
+    private val archive = ArchiveCustomer(access, customers, audit, DirectTransactionRunner)
     private val alice = UserId(1)
 
     private val company = CustomerForm(
@@ -261,5 +267,17 @@ class CustomerUseCasesTest {
         assertEquals(listOf("Brasserie du Lac SA"), found("0002020"))
         assertEquals(listOf("Égide Niyonzima"), found("123 456"))
         assertEquals(emptyList(), found("inconnu"))
+    }
+
+    @Test
+    fun `a user who may not manage the customers changes none`() = runTest {
+        access.denied += Permission.MANAGE_CUSTOMERS
+
+        assertFailsWith<PermissionDeniedException> { create(company, alice) }
+        assertFailsWith<PermissionDeniedException> { update(CustomerId(1), company, alice) }
+        assertFailsWith<PermissionDeniedException> { archive(CustomerId(1), archived = true, actor = alice) }
+
+        assertEquals(List(3) { alice to Permission.MANAGE_CUSTOMERS }, access.required)
+        assertEquals(emptyList(), audit.events)
     }
 }

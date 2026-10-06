@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.access.allowed
 import com.claytonmuhoza.easybilling.core.designsystem.component.AppIcon
 import com.claytonmuhoza.easybilling.core.designsystem.component.CardListItem
 import com.claytonmuhoza.easybilling.core.designsystem.component.EmptyState
@@ -33,6 +34,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.TextAction
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
 import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.catalog.Item
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
 
@@ -100,11 +102,14 @@ class ItemListActions(
  */
 @Composable
 fun ItemListScreen(state: ItemListUiState, actions: ItemListActions, modifier: Modifier = Modifier) {
+    val edits = allowed(Permission.EDIT_ITEMS)
     TitledScreen(
         title = stringResource(R.string.items_title),
         modifier = modifier,
         onBack = actions.onBack,
-        actions = { TextAction(label = stringResource(R.string.items_new), onClick = actions.onNewItem) },
+        actions = {
+            if (edits) TextAction(label = stringResource(R.string.items_new), onClick = actions.onNewItem)
+        },
     ) {
         when (state) {
             ItemListUiState.Loading -> LoadingState()
@@ -116,7 +121,7 @@ fun ItemListScreen(state: ItemListUiState, actions: ItemListActions, modifier: M
                 EmptyState(
                     title = stringResource(R.string.items_empty_title),
                     message = stringResource(R.string.items_empty_message),
-                    action = StateAction(stringResource(R.string.items_new), actions.onNewItem),
+                    action = StateAction(stringResource(R.string.items_new), actions.onNewItem).takeIf { edits },
                 )
             } else {
                 ItemListContent(state, actions)
@@ -158,7 +163,7 @@ private fun ItemListContent(state: ItemListUiState.Ready, actions: ItemListActio
             contentPadding = PaddingValues(bottom = Spacing.large),
         ) {
             items(state.items, key = { it.id.value }) { item ->
-                ItemCard(item, state.registrations, actions.onOpenItem)
+                ItemCard(item, state.registrations, actions.onOpenItem.takeIf { allowed(Permission.EDIT_ITEMS) })
             }
             if (state.items.size == ItemListViewModel.LIMIT) {
                 item {
@@ -174,8 +179,8 @@ private fun ItemListContent(state: ItemListUiState.Ready, actions: ItemListActio
 }
 
 @Composable
-private fun ItemCard(item: Item, registrations: TaxRegistrations, onOpen: (Long) -> Unit) {
-    TonalCard(onClick = { onOpen(item.id.value) }, modifier = Modifier.fillMaxWidth()) {
+private fun ItemCard(item: Item, registrations: TaxRegistrations, onOpen: ((Long) -> Unit)?) {
+    TonalCard(onClick = onOpen?.let { { it(item.id.value) } }, modifier = Modifier.fillMaxWidth()) {
         CardListItem(
             leadingContent = { IconTile(AppIcon.ITEMS) },
             headlineContent = { Text(item.details.designation) },

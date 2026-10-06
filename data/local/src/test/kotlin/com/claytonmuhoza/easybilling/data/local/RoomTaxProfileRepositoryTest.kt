@@ -13,6 +13,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileForm
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileVersion
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
 import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -139,7 +140,8 @@ class RoomTaxProfileRepositoryTest {
     @Test
     fun `a saved version and its audit entry are stored together`() = runTest {
         val log = ChainedAuditLog(storage.auditStore, { Instant.parse("2026-10-03T08:00:00Z") }, storage.transactions)
-        val save = SaveTaxProfile(profiles, log, { Instant.parse("2026-10-03T08:00:00Z") }, storage.transactions)
+        val clock = { Instant.parse("2026-10-03T08:00:00Z") }
+        val save = SaveTaxProfile(AccessControl { _, _ -> }, profiles, log, clock, storage.transactions)
 
         assertIs<SaveTaxProfile.Result.Saved>(save(TaxProfileForm.from(profile), UserId(7)))
 

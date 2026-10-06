@@ -29,6 +29,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxVersion
 import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
 import com.claytonmuhoza.easybilling.domain.customer.Customer
 import com.claytonmuhoza.easybilling.domain.customer.CustomerId
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.invoicing.AllocateInvoiceNumber
 import com.claytonmuhoza.easybilling.domain.invoicing.Discount
@@ -171,6 +172,7 @@ class SaleStorageTest {
             override suspend fun record(event: AuditEvent) = audit.record(event).also { crashIf("audit") }
         }
         return IssueSale(
+            AccessControl { _, _ -> },
             IssueConfiguration(storage.taxProfiles, storage.ebmsSettings, vault, readiness),
             IssueStorage(drafts, invoices, outbox, auditLog),
             PriceSale(storage.items, storage.taxes, storage.customers, storage.taxProfiles, time),

@@ -60,7 +60,7 @@ class CreateAdministrator(
             recoveryHash = hasher.hash(recoveryCode.value),
         )
         val user = transactions.run {
-            users.create(NewUser(name, Role.ADMINISTRATOR, credentials)).also {
+            users.create(NewUser(name, setOf(Role.ADMINISTRATOR), credentials)).also {
                 auditLog.record(AuditEvent.AdministratorCreated(it.id))
             }
         }

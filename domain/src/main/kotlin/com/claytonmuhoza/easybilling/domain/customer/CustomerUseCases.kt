@@ -1,5 +1,7 @@
 package com.claytonmuhoza.easybilling.domain.customer
 
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.identity.UserId
@@ -62,6 +64,7 @@ private val TIN_TAKEN = CustomerSaveResult.Invalid(setOf(CustomerProblem.TIN_TAK
  * @param time source of the time of the check.
  */
 class CreateCustomer(
+    private val access: AccessControl,
     private val customers: CustomerRepository,
     private val verifyTin: VerifyTin,
     private val auditLog: AuditLog,
@@ -73,8 +76,14 @@ class CreateCustomer(
      * @param actor the user who creates it.
      * @return the stored customer, or why nothing was stored. When an archived customer already
      * has the TIN, it is brought back with the typed details instead.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
-    suspend operator fun invoke(form: CustomerForm, actor: UserId): CustomerSaveResult =
+    suspend operator fun invoke(form: CustomerForm, actor: UserId): CustomerSaveResult {
+        access.require(actor, Permission.MANAGE_CUSTOMERS)
+        return allowed(form, actor)
+    }
+
+    private suspend fun allowed(form: CustomerForm, actor: UserId): CustomerSaveResult =
         when (val check = form.check()) {
             is CustomerCheck.Invalid -> CustomerSaveResult.Invalid(check.problems)
             is CustomerCheck.Valid -> saved(check.draft, actor)
@@ -126,6 +135,7 @@ class CreateCustomer(
  * @param time source of the time of the check.
  */
 class UpdateCustomer(
+    private val access: AccessControl,
     private val customers: CustomerRepository,
     private val verifyTin: VerifyTin,
     private val auditLog: AuditLog,
@@ -137,8 +147,14 @@ class UpdateCustomer(
      * @param form the customer as typed.
      * @param actor the user who changes it.
      * @return the stored customer, or why nothing was stored.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
     suspend operator fun invoke(id: CustomerId, form: CustomerForm, actor: UserId): CustomerSaveResult {
+        access.require(actor, Permission.MANAGE_CUSTOMERS)
+        return allowed(id, form, actor)
+    }
+
+    private suspend fun allowed(id: CustomerId, form: CustomerForm, actor: UserId): CustomerSaveResult {
         val existing = customers.find(id) ?: return CustomerSaveResult.NotFound
         return when (val check = form.check(counter = existing.counter)) {
             is CustomerCheck.Invalid -> CustomerSaveResult.Invalid(check.problems)
@@ -182,6 +198,7 @@ class UpdateCustomer(
  * @param transactions makes the change and its audit entry a single write.
  */
 class ArchiveCustomer(
+    private val access: AccessControl,
     private val customers: CustomerRepository,
     private val auditLog: AuditLog,
     private val transactions: TransactionRunner,
@@ -203,8 +220,14 @@ class ArchiveCustomer(
      * @param archived true to archive it, false to bring it back.
      * @param actor the user who asks for it.
      * @return whether the change was made.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
-    suspend operator fun invoke(id: CustomerId, archived: Boolean, actor: UserId): Result = transactions.run {
+    suspend operator fun invoke(id: CustomerId, archived: Boolean, actor: UserId): Result {
+        access.require(actor, Permission.MANAGE_CUSTOMERS)
+        return allowed(id, archived, actor)
+    }
+
+    private suspend fun allowed(id: CustomerId, archived: Boolean, actor: UserId): Result = transactions.run {
         val customer = customers.find(id) ?: return@run Result.NotFound
         if (customer.counter) return@run Result.CounterProtected
         customers.setArchived(id, archived)

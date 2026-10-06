@@ -10,6 +10,8 @@ import com.claytonmuhoza.easybilling.domain.document.CreateInvoicePdf
 import com.claytonmuhoza.easybilling.domain.document.DocumentSettingsRepository
 import com.claytonmuhoza.easybilling.domain.document.InvoicePdfWriter
 import com.claytonmuhoza.easybilling.domain.document.SaveDocumentSettings
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
+import com.claytonmuhoza.easybilling.domain.identity.UserRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.transmission.ReceiptArchive
 import com.claytonmuhoza.easybilling.platform.document.AndroidInvoicePdfWriter
@@ -37,14 +39,20 @@ object DocumentModule {
     fun buildInvoiceDocument(
         invoices: InvoiceRepository,
         profiles: TaxProfileRepository,
+        users: UserRepository,
         receipts: ReceiptArchive,
         settings: DocumentSettingsRepository,
-    ): BuildInvoiceDocument = BuildInvoiceDocument(invoices, profiles, receipts, settings)
+    ): BuildInvoiceDocument = BuildInvoiceDocument(invoices, profiles, users, receipts, settings)
 
     /** @return the use case creating the PDF of an invoice. */
     @Provides
-    fun createInvoicePdf(build: BuildInvoiceDocument, writer: InvoicePdfWriter, auditLog: AuditLog): CreateInvoicePdf =
-        CreateInvoicePdf(build, writer, auditLog)
+    fun createInvoicePdf(
+        access: AccessControl,
+        build: BuildInvoiceDocument,
+        writer: InvoicePdfWriter,
+        auditLog: AuditLog,
+    ): CreateInvoicePdf =
+        CreateInvoicePdf(access, build, writer, auditLog)
 }
 
 /** Binds what gives another application the right to read a shared file: the tests replace it. */

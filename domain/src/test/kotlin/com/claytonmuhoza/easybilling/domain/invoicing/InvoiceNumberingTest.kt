@@ -5,8 +5,11 @@ import com.claytonmuhoza.easybilling.domain.configuration.CounterReset
 import com.claytonmuhoza.easybilling.domain.configuration.NumberingForm
 import com.claytonmuhoza.easybilling.domain.configuration.NumberingProblem
 import com.claytonmuhoza.easybilling.domain.configuration.SaveNumbering
+import com.claytonmuhoza.easybilling.domain.identity.Permission
+import com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.testing.DirectTransactionRunner
+import com.claytonmuhoza.easybilling.domain.testing.FakeAccessControl
 import com.claytonmuhoza.easybilling.domain.testing.InMemoryNumberingRepository
 import com.claytonmuhoza.easybilling.domain.testing.MutableTimeProvider
 import com.claytonmuhoza.easybilling.domain.testing.RecordingAuditLog
@@ -25,7 +28,8 @@ class InvoiceNumberingTest {
     private val time = MutableTimeProvider(Instant.parse("2026-10-03T08:00:00Z"))
     private val numbering = InMemoryNumberingRepository()
     private val audit = RecordingAuditLog()
-    private val save = SaveNumbering(numbering, audit, DirectTransactionRunner)
+    private val access = FakeAccessControl()
+    private val save = SaveNumbering(access, numbering, audit, DirectTransactionRunner)
     private val allocate = AllocateInvoiceNumber(numbering, time, DirectTransactionRunner)
     private val alice = UserId(1)
 
@@ -133,5 +137,15 @@ class InvoiceNumberingTest {
             SaveNumbering.Result.Invalid(setOf(NumberingProblem.IDENTIFIER_TOO_LONG)),
             save(NumberingForm(), identifierRoom = 10, alice),
         )
+    }
+
+    @Test
+    fun `a user who may not configure the billing does not save the numbering`() = runTest {
+        access.denied += Permission.CONFIGURE_BILLING
+
+        assertFailsWith<PermissionDeniedException> { save(NumberingForm(), null, alice) }
+
+        assertEquals(listOf(alice to Permission.CONFIGURE_BILLING), access.required)
+        assertEquals(emptyList(), audit.events)
     }
 }

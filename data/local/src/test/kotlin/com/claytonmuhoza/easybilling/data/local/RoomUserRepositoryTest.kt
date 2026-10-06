@@ -15,8 +15,10 @@ import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** The user repository on a real (in-memory) database. */
 @RunWith(AndroidJUnit4::class)
@@ -27,7 +29,7 @@ class RoomUserRepositoryTest {
 
     private val alice = NewUser(
         name = "Alice",
-        role = Role.ADMINISTRATOR,
+        roles = setOf(Role.ADMINISTRATOR),
         credentials = Credentials(
             pinHash = SecretHash(salt = byteArrayOf(1, 2, 3), hash = byteArrayOf(4, 5, 6), iterations = 100_000),
             recoveryHash = SecretHash(salt = byteArrayOf(7, 8), hash = byteArrayOf(9, 10), iterations = 200_000),
@@ -49,13 +51,14 @@ class RoomUserRepositoryTest {
 
         val read = assertNotNull(users.find(created.id))
         assertEquals("Alice", read.name)
-        assertEquals(Role.ADMINISTRATOR, read.role)
+        assertEquals(setOf(Role.ADMINISTRATOR), read.roles)
         assertContentEquals(byteArrayOf(1, 2, 3), read.credentials.pinHash.salt)
         assertContentEquals(byteArrayOf(4, 5, 6), read.credentials.pinHash.hash)
         assertEquals(100_000, read.credentials.pinHash.iterations)
-        assertContentEquals(byteArrayOf(7, 8), read.credentials.recoveryHash.salt)
-        assertContentEquals(byteArrayOf(9, 10), read.credentials.recoveryHash.hash)
-        assertEquals(200_000, read.credentials.recoveryHash.iterations)
+        val recovery = assertNotNull(read.credentials.recoveryHash)
+        assertContentEquals(byteArrayOf(7, 8), recovery.salt)
+        assertContentEquals(byteArrayOf(9, 10), recovery.hash)
+        assertEquals(200_000, recovery.iterations)
         assertEquals(LoginGuard(), read.loginGuard)
     }
 
@@ -96,6 +99,51 @@ class RoomUserRepositoryTest {
 
         val read = assertNotNull(users.find(created.id))
         assertContentEquals(byteArrayOf(12), read.credentials.pinHash.hash)
-        assertContentEquals(byteArrayOf(14), read.credentials.recoveryHash.hash)
+        assertContentEquals(byteArrayOf(14), read.credentials.recoveryHash?.hash)
+    }
+
+    @Test
+    fun `a new user is active and keeps its own PIN`() = runTest {
+        val read = assertNotNull(users.find(users.create(alice).id))
+
+        assertTrue(read.active)
+        assertFalse(read.pinTemporary)
+    }
+
+    @Test
+    fun `several roles are read back`() = runTest {
+        val created = users.create(alice.copy(name = "Bob", roles = setOf(Role.STOREKEEPER, Role.CASHIER)))
+
+        assertEquals(setOf(Role.CASHIER, Role.STOREKEEPER), created.roles)
+        assertEquals(setOf(Role.CASHIER, Role.STOREKEEPER), users.find(created.id)?.roles)
+    }
+
+    @Test
+    fun `an account without a recovery code and with a temporary PIN is read back`() = runTest {
+        val bob = NewUser(
+            name = "Bob",
+            roles = setOf(Role.CASHIER),
+            credentials = Credentials(pinHash = alice.credentials.pinHash, recoveryHash = null),
+            pinTemporary = true,
+        )
+
+        val created = users.create(bob)
+
+        assertTrue(created.pinTemporary)
+        val read = assertNotNull(users.find(created.id))
+        assertNull(read.credentials.recoveryHash)
+        assertTrue(read.pinTemporary)
+    }
+
+    @Test
+    fun `the roles, the state and the temporary PIN are updated`() = runTest {
+        val created = users.create(alice)
+
+        users.update(created.copy(roles = setOf(Role.MANAGER), active = false, pinTemporary = true))
+
+        val read = assertNotNull(users.find(created.id))
+        assertEquals(setOf(Role.MANAGER), read.roles)
+        assertFalse(read.active)
+        assertTrue(read.pinTemporary)
     }
 }

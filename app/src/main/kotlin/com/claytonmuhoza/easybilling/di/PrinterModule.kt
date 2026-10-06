@@ -8,6 +8,7 @@ import com.claytonmuhoza.easybilling.domain.document.PrintInvoice
 import com.claytonmuhoza.easybilling.domain.document.PrintTestPage
 import com.claytonmuhoza.easybilling.domain.document.PrinterSettingsRepository
 import com.claytonmuhoza.easybilling.domain.document.ReceiptPrinter
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.platform.printing.BluetoothReceiptPrinter
 import dagger.Module
 import dagger.Provides
@@ -27,11 +28,12 @@ object PrinterModule {
     /** @return the use case printing the ticket of an invoice. */
     @Provides
     fun printInvoice(
+        access: AccessControl,
         build: BuildInvoiceDocument,
         settings: PrinterSettingsRepository,
         printer: ReceiptPrinter,
         auditLog: AuditLog,
-    ): PrintInvoice = PrintInvoice(build, settings, printer, auditLog)
+    ): PrintInvoice = PrintInvoice(access, build, settings, printer, auditLog)
 
     /** @return the use case printing a test page. */
     @Provides

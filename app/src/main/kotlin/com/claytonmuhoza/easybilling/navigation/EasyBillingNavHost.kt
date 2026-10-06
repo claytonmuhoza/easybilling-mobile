@@ -21,7 +21,7 @@ import com.claytonmuhoza.easybilling.customers.CustomerEditorRoute
 import com.claytonmuhoza.easybilling.customers.CustomerListRoute
 import com.claytonmuhoza.easybilling.documents.DocumentSettingsRoute
 import com.claytonmuhoza.easybilling.documents.PrinterSettingsRoute
-import com.claytonmuhoza.easybilling.domain.identity.Session
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.ebms.EbmsConnectionRoute
 import com.claytonmuhoza.easybilling.ebms.ExchangeLogRoute
 import com.claytonmuhoza.easybilling.ebms.ExchangeRoute
@@ -48,6 +48,8 @@ import com.claytonmuhoza.easybilling.taxprofile.TaxProfileHistoryRoute
 import com.claytonmuhoza.easybilling.taxprofile.TaxProfileRoute
 import com.claytonmuhoza.easybilling.taxprofile.TaxProfileVersionRoute
 import com.claytonmuhoza.easybilling.transmission.TransmissionRoute
+import com.claytonmuhoza.easybilling.users.UserEditorRoute
+import com.claytonmuhoza.easybilling.users.UserListRoute
 
 /** The destination a section of the application starts on. */
 private fun AccessState.Ready.entryDestination(): Any = when (this) {
@@ -95,13 +97,14 @@ fun EasyBillingNavHost(
             SetupRoute(onFinished = onSetupFinished)
         }
         composable<LoginDestination> {
-            LoginRoute(onForgotPin = { navController.navigate(ResetPinDestination) })
+            LoginRoute(onForgotPin = { userId -> navController.navigate(ResetPinDestination(userId)) })
         }
         composable<ResetPinDestination> {
             ResetPinRoute(onClose = { navController.popBackStack() })
         }
         mainTabs(access, navController)
         settingsScreens(access, navController, onLogOut)
+        userScreens(access, navController)
         taxProfileScreens(access, navController)
         ebmsScreens(access, navController)
         taxScreens(access, navController)
@@ -109,7 +112,7 @@ fun EasyBillingNavHost(
         customerScreens(access, navController)
         saleScreens(access, navController)
         composable<InvoiceDestination> {
-            LoggedIn(access) {
+            LoggedIn(access, navController, Permission.VIEW_INVOICES) {
                 InvoiceDetailRoute(
                     onBack = { navController.popBackStack() },
                     onOpenSale = { navController.navigate(SaleDestination) },
@@ -138,22 +141,23 @@ private fun NavGraphBuilder.settingsScreens(
                     onOpenNumbering = { navController.navigate(NumberingDestination) },
                     onOpenDocuments = { navController.navigate(DocumentSettingsDestination) },
                     onOpenPrinter = { navController.navigate(PrinterSettingsDestination) },
+                    onOpenUsers = { navController.navigate(UsersDestination) },
                 ),
             )
         }
     }
     composable<DocumentSettingsDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.CONFIGURE_PRINTING) {
             DocumentSettingsRoute(onBack = { navController.popBackStack() })
         }
     }
     composable<PrinterSettingsDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.CONFIGURE_PRINTING) {
             PrinterSettingsRoute(onBack = { navController.popBackStack() })
         }
     }
     composable<NumberingDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.CONFIGURE_BILLING) {
             NumberingRoute(onBack = { navController.popBackStack() })
         }
     }
@@ -162,7 +166,7 @@ private fun NavGraphBuilder.settingsScreens(
 /** The tax profile, its history and its versions (UC-A02). */
 private fun NavGraphBuilder.taxProfileScreens(access: AccessState.Ready, navController: NavHostController) {
     composable<TaxProfileDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.CONFIGURE_BILLING) {
             TaxProfileRoute(
                 onClose = { navController.popBackStack() },
                 onOpenHistory = { navController.navigate(TaxProfileHistoryDestination) },
@@ -170,7 +174,7 @@ private fun NavGraphBuilder.taxProfileScreens(access: AccessState.Ready, navCont
         }
     }
     composable<TaxProfileHistoryDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.CONFIGURE_BILLING) {
             TaxProfileHistoryRoute(
                 onBack = { navController.popBackStack() },
                 onOpenVersion = { number -> navController.navigate(TaxProfileVersionDestination(number)) },
@@ -178,7 +182,7 @@ private fun NavGraphBuilder.taxProfileScreens(access: AccessState.Ready, navCont
         }
     }
     composable<TaxProfileVersionDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.CONFIGURE_BILLING) {
             TaxProfileVersionRoute(onBack = { navController.popBackStack() })
         }
     }
@@ -187,7 +191,7 @@ private fun NavGraphBuilder.taxProfileScreens(access: AccessState.Ready, navCont
 /** The taxes and the preview of a line (UC-A07). */
 private fun NavGraphBuilder.taxScreens(access: AccessState.Ready, navController: NavHostController) {
     composable<TaxesDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.CONFIGURE_BILLING) {
             TaxListRoute(
                 onBack = { navController.popBackStack() },
                 onOpenTax = { id -> navController.navigate(TaxEditorDestination(id)) },
@@ -197,12 +201,12 @@ private fun NavGraphBuilder.taxScreens(access: AccessState.Ready, navController:
         }
     }
     composable<TaxEditorDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.CONFIGURE_BILLING) {
             TaxEditorRoute(onClose = { navController.popBackStack() })
         }
     }
     composable<LinePreviewDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.CONFIGURE_BILLING) {
             LinePreviewRoute(onBack = { navController.popBackStack() })
         }
     }
@@ -211,7 +215,7 @@ private fun NavGraphBuilder.taxScreens(access: AccessState.Ready, navController:
 /** The items of the catalogue (UC-B01, UC-B04, UC-B07). */
 private fun NavGraphBuilder.itemScreens(access: AccessState.Ready, navController: NavHostController) {
     composable<ItemsDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.VIEW_ITEMS) {
             ItemListRoute(
                 onBack = { navController.popBackStack() },
                 onOpenItem = { id -> navController.navigate(ItemEditorDestination(id)) },
@@ -220,7 +224,7 @@ private fun NavGraphBuilder.itemScreens(access: AccessState.Ready, navController
         }
     }
     composable<ItemEditorDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.EDIT_ITEMS) {
             ItemEditorRoute(onClose = { navController.popBackStack() })
         }
     }
@@ -229,7 +233,7 @@ private fun NavGraphBuilder.itemScreens(access: AccessState.Ready, navController
 /** The customers (UC-B05 to B07). */
 private fun NavGraphBuilder.customerScreens(access: AccessState.Ready, navController: NavHostController) {
     composable<CustomersDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.MANAGE_CUSTOMERS) {
             CustomerListRoute(
                 onBack = { navController.popBackStack() },
                 onOpenCustomer = { id -> navController.navigate(CustomerEditorDestination(id)) },
@@ -238,7 +242,7 @@ private fun NavGraphBuilder.customerScreens(access: AccessState.Ready, navContro
         }
     }
     composable<CustomerEditorDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.MANAGE_CUSTOMERS) {
             CustomerEditorRoute(
                 onClose = { navController.popBackStack() },
                 onSaved = { id ->
@@ -254,10 +258,29 @@ private fun NavGraphBuilder.customerScreens(access: AccessState.Ready, navContro
 /** Key under which the customer editor leaves the identifier of the customer it stored. */
 private const val SAVED_CUSTOMER = "savedCustomer"
 
+/** The accounts of the users and their roles (UC-H01). */
+private fun NavGraphBuilder.userScreens(access: AccessState.Ready, navController: NavHostController) {
+    composable<UsersDestination> {
+        LoggedIn(access, navController, Permission.MANAGE_USERS) { session ->
+            UserListRoute(
+                currentUserId = session.userId.value,
+                onBack = { navController.popBackStack() },
+                onOpenUser = { id -> navController.navigate(UserEditorDestination(id)) },
+                onNewUser = { navController.navigate(UserEditorDestination()) },
+            )
+        }
+    }
+    composable<UserEditorDestination> {
+        LoggedIn(access, navController, Permission.MANAGE_USERS) {
+            UserEditorRoute(onClose = { navController.popBackStack() })
+        }
+    }
+}
+
 /** The cash register, the customer of the sale, the sales on hold and the issued invoice (UC-C01 to C03). */
 private fun NavGraphBuilder.saleScreens(access: AccessState.Ready, navController: NavHostController) {
     composable<SaleDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.SELL) {
             SaleRoute(
                 onBack = { navController.popBackStack() },
                 onChooseCustomer = { navController.navigate(SaleCustomerDestination) },
@@ -272,7 +295,7 @@ private fun NavGraphBuilder.saleScreens(access: AccessState.Ready, navController
         }
     }
     composable<SaleCustomerDestination> { entry ->
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.SELL) {
             val created by entry.savedStateHandle.getStateFlow<Long?>(SAVED_CUSTOMER, null).collectAsState()
             SaleCustomerRoute(
                 createdCustomerId = created,
@@ -282,20 +305,21 @@ private fun NavGraphBuilder.saleScreens(access: AccessState.Ready, navController
         }
     }
     composable<TransmissionDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.VIEW_TRANSMISSION) {
             TransmissionRoute(
                 onBack = { navController.popBackStack() },
                 onOpenInvoice = { id -> navController.navigate(InvoiceDestination(id)) },
+                onOpenExchanges = { navController.navigate(ExchangeLogDestination) },
             )
         }
     }
     composable<HeldSalesDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.SELL) {
             HeldSalesRoute(onClose = { navController.popBackStack() })
         }
     }
     composable<InvoiceIssuedDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.SELL) {
             InvoiceIssuedRoute(
                 onNewSale = {
                     navController.navigate(SaleDestination) {
@@ -351,7 +375,7 @@ private fun NavGraphBuilder.mainTabs(access: AccessState.Ready, navController: N
         popEnterTransition = { EnterTransition.None },
         popExitTransition = { ExitTransition.None },
     ) {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.VIEW_INVOICES) {
             MainTabs(selected = MainTab.INVOICES, onSelect = openTab) {
                 InvoiceListRoute(onOpenInvoice = { id -> navController.navigate(InvoiceDestination(id)) })
             }
@@ -362,7 +386,7 @@ private fun NavGraphBuilder.mainTabs(access: AccessState.Ready, navController: N
 /** The connection to the EBMS and the log of the exchanges (UC-A03 to A05, UC-D08). */
 private fun NavGraphBuilder.ebmsScreens(access: AccessState.Ready, navController: NavHostController) {
     composable<EbmsConnectionDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.CONFIGURE_BILLING) {
             EbmsConnectionRoute(
                 onBack = { navController.popBackStack() },
                 onOpenExchanges = { navController.navigate(ExchangeLogDestination) },
@@ -370,7 +394,7 @@ private fun NavGraphBuilder.ebmsScreens(access: AccessState.Ready, navController
         }
     }
     composable<ExchangeLogDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.VIEW_TRANSMISSION) {
             ExchangeLogRoute(
                 onBack = { navController.popBackStack() },
                 onOpenExchange = { id -> navController.navigate(ExchangeDestination(id)) },
@@ -378,19 +402,8 @@ private fun NavGraphBuilder.ebmsScreens(access: AccessState.Ready, navController
         }
     }
     composable<ExchangeDestination> {
-        LoggedIn(access) {
+        LoggedIn(access, navController, Permission.VIEW_TRANSMISSION) {
             ExchangeRoute(onBack = { navController.popBackStack() })
         }
-    }
-}
-
-/**
- * Shows [content] only with an open session. During the instant between a logout and the switch
- * to the login screen, the screens of the application are not composed at all.
- */
-@Composable
-private fun LoggedIn(access: AccessState.Ready, content: @Composable (Session) -> Unit) {
-    if (access is AccessState.LoggedIn) {
-        content(access.session)
     }
 }
