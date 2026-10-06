@@ -77,6 +77,17 @@ class NavigationFlowTest {
 
     private fun barExists() = composeRule.onNodeWithTag(NavigationFrameTags.BAR).assertExists()
 
+    /**
+     * Opens the settings and waits for what is left to do before the first invoice. It is read after
+     * the screen appears: its sentence then pushes down everything under it, and a press made
+     * meanwhile misses its button. The marks of the steps come with the sentence and, unlike it,
+     * are not on the home screen.
+     */
+    private fun openLoadedSettings() {
+        composeRule.openSettings()
+        composeRule.waitUntil(TIMEOUT_MILLIS) { composeRule.onAllNodesWithTextCount(TO_DO) > 0 }
+    }
+
     private fun noNavigation() {
         composeRule.onNodeWithTag(NavigationFrameTags.BAR).assertDoesNotExist()
         composeRule.onNodeWithTag(NavigationFrameTags.RAIL).assertDoesNotExist()
@@ -137,13 +148,13 @@ class NavigationFlowTest {
 
     @Test
     fun `the settings hold the four steps and the logout, without the navigation`() {
-        composeRule.openSettings()
+        openLoadedSettings()
 
         noNavigation()
         for (setting in listOf("Tax profile", "EBMS connection", "Taxes", "Numbering")) {
             composeRule.waitForText(setting).performScrollTo().assertIsDisplayed()
         }
-        assertEquals(3, composeRule.onAllNodesWithTextCount("To do"))
+        assertEquals(3, composeRule.onAllNodesWithTextCount(TO_DO))
         composeRule.waitForText("Logged in as Alice").performScrollTo().assertIsDisplayed()
 
         composeRule.onNodeWithContentDescription("Back").performClick()
@@ -167,11 +178,16 @@ class NavigationFlowTest {
 
     @Test
     fun `logging out from the settings returns to the login screen`() {
-        composeRule.openSettings()
+        openLoadedSettings()
 
         composeRule.pressInForm("Log out")
 
         composeRule.waitForText("Enter your PIN to continue").assertIsDisplayed()
         composeRule.onNodeWithText("Settings").assertDoesNotExist()
+    }
+
+    private companion object {
+        const val TIMEOUT_MILLIS = 10_000L
+        const val TO_DO = "To do"
     }
 }
