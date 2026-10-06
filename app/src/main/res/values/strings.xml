@@ -739,4 +739,47 @@
     <string name="printer_auto_print">Print the ticket as soon as a sale is validated</string>
     <string name="printer_test_page">Print a test page</string>
     <string name="printer_not_saved">The setting could not be saved. Try again.</string>
+
+    <!-- Users and roles -->
+    <string name="login_choose_user">Who is logging in?</string>
+    <string name="login_change_user">Not you? Change user</string>
+    <string name="login_forgot_pin_ask_administrator">Forgot your PIN? Ask an administrator to reset it.</string>
+    <string name="login_new_pin_title">%1$s, choose your PIN</string>
+    <string name="login_new_pin_instruction">The PIN you were given is temporary. Choose your own PIN to continue.</string>
+    <string name="login_new_pin_same">Choose a PIN different from the temporary one</string>
+    <string name="login_new_pin_submit">Save the PIN and log in</string>
+    <string name="home_readiness_ask_administrator">Ask an administrator to finish the settings.</string>
+    <string name="invoice_rejected_ask_manager">Ask a manager or an administrator to send it again or to start the sale over.</string>
+    <string name="settings_access">Access</string>
+    <string name="users_title">Users</string>
+    <string name="users_status">Accounts, roles and PINs</string>
+    <string name="users_new">New user</string>
+    <string name="users_load_error">The users could not be read.</string>
+    <string name="users_not_found">This user no longer exists.</string>
+    <string name="users_you">%1$s (you)</string>
+    <string name="users_disabled">Disabled</string>
+    <string name="users_pin_temporary">PIN to change</string>
+    <string name="users_roles">Roles</string>
+    <string name="users_name_hint">Printed on the tickets and the invoices this user issues</string>
+    <string name="users_save">Save</string>
+    <string name="users_create">Create the account</string>
+    <string name="users_save_error">This could not be saved. Try again.</string>
+    <string name="users_reset_pin">Reset the PIN</string>
+    <string name="users_disable">Disable the account</string>
+    <string name="users_enable">Enable the account</string>
+    <string name="users_temporary_pin">Temporary PIN</string>
+    <string name="users_temporary_pin_help">Give this PIN to %1$s: it must be replaced at the first login.</string>
+    <string name="users_pin_reset_done">New temporary PIN saved. The user chooses a PIN at the next login.</string>
+    <string name="role_administrator">Administrator</string>
+    <string name="role_manager">Manager</string>
+    <string name="role_cashier">Cashier</string>
+    <string name="role_storekeeper">Storekeeper</string>
+    <string name="role_administrator_help">Everything, including the settings and the users</string>
+    <string name="role_manager_help">Sells, follows the invoices and the transmission, approves sensitive actions</string>
+    <string name="role_cashier_help">Sells, prints and shares the invoices, manages the customers</string>
+    <string name="role_storekeeper_help">Manages the items and, later, the stock</string>
+    <string name="error_user_name_taken">Another user already has this name</string>
+    <string name="error_user_no_role">Tick at least one role</string>
+    <string name="error_user_last_administrator">At least one active administrator must remain</string>
+    <string name="error_user_own_account">You cannot disable the account you are logged in with</string>
 </resources>

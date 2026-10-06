@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.access.allowed
 import com.claytonmuhoza.easybilling.core.designsystem.component.AppIcon
 import com.claytonmuhoza.easybilling.core.designsystem.component.AppIconImage
 import com.claytonmuhoza.easybilling.core.designsystem.component.FormColumn
@@ -31,6 +32,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.StatusBanner
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
 import com.claytonmuhoza.easybilling.core.designsystem.theme.StatusTone
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceSummary
 import com.claytonmuhoza.easybilling.invoices.InvoiceCard
 import com.claytonmuhoza.easybilling.transmission.TransmissionBannerRoute
@@ -108,6 +110,7 @@ fun HomeScreen(
     banner: @Composable () -> Unit = {},
 ) {
     val wide = LocalConfiguration.current.screenWidthDp >= WIDE_SCREEN_DP
+    val sells = allowed(Permission.SELL)
     TitledScreen(
         title = stringResource(R.string.app_name),
         modifier = modifier,
@@ -119,14 +122,16 @@ fun HomeScreen(
     ) {
         FormColumn {
             Text(text = stringResource(R.string.home_welcome, userName), style = MaterialTheme.typography.headlineSmall)
-            banner()
-            NotReadyNotice(state.readiness, actions.onOpenSettings)
-            SaleSection(state.salesStatus, wide, actions.onOpenSale)
+            if (allowed(Permission.VIEW_TRANSMISSION)) banner()
+            if (sells) {
+                NotReadyNotice(state.readiness, actions.onOpenSettings)
+                SaleSection(state.salesStatus, wide, actions.onOpenSale)
+            }
             CatalogueSection(state.catalogStatus, state.customersStatus, actions)
-            RecentInvoices(state.recentInvoices, actions)
-            if (!wide) Spacer(Modifier.height(FloatingButtonRoom))
+            if (allowed(Permission.VIEW_INVOICES)) RecentInvoices(state.recentInvoices, actions)
+            if (sells && !wide) Spacer(Modifier.height(FloatingButtonRoom))
         }
-        if (!wide) NewSaleButton(actions.onOpenSale)
+        if (sells && !wide) NewSaleButton(actions.onOpenSale)
     }
 }
 
@@ -136,7 +141,14 @@ private fun NotReadyNotice(status: ReadinessStatus, onOpenSettings: () -> Unit) 
     val known = status as? ReadinessStatus.Known ?: return
     if (!known.readiness.ready) {
         StatusBanner(StatusTone.PENDING, stringResource(R.string.home_readiness_not_ready))
-        TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.home_open_settings)) }
+        if (allowed(Permission.CONFIGURE_BILLING)) {
+            TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.home_open_settings)) }
+        } else {
+            Text(
+                text = stringResource(R.string.home_readiness_ask_administrator),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -182,19 +194,26 @@ private fun BoxScope.NewSaleButton(onOpenSale: () -> Unit) {
 /** The items and the customers, which the sale picks from. */
 @Composable
 private fun CatalogueSection(catalogStatus: CatalogStatus, customersStatus: CustomersStatus, actions: HomeActions) {
+    val items = allowed(Permission.VIEW_ITEMS)
+    val customers = allowed(Permission.MANAGE_CUSTOMERS)
+    if (!items && !customers) return
     SectionHeader(stringResource(R.string.home_catalog))
-    NavigationRow(
-        title = stringResource(R.string.items_title),
-        onClick = actions.onOpenItems,
-        supporting = catalogStatus.text(),
-        icon = AppIcon.ITEMS,
-    )
-    NavigationRow(
-        title = stringResource(R.string.customers_title),
-        onClick = actions.onOpenCustomers,
-        supporting = customersStatus.text(),
-        icon = AppIcon.GROUP,
-    )
+    if (items) {
+        NavigationRow(
+            title = stringResource(R.string.items_title),
+            onClick = actions.onOpenItems,
+            supporting = catalogStatus.text(),
+            icon = AppIcon.ITEMS,
+        )
+    }
+    if (customers) {
+        NavigationRow(
+            title = stringResource(R.string.customers_title),
+            onClick = actions.onOpenCustomers,
+            supporting = customersStatus.text(),
+            icon = AppIcon.GROUP,
+        )
+    }
 }
 
 /** The latest invoices, and the way to all of them; nothing while there is no invoice. */

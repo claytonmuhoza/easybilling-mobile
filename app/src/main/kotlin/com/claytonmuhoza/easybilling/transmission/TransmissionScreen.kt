@@ -26,6 +26,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.FormColumn
 import com.claytonmuhoza.easybilling.core.designsystem.component.LoadingState
 import com.claytonmuhoza.easybilling.core.designsystem.component.SectionHeader
 import com.claytonmuhoza.easybilling.core.designsystem.component.StatusBanner
+import com.claytonmuhoza.easybilling.core.designsystem.component.TextAction
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
 import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
@@ -43,12 +44,14 @@ import java.time.Duration
  *
  * @param onBack called when the user goes back.
  * @param onOpenInvoice called with the identifier of the invoice the user opens.
+ * @param onOpenExchanges called when the user opens the log of the exchanges with the OBR.
  * @param viewModel holder of the transmission state.
  */
 @Composable
 fun TransmissionRoute(
     onBack: () -> Unit,
     onOpenInvoice: (Long) -> Unit,
+    onOpenExchanges: () -> Unit,
     viewModel: TransmissionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -57,6 +60,7 @@ fun TransmissionRoute(
         actions = TransmissionActions(
             onBack = onBack,
             onOpenInvoice = onOpenInvoice,
+            onOpenExchanges = onOpenExchanges,
             onRetryNow = viewModel::retryNow,
             onReload = viewModel::load,
         ),
@@ -68,12 +72,14 @@ fun TransmissionRoute(
  *
  * @property onBack called when the user goes back.
  * @property onOpenInvoice called with the identifier of the invoice the user opens.
+ * @property onOpenExchanges called when the user opens the log of the exchanges with the OBR.
  * @property onRetryNow called when the user asks to try the queue now.
  * @property onReload called when the user asks to read the state again.
  */
 class TransmissionActions(
     val onBack: () -> Unit = {},
     val onOpenInvoice: (Long) -> Unit = {},
+    val onOpenExchanges: () -> Unit = {},
     val onRetryNow: () -> Unit = {},
     val onReload: () -> Unit = {},
 )
@@ -88,7 +94,12 @@ class TransmissionActions(
  */
 @Composable
 fun TransmissionScreen(state: TransmissionUiState, actions: TransmissionActions, modifier: Modifier = Modifier) {
-    TitledScreen(title = stringResource(R.string.transmission_title), modifier = modifier, onBack = actions.onBack) {
+    TitledScreen(
+        title = stringResource(R.string.transmission_title),
+        modifier = modifier,
+        onBack = actions.onBack,
+        actions = { TextAction(label = stringResource(R.string.ebms_exchanges), onClick = actions.onOpenExchanges) },
+    ) {
         when (state) {
             TransmissionUiState.Loading -> LoadingState()
             TransmissionUiState.Failed -> ErrorState(

@@ -12,6 +12,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.access.allowed
 import com.claytonmuhoza.easybilling.core.designsystem.component.AppIcon
 import com.claytonmuhoza.easybilling.core.designsystem.component.FormColumn
 import com.claytonmuhoza.easybilling.core.designsystem.component.NavigationRow
@@ -19,6 +20,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.SectionHeader
 import com.claytonmuhoza.easybilling.core.designsystem.component.StatusChip
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
 import com.claytonmuhoza.easybilling.core.designsystem.theme.StatusTone
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.configuration.ReadinessStep
 import com.claytonmuhoza.easybilling.home.ReadinessStatus
 import com.claytonmuhoza.easybilling.home.text
@@ -51,6 +53,7 @@ fun SettingsRoute(userName: String, actions: SettingsActions, viewModel: Setting
  * @property onOpenNumbering called when the user opens the numbering.
  * @property onOpenDocuments called when the user opens the header of the invoices.
  * @property onOpenPrinter called when the user opens the printer.
+ * @property onOpenUsers called when the user opens the accounts of the users.
  */
 class SettingsActions(
     val onBack: () -> Unit = {},
@@ -61,11 +64,13 @@ class SettingsActions(
     val onOpenNumbering: () -> Unit = {},
     val onOpenDocuments: () -> Unit = {},
     val onOpenPrinter: () -> Unit = {},
+    val onOpenUsers: () -> Unit = {},
 )
 
 /**
  * The settings: what must be configured before the first invoice, each with where it stands and
- * whether it is done, the look of the invoices, and the logout.
+ * whether it is done, the look of the invoices, the users, and the logout. Each section is shown
+ * only to the users allowed to change it.
  *
  * @param userName name of the logged in user.
  * @param state where each setting stands.
@@ -76,50 +81,17 @@ class SettingsActions(
 fun SettingsScreen(userName: String, state: SettingsUiState, actions: SettingsActions, modifier: Modifier = Modifier) {
     TitledScreen(title = stringResource(R.string.settings_title), modifier = modifier, onBack = actions.onBack) {
         FormColumn {
-            SectionHeader(stringResource(R.string.settings_billing))
-            ReadinessSummary(state.readiness)
-            SettingCard(
-                title = stringResource(R.string.tax_profile_title),
-                status = state.taxProfileStatus.text(),
-                done = state.readiness.done(ReadinessStep.TAX_PROFILE),
-                icon = AppIcon.BUSINESS,
-                onOpen = actions.onOpenTaxProfile,
-            )
-            SettingCard(
-                title = stringResource(R.string.ebms_title),
-                status = state.ebmsStatus.text(),
-                done = state.readiness.done(ReadinessStep.EBMS_CONNECTION),
-                icon = AppIcon.CLOUD,
-                onOpen = actions.onOpenEbmsConnection,
-            )
-            SettingCard(
-                title = stringResource(R.string.taxes_title),
-                status = state.taxesStatus.text(),
-                done = state.readiness.done(ReadinessStep.VAT),
-                icon = AppIcon.TAG,
-                onOpen = actions.onOpenTaxes,
-            )
-            SettingCard(
-                title = stringResource(R.string.numbering_title),
-                status = state.numberingStatus.text(),
-                done = state.readiness.done(ReadinessStep.NUMBERING),
-                icon = AppIcon.TUNE,
-                onOpen = actions.onOpenNumbering,
-            )
-
-            SectionHeader(stringResource(R.string.settings_documents))
-            NavigationRow(
-                title = stringResource(R.string.document_settings_title),
-                onClick = actions.onOpenDocuments,
-                supporting = stringResource(R.string.document_settings_status),
-                icon = AppIcon.INVOICE,
-            )
-            NavigationRow(
-                title = stringResource(R.string.printer_title),
-                onClick = actions.onOpenPrinter,
-                supporting = state.printerName ?: stringResource(R.string.printer_none),
-                icon = AppIcon.TUNE,
-            )
+            if (allowed(Permission.CONFIGURE_BILLING)) BillingSection(state, actions)
+            if (allowed(Permission.CONFIGURE_PRINTING)) DocumentsSection(state, actions)
+            if (allowed(Permission.MANAGE_USERS)) {
+                SectionHeader(stringResource(R.string.settings_access))
+                NavigationRow(
+                    title = stringResource(R.string.users_title),
+                    onClick = actions.onOpenUsers,
+                    supporting = stringResource(R.string.users_status),
+                    icon = AppIcon.GROUP,
+                )
+            }
 
             SectionHeader(stringResource(R.string.settings_session))
             Text(
@@ -131,6 +103,59 @@ fun SettingsScreen(userName: String, state: SettingsUiState, actions: SettingsAc
             }
         }
     }
+}
+
+/** What must be configured before the first invoice. */
+@Composable
+private fun BillingSection(state: SettingsUiState, actions: SettingsActions) {
+    SectionHeader(stringResource(R.string.settings_billing))
+    ReadinessSummary(state.readiness)
+    SettingCard(
+        title = stringResource(R.string.tax_profile_title),
+        status = state.taxProfileStatus.text(),
+        done = state.readiness.done(ReadinessStep.TAX_PROFILE),
+        icon = AppIcon.BUSINESS,
+        onOpen = actions.onOpenTaxProfile,
+    )
+    SettingCard(
+        title = stringResource(R.string.ebms_title),
+        status = state.ebmsStatus.text(),
+        done = state.readiness.done(ReadinessStep.EBMS_CONNECTION),
+        icon = AppIcon.CLOUD,
+        onOpen = actions.onOpenEbmsConnection,
+    )
+    SettingCard(
+        title = stringResource(R.string.taxes_title),
+        status = state.taxesStatus.text(),
+        done = state.readiness.done(ReadinessStep.VAT),
+        icon = AppIcon.TAG,
+        onOpen = actions.onOpenTaxes,
+    )
+    SettingCard(
+        title = stringResource(R.string.numbering_title),
+        status = state.numberingStatus.text(),
+        done = state.readiness.done(ReadinessStep.NUMBERING),
+        icon = AppIcon.TUNE,
+        onOpen = actions.onOpenNumbering,
+    )
+}
+
+/** The look of the invoices and the printer of the tickets. */
+@Composable
+private fun DocumentsSection(state: SettingsUiState, actions: SettingsActions) {
+    SectionHeader(stringResource(R.string.settings_documents))
+    NavigationRow(
+        title = stringResource(R.string.document_settings_title),
+        onClick = actions.onOpenDocuments,
+        supporting = stringResource(R.string.document_settings_status),
+        icon = AppIcon.INVOICE,
+    )
+    NavigationRow(
+        title = stringResource(R.string.printer_title),
+        onClick = actions.onOpenPrinter,
+        supporting = state.printerName ?: stringResource(R.string.printer_none),
+        icon = AppIcon.TUNE,
+    )
 }
 
 /**

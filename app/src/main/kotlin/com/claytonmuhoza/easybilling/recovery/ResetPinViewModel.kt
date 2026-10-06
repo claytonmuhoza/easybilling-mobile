@@ -1,13 +1,16 @@
 package com.claytonmuhoza.easybilling.recovery
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.toRoute
 import com.claytonmuhoza.easybilling.domain.identity.Pin
 import com.claytonmuhoza.easybilling.domain.identity.PinChoice
 import com.claytonmuhoza.easybilling.domain.identity.PinProblem
 import com.claytonmuhoza.easybilling.domain.identity.ResetPin
-import com.claytonmuhoza.easybilling.domain.identity.UserRepository
+import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.identity.isConfirmationProblem
+import com.claytonmuhoza.easybilling.navigation.ResetPinDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -63,12 +66,14 @@ sealed interface ResetPinUiState {
     data class Done(val newRecoveryCode: String) : ResetPinUiState
 }
 
-/** Drives the choice of a new PIN with the recovery code, step by step. */
+/** Drives the choice of a new PIN with the recovery code, step by step, for the user who forgot it. */
 @HiltViewModel
 class ResetPinViewModel @Inject constructor(
-    private val users: UserRepository,
+    savedStateHandle: SavedStateHandle,
     private val resetPin: ResetPin,
 ) : ViewModel() {
+
+    private val userId = UserId(savedStateHandle.toRoute<ResetPinDestination>().userId)
 
     private val mutableState = MutableStateFlow<ResetPinUiState>(ResetPinUiState.Form())
 
@@ -126,8 +131,7 @@ class ResetPinViewModel @Inject constructor(
     private fun submit(form: ResetPinUiState.Form) {
         mutableState.value = form.copy(submitting = true)
         viewModelScope.launch {
-            val user = users.findAll().firstOrNull()
-            val result = user?.let { resetPin(it.id, form.recoveryCode, form.pin, form.confirmation) }
+            val result = resetPin(userId, form.recoveryCode, form.pin, form.confirmation)
             mutableState.value = when (result) {
                 is ResetPin.Result.Reset -> ResetPinUiState.Done(result.newRecoveryCode.formatted)
                 // The new PIN is kept: only the code has to be typed again.
@@ -137,7 +141,8 @@ class ResetPinViewModel @Inject constructor(
                 )
                 is ResetPin.Result.Locked -> form.copy(step = ResetPinStep.CODE, codeError = RecoveryCodeError.Locked)
                 is ResetPin.Result.InvalidPin -> form.refused(result.problem)
-                ResetPin.Result.UnknownUser, null -> form
+                // The login offers no recovery code to an account without one.
+                ResetPin.Result.NoRecoveryCode, ResetPin.Result.UnknownUser -> form
             }
         }
     }
