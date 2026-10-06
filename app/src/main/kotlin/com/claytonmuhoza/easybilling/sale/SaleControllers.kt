@@ -2,6 +2,15 @@ package com.claytonmuhoza.easybilling.sale
 
 import com.claytonmuhoza.easybilling.domain.catalog.ItemId
 import com.claytonmuhoza.easybilling.domain.catalog.ItemRepository
+import com.claytonmuhoza.easybilling.domain.identity.AuthorizeSensitiveAction
+import com.claytonmuhoza.easybilling.domain.identity.SensitiveAction
+import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.invoicing.DiscountApproval
+import com.claytonmuhoza.easybilling.domain.invoicing.rateOf
+import com.claytonmuhoza.easybilling.identity.ApprovalError
+import com.claytonmuhoza.easybilling.identity.ApprovalUiState
+import com.claytonmuhoza.easybilling.identity.Approver
+import com.claytonmuhoza.easybilling.domain.invoicing.PricedLine
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleLineCheck
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleLineForm
@@ -21,12 +30,14 @@ import java.math.BigDecimal
  * @param useCases what the cash register does.
  * @param items where the items are kept.
  * @param drafts where the sales on hold are counted.
+ * @param actor the user logged in, or null.
  */
 internal class SaleStateHolder(
     val scope: CoroutineScope,
     val useCases: SaleUseCases,
     val items: ItemRepository,
     private val drafts: SaleDraftRepository,
+    val actor: () -> UserId?,
 ) {
     /** The state to show. */
     val state = MutableStateFlow<SaleUiState>(SaleUiState.Loading)
@@ -133,22 +144,104 @@ class SaleLineEditing internal constructor(private val holder: SaleStateHolder) 
         shown.copy(editor = shown.editor?.let { it.copy(form = it.form.change(), problems = emptySet()) })
     }
 
-    /** Stores what was typed for the line being modified, or shows what is wrong. */
+    /**
+     * Stores what was typed for the line being modified, or shows what is wrong. A discount beyond
+     * the cap of the user waits for the approval of a manager instead (UC-C03).
+     */
     fun apply() = holder.change { shown ->
         val editor = shown.editor
         when (val check = editor?.form?.check()) {
             null -> shown
             is SaleLineCheck.Invalid -> shown.copy(editor = editor.copy(problems = check.problems))
-            is SaleLineCheck.Valid -> {
-                holder.useCases.edit.setLine(editor.itemId, check)
-                shown.copy(editor = null)
-            }
+            is SaleLineCheck.Valid -> approvalNeeded(shown, editor.itemId, check)?.let { shown.copy(approval = it) }
+                ?: shown.copy(editor = null).also { holder.useCases.edit.setLine(editor.itemId, check) }
         }
+    }
+
+    /** @return the approval [line] needs before it is stored, or null when it needs none. */
+    private suspend fun approvalNeeded(
+        shown: SaleUiState.Ready,
+        itemId: ItemId,
+        line: SaleLineCheck.Valid,
+    ): LineApproval? {
+        val actor = holder.actor()
+        val priced = shown.sale.lines.firstOrNull { it.item.id == itemId }
+        return if (actor == null || priced == null) null else approvalNeeded(actor, priced, line)
+    }
+
+    /** @return the approval [line] of [priced] needs before [actor] stores it, or null when it needs none. */
+    private suspend fun approvalNeeded(actor: UserId, priced: PricedLine, line: SaleLineCheck.Valid): LineApproval? {
+        val limits = holder.useCases.discountLimits
+        val discount = line.discount
+        val listPrice = priced.item.details.price
+        // An approval of the same discount is kept by the line: it is not asked again.
+        val approved = priced.line.approval?.discount == discount
+        if (discount == null || approved || !limits.needsApproval(actor, discount, listPrice)) return null
+        return LineApproval(
+            itemId = priced.item.id,
+            itemCode = priced.item.code,
+            line = line,
+            rate = discount.rateOf(listPrice),
+            cap = limits.capOf(actor) ?: BigDecimal.ZERO,
+            dialog = ApprovalUiState(holder.useCases.authorize.approvers(actor).map { Approver(it.id.value, it.name) }),
+        )
     }
 
     /** @param itemId the item whose line is taken out of the sale. */
     fun remove(itemId: ItemId) = holder.change { shown ->
         holder.useCases.edit.removeLine(itemId)
         shown.copy(editor = null)
+    }
+}
+
+/**
+ * The approval of a discount beyond the cap of the user by a manager or an administrator, with
+ * their own PIN (UC-H04). The session does not change.
+ */
+class SaleDiscountApproval internal constructor(private val holder: SaleStateHolder) {
+
+    /** @param approverId the approver picked; the PIN typed so far is cleared. */
+    fun choose(approverId: Long) = update { copy(chosen = approverId, pin = "", error = null) }
+
+    /** @param pin the PIN after a key of the pad was pressed. */
+    fun onPinChange(pin: String) = update { copy(pin = pin, error = null) }
+
+    /** Gives the discount up: the line stays as it was, and its editor stays open. */
+    fun cancel() = holder.show { it.copy(approval = null) }
+
+    /** Checks the PIN of the approver; once approved, the line is stored with its approval. */
+    fun submit() = holder.change { shown ->
+        val request = shown.approval
+        val approver = request?.dialog?.chosen
+        val actor = holder.actor()
+        if (request == null || approver == null || actor == null) {
+            shown
+        } else {
+            val action = SensitiveAction.LineDiscount(request.itemCode, request.rate)
+            val result = holder.useCases.authorize(actor, UserId(approver), request.dialog.pin, action)
+            shown.after(request, result)
+        }
+    }
+
+    private suspend fun SaleUiState.Ready.after(
+        request: LineApproval,
+        result: AuthorizeSensitiveAction.Result,
+    ): SaleUiState.Ready {
+        val dialog = request.dialog.copy(pin = "")
+        val error = when (result) {
+            is AuthorizeSensitiveAction.Result.Authorized -> {
+                val discount = checkNotNull(request.line.discount) { "Only a discount is approved" }
+                holder.useCases.edit.setLine(request.itemId, request.line, DiscountApproval(result.approver, discount))
+                return copy(approval = null, editor = null)
+            }
+            is AuthorizeSensitiveAction.Result.WrongPin -> ApprovalError.WrongPin(result.remainingAttempts)
+            is AuthorizeSensitiveAction.Result.Locked -> ApprovalError.Locked
+            AuthorizeSensitiveAction.Result.NotAllowed -> ApprovalError.NotAllowed
+        }
+        return copy(approval = request.copy(dialog = dialog.copy(error = error)))
+    }
+
+    private fun update(change: ApprovalUiState.() -> ApprovalUiState) = holder.show { shown ->
+        shown.copy(approval = shown.approval?.let { it.copy(dialog = it.dialog.change()) })
     }
 }

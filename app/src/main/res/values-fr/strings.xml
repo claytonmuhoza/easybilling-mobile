@@ -788,4 +788,30 @@
     <string name="error_user_no_role">Cochez au moins un rôle</string>
     <string name="error_user_last_administrator">Il doit rester au moins un administrateur actif</string>
     <string name="error_user_own_account">Vous ne pouvez pas désactiver le compte de la session en cours</string>
+
+    <!-- Switch, approval of a manager, discount cap -->
+    <string name="approval_title">Autorisation d\'un gérant</string>
+    <string name="approval_choose">Qui autorise ?</string>
+    <string name="approval_submit">Autoriser</string>
+    <string name="approval_cancel">Annuler</string>
+    <string name="approval_none">Aucun gérant ni administrateur ne peut l\'autoriser sur cet appareil.</string>
+    <string name="approval_not_allowed">Ce compte ne peut pas l\'autoriser.</string>
+    <string name="approval_discount_message">Une remise de %1$s %% dépasse votre plafond de %2$s %%. Un gérant ou un administrateur l\'autorise avec son code PIN.</string>
+    <string name="sale_refusal_discount_not_approved">Une remise dépasse votre plafond sans autorisation : ouvrez la ligne et appliquez-la de nouveau pour la faire autoriser.</string>
+    <string name="switch_user">Changer d\'utilisateur</string>
+    <string name="switch_user_title">Qui prend la main ?</string>
+    <string name="switch_user_none">Aucun autre compte ne peut prendre la main sur cet appareil.</string>
+    <string name="switch_user_pin_change_required">Première connexion de ce compte : déconnectez-vous, puis connectez-vous avec lui.</string>
+    <string name="switch_user_disabled">Ce compte est désactivé.</string>
+    <string name="discount_cap_title">Plafond de remise</string>
+    <string name="discount_cap_none">Aucun plafond</string>
+    <string name="discount_cap_status">Caissier : %1$s %%</string>
+    <string name="discount_cap_limit">Limiter la remise du caissier</string>
+    <string name="discount_cap_field">Remise maximale sans autorisation (%)</string>
+    <string name="discount_cap_help">Au-delà, un gérant ou un administrateur autorise la remise avec son code PIN. Les gérants et les administrateurs n\'ont pas de plafond.</string>
+    <string name="discount_cap_out_of_range">Saisissez un pourcentage de 0 à 99,99, avec deux décimales au plus.</string>
+    <string name="discount_cap_save">Enregistrer</string>
+    <string name="discount_cap_saved">Plafond enregistré.</string>
+    <string name="discount_cap_load_error">Le plafond n\'a pas pu être lu.</string>
+    <string name="discount_cap_save_error">Le plafond n\'a pas pu être enregistré. Réessayez.</string>
 </resources>

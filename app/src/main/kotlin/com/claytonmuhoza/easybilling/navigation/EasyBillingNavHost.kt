@@ -32,6 +32,7 @@ import com.claytonmuhoza.easybilling.invoices.InvoiceListRoute
 import com.claytonmuhoza.easybilling.items.ItemEditorRoute
 import com.claytonmuhoza.easybilling.items.ItemListRoute
 import com.claytonmuhoza.easybilling.login.LoginRoute
+import com.claytonmuhoza.easybilling.login.SwitchUserRoute
 import com.claytonmuhoza.easybilling.numbering.NumberingRoute
 import com.claytonmuhoza.easybilling.recovery.ResetPinRoute
 import com.claytonmuhoza.easybilling.sale.HeldSalesRoute
@@ -48,6 +49,7 @@ import com.claytonmuhoza.easybilling.taxprofile.TaxProfileHistoryRoute
 import com.claytonmuhoza.easybilling.taxprofile.TaxProfileRoute
 import com.claytonmuhoza.easybilling.taxprofile.TaxProfileVersionRoute
 import com.claytonmuhoza.easybilling.transmission.TransmissionRoute
+import com.claytonmuhoza.easybilling.users.DiscountCapRoute
 import com.claytonmuhoza.easybilling.users.UserEditorRoute
 import com.claytonmuhoza.easybilling.users.UserListRoute
 
@@ -102,6 +104,11 @@ fun EasyBillingNavHost(
         composable<ResetPinDestination> {
             ResetPinRoute(onClose = { navController.popBackStack() })
         }
+        composable<SwitchUserDestination> {
+            LoggedIn(access) {
+                SwitchUserRoute(onClose = { navController.popBackStack() })
+            }
+        }
         mainTabs(access, navController)
         settingsScreens(access, navController, onLogOut)
         userScreens(access, navController)
@@ -142,6 +149,7 @@ private fun NavGraphBuilder.settingsScreens(
                     onOpenDocuments = { navController.navigate(DocumentSettingsDestination) },
                     onOpenPrinter = { navController.navigate(PrinterSettingsDestination) },
                     onOpenUsers = { navController.navigate(UsersDestination) },
+                    onOpenDiscountCap = { navController.navigate(DiscountCapDestination) },
                 ),
             )
         }
@@ -275,6 +283,11 @@ private fun NavGraphBuilder.userScreens(access: AccessState.Ready, navController
             UserEditorRoute(onClose = { navController.popBackStack() })
         }
     }
+    composable<DiscountCapDestination> {
+        LoggedIn(access, navController, Permission.MANAGE_USERS) {
+            DiscountCapRoute(onBack = { navController.popBackStack() })
+        }
+    }
 }
 
 /** The cash register, the customer of the sale, the sales on hold and the issued invoice (UC-C01 to C03). */
@@ -286,6 +299,7 @@ private fun NavGraphBuilder.saleScreens(access: AccessState.Ready, navController
                 onChooseCustomer = { navController.navigate(SaleCustomerDestination) },
                 onOpenHeld = { navController.navigate(HeldSalesDestination) },
                 onOpenTransmission = { navController.navigate(TransmissionDestination) },
+                onSwitchUser = { navController.navigate(SwitchUserDestination) },
                 onIssued = { id ->
                     navController.navigate(InvoiceIssuedDestination(id)) {
                         popUpTo<SaleDestination> { inclusive = true }
@@ -358,6 +372,7 @@ private fun NavGraphBuilder.mainTabs(access: AccessState.Ready, navController: N
                     userName = session.userName,
                     actions = HomeActions(
                         onOpenSettings = { navController.navigate(SettingsDestination) },
+                        onSwitchUser = { navController.navigate(SwitchUserDestination) },
                         onOpenSale = { navController.navigate(SaleDestination) },
                         onOpenItems = { navController.navigate(ItemsDestination) },
                         onOpenCustomers = { navController.navigate(CustomersDestination) },

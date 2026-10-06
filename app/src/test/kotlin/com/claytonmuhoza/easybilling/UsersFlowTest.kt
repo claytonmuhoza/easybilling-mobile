@@ -18,7 +18,11 @@ import com.claytonmuhoza.easybilling.domain.identity.UpdateUser
 import com.claytonmuhoza.easybilling.domain.identity.User
 import com.claytonmuhoza.easybilling.domain.identity.UserForm
 import com.claytonmuhoza.easybilling.domain.identity.UserRepository
+import com.claytonmuhoza.easybilling.domain.identity.ChangeTemporaryPin
+import com.claytonmuhoza.easybilling.domain.identity.SessionManager
+import com.claytonmuhoza.easybilling.domain.invoicing.DiscountSettingsRepository
 import com.claytonmuhoza.easybilling.testing.enterPin
+import com.claytonmuhoza.easybilling.testing.replaceInForm
 import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
 import com.claytonmuhoza.easybilling.testing.openSettings
 import com.claytonmuhoza.easybilling.testing.press
@@ -36,6 +40,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import java.math.BigDecimal
 import javax.inject.Inject
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -69,6 +74,15 @@ class UsersFlowTest {
 
     @Inject
     lateinit var updateUser: UpdateUser
+
+    @Inject
+    lateinit var changeTemporaryPin: ChangeTemporaryPin
+
+    @Inject
+    lateinit var sessions: SessionManager
+
+    @Inject
+    lateinit var discountSettings: DiscountSettingsRepository
 
     @Inject
     lateinit var users: UserRepository
@@ -303,6 +317,69 @@ class UsersFlowTest {
 
         composeRule.waitForText("New temporary PIN saved", substring = true)
         assertEquals(true, runBlocking { users.find(bob.id) }?.pinTemporary)
+    }
+
+    /** Logs in as Alice with her PIN: she is the only account at first. */
+    private fun logInAlice() {
+        composeRule.waitForText("Enter your PIN to continue")
+        composeRule.enterPin(ALICE_PIN)
+        composeRule.pressKey("Log in")
+        composeRule.waitForText("Welcome, Alice")
+    }
+
+    @Test
+    fun `the register is handed over from the home screen to the account picked`() {
+        launch()
+        logInAlice()
+        account("Bob", Role.CASHIER)
+        account("Carine", Role.STOREKEEPER)
+        val bob = runBlocking { users.findAll().single { it.name == "Bob" } }
+        runBlocking { changeTemporaryPin(bob.id, TEMPORARY_PIN, OWN_PIN, OWN_PIN) }
+        runBlocking { sessions.switchTo(alice) }
+
+        composeRule.onNodeWithContentDescription("Change user").performClick()
+        composeRule.waitForText("Who takes over?")
+        composeRule.onNodeWithText("Alice").assertDoesNotExist()
+        composeRule.press("Bob")
+        composeRule.enterPin(OWN_PIN)
+        composeRule.pressKey("Change user")
+
+        composeRule.waitForText("Welcome, Bob")
+        assertEquals("Bob", sessions.current.value?.userName)
+    }
+
+    @Test
+    fun `an account whose PIN is temporary cannot take the register over`() {
+        launch()
+        logInAlice()
+        account("Bob", Role.CASHIER)
+
+        composeRule.onNodeWithContentDescription("Change user").performClick()
+        composeRule.waitForText("Enter your PIN to continue")
+        composeRule.enterPin(TEMPORARY_PIN)
+        composeRule.pressKey("Change user")
+
+        composeRule.waitForText("First login of this account: log out, then log in with it.")
+        assertEquals("Alice", sessions.current.value?.userName)
+    }
+
+    @Test
+    fun `an administrator caps the discount of the cashier`() {
+        launch()
+        logInAlice()
+        composeRule.pressInSettings("Discount cap")
+        composeRule.waitForText("Limit the discount of the cashier").performClick()
+        composeRule.type("Highest discount without approval (%)", "100")
+        composeRule.press("Save")
+        composeRule.waitForText("Enter a percentage from 0 to 99.99, with two decimals at most.")
+
+        composeRule.replaceInForm("Highest discount without approval (%)", "12,5")
+        composeRule.press("Save")
+
+        composeRule.waitForText("Cap saved.")
+        assertEquals(0, BigDecimal("12.5").compareTo(runBlocking { discountSettings.read().cashierCap }))
+        composeRule.onNodeWithContentDescription("Back").performClick()
+        composeRule.waitForText("Cashier: 12.5 %")
     }
 
     private companion object {

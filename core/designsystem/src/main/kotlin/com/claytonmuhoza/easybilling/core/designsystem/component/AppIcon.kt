@@ -57,6 +57,9 @@ enum class AppIcon(@DrawableRes internal val drawable: Int) {
     /** The customers. */
     GROUP(R.drawable.ds_ic_group),
 
+    /** Hands the session over to another user. */
+    SWITCH_ACCOUNT(R.drawable.ds_ic_switch_account),
+
     /** The sale being typed. */
     CART(R.drawable.ds_ic_cart),
 

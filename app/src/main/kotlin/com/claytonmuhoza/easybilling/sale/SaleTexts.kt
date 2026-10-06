@@ -47,10 +47,11 @@ internal val LINE_PROBLEM_MESSAGES = mapOf(
     SaleLineProblem.FREE_AMOUNT_INVALID to R.string.sale_line_problem_free_amount,
 )
 
-/** The message of each refusal of the numbering. */
+/** The message of each refusal to issue. */
 internal val REFUSAL_MESSAGES = mapOf(
     IssueRefusal.NUMBERS_EXHAUSTED to R.string.sale_refusal_numbers,
     IssueRefusal.IDENTIFIER_TOO_LONG to R.string.sale_refusal_identifier,
+    IssueRefusal.DISCOUNT_NOT_APPROVED to R.string.sale_refusal_discount_not_approved,
 )
 
 /** @return the discount in words: `Discount 10 %`, `Discount 250 BIF per unit`. */
