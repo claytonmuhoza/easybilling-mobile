@@ -6,10 +6,13 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileCheck
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileField
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileVersion
 import com.claytonmuhoza.easybilling.domain.customer.Customer
+import com.claytonmuhoza.easybilling.domain.identity.Permission
+import com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException
 import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.Quantity
 import com.claytonmuhoza.easybilling.domain.testing.DirectTransactionRunner
+import com.claytonmuhoza.easybilling.domain.testing.FakeAccessControl
 import com.claytonmuhoza.easybilling.domain.testing.SaleFixture
 import com.claytonmuhoza.easybilling.domain.testing.TaxProfileSamples
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
@@ -20,6 +23,7 @@ import java.time.Instant
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 
@@ -30,7 +34,9 @@ import kotlin.test.assertNull
 class InvoiceTrackingTest {
 
     private val fixture = SaleFixture()
+    private val access = FakeAccessControl()
     private val resend = ResendRejectedInvoice(
+            access,
         fixture.invoices,
         fixture.profiles,
         fixture.outbox,
@@ -250,5 +256,17 @@ class InvoiceTrackingTest {
         assertNull(started.customerId)
         assertEquals(listOf(soap.id), started.lines.map { it.itemId })
         assertEquals(RedoSale.Result.NotFound, redo(InvoiceId(99)))
+    }
+
+    @Test
+    fun `a user who may not resolve the invoices does not send a refused one again`() = runTest {
+        val invoice = rejected()
+        val events = fixture.audit.events.size
+        access.denied += Permission.RESOLVE_INVOICES
+
+        assertFailsWith<PermissionDeniedException> { resend(invoice.id, fixture.alice) }
+
+        assertEquals(listOf(fixture.alice to Permission.RESOLVE_INVOICES), access.required)
+        assertEquals(events, fixture.audit.events.size)
     }
 }

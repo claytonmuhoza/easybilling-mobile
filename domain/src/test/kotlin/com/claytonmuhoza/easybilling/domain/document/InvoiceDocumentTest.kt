@@ -4,11 +4,14 @@ import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
 import com.claytonmuhoza.easybilling.domain.customer.Customer
 import com.claytonmuhoza.easybilling.domain.customer.VerifiedTin
+import com.claytonmuhoza.easybilling.domain.identity.Permission
+import com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatus
 import com.claytonmuhoza.easybilling.domain.invoicing.IssueSale
 import com.claytonmuhoza.easybilling.domain.invoicing.PaymentType
+import com.claytonmuhoza.easybilling.domain.testing.FakeAccessControl
 import com.claytonmuhoza.easybilling.domain.testing.InMemoryDocumentSettingsRepository
 import com.claytonmuhoza.easybilling.domain.testing.InMemoryReceiptArchive
 import com.claytonmuhoza.easybilling.domain.testing.SaleFixture
@@ -16,6 +19,7 @@ import com.claytonmuhoza.easybilling.domain.transmission.ObrReceipt
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -29,9 +33,11 @@ class InvoiceDocumentTest {
     private val fixture = SaleFixture()
     private val receipts = InMemoryReceiptArchive()
     private val settings = InMemoryDocumentSettingsRepository()
-    private val build = BuildInvoiceDocument(fixture.invoices, fixture.profiles, receipts, settings)
+    private val build = BuildInvoiceDocument(fixture.invoices, fixture.profiles, fixture.users, receipts, settings)
     private val written = mutableListOf<InvoiceDocument>()
+    private val access = FakeAccessControl()
     private val createPdf = CreateInvoicePdf(
+        access,
         build,
         InvoicePdfWriter { document -> "%PDF of ${document.number.value}".toByteArray().also { written += document } },
         fixture.audit,
@@ -97,6 +103,13 @@ class InvoiceDocumentTest {
         assertEquals("360", cells["vat"])
         assertEquals("2 360", cells["item_total_amount"])
         assertEquals("2 360 BIF", document.totals.last().value)
+    }
+
+    @Test
+    fun `the document names the cashier who issued the invoice (UC-H03)`() = runTest {
+        val document = documentOf(issued())
+
+        assertEquals(DocumentField(null, "Caissier", "Alice"), document.payment.last())
     }
 
     @Test
@@ -201,5 +214,17 @@ class InvoiceDocumentTest {
         val tooLong = "x".repeat(DocumentSettings.MAX_FOOTER_LENGTH + 1)
         assertEquals(SaveDocumentSettings.Result.FooterTooLong, save(DocumentSettings(footer = tooLong)))
         assertEquals("Merci", settings.read().footer)
+    }
+
+    @Test
+    fun `a user who may not sell creates no PDF`() = runTest {
+        val invoice = issued()
+        val events = fixture.audit.events.size
+        access.denied += Permission.SELL
+
+        assertFailsWith<PermissionDeniedException> { createPdf(invoice.id, fixture.alice) }
+
+        assertEquals(listOf(fixture.alice to Permission.SELL), access.required)
+        assertEquals(events, fixture.audit.events.size)
     }
 }

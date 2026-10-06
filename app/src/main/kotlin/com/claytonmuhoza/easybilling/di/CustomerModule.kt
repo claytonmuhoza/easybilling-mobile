@@ -11,6 +11,7 @@ import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
 import com.claytonmuhoza.easybilling.domain.customer.TinLookup
 import com.claytonmuhoza.easybilling.domain.customer.UpdateCustomer
 import com.claytonmuhoza.easybilling.domain.customer.VerifyTin
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
 import com.claytonmuhoza.easybilling.domain.transmission.TokenProvider
@@ -40,28 +41,31 @@ object CustomerModule {
     /** @return the use case creating a customer. */
     @Provides
     fun createCustomer(
+        access: AccessControl,
         customers: CustomerRepository,
         verifyTin: VerifyTin,
         auditLog: AuditLog,
         transactions: TransactionRunner,
         time: TimeProvider,
-    ): CreateCustomer = CreateCustomer(customers, verifyTin, auditLog, transactions, time)
+    ): CreateCustomer = CreateCustomer(access, customers, verifyTin, auditLog, transactions, time)
 
     /** @return the use case changing a customer. */
     @Provides
     fun updateCustomer(
+        access: AccessControl,
         customers: CustomerRepository,
         verifyTin: VerifyTin,
         auditLog: AuditLog,
         transactions: TransactionRunner,
         time: TimeProvider,
-    ): UpdateCustomer = UpdateCustomer(customers, verifyTin, auditLog, transactions, time)
+    ): UpdateCustomer = UpdateCustomer(access, customers, verifyTin, auditLog, transactions, time)
 
     /** @return the use case archiving a customer. */
     @Provides
     fun archiveCustomer(
+        access: AccessControl,
         customers: CustomerRepository,
         auditLog: AuditLog,
         transactions: TransactionRunner,
-    ): ArchiveCustomer = ArchiveCustomer(customers, auditLog, transactions)
+    ): ArchiveCustomer = ArchiveCustomer(access, customers, auditLog, transactions)
 }

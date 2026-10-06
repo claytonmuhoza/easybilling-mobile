@@ -1,5 +1,7 @@
 package com.claytonmuhoza.easybilling.domain.configuration
 
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.identity.SecretCheck
@@ -21,6 +23,7 @@ import java.time.temporal.ChronoUnit
  * @param auditLog log that records each change, without any secret.
  */
 class SaveEbmsConnection(
+    private val access: AccessControl,
     private val settings: EbmsSettingsRepository,
     private val vault: EbmsCredentialsVault,
     private val auditLog: AuditLog,
@@ -39,8 +42,14 @@ class SaveEbmsConnection(
      * @param form the settings as typed.
      * @param actor the user who saves them.
      * @return whether they were saved.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
-    suspend operator fun invoke(environment: EbmsEnvironment, form: EbmsConnectionForm, actor: UserId): Result =
+    suspend operator fun invoke(environment: EbmsEnvironment, form: EbmsConnectionForm, actor: UserId): Result {
+        access.require(actor, Permission.CONFIGURE_BILLING)
+        return allowed(environment, form, actor)
+    }
+
+    private suspend fun allowed(environment: EbmsEnvironment, form: EbmsConnectionForm, actor: UserId): Result =
         when (val check = form.check(vault.read(environment)?.password)) {
             is EbmsConnectionCheck.Invalid -> Result.Invalid(check.problems, check.urlProblem)
             is EbmsConnectionCheck.Valid -> {
@@ -87,6 +96,7 @@ fun interface EnvironmentLock {
  * @param auditLog log that records each change.
  */
 class SwitchEbmsEnvironment(
+    private val access: AccessControl,
     private val settings: EbmsSettingsRepository,
     private val users: UserRepository,
     private val guard: SecretGuard,
@@ -119,8 +129,14 @@ class SwitchEbmsEnvironment(
      * @param actor the user who asks for it.
      * @param pin the PIN typed to confirm a switch to production; ignored for test.
      * @return whether the environment changed.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
     suspend operator fun invoke(target: EbmsEnvironment, actor: UserId, pin: String?): Result {
+        access.require(actor, Permission.CONFIGURE_BILLING)
+        return allowed(target, actor, pin)
+    }
+
+    private suspend fun allowed(target: EbmsEnvironment, actor: UserId, pin: String?): Result {
         val current = settings.read()
         val locked = lock.refusal(current.activeEnvironment, target)
         val refusal = when {
@@ -158,6 +174,7 @@ class SwitchEbmsEnvironment(
  * @param auditLog log that records each test and its outcome.
  */
 class TestEbmsConnection(
+    private val access: AccessControl,
     private val settings: EbmsSettingsRepository,
     private val vault: EbmsCredentialsVault,
     private val authentication: ObrAuthentication,
@@ -167,8 +184,14 @@ class TestEbmsConnection(
     /**
      * @param actor the user who asks for the test.
      * @return what the OBR answered, or [LoginOutcome.NotConfigured].
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
     suspend operator fun invoke(actor: UserId): LoginOutcome {
+        access.require(actor, Permission.CONFIGURE_BILLING)
+        return allowed(actor)
+    }
+
+    private suspend fun allowed(actor: UserId): LoginOutcome {
         val target = settings.activeLoginTarget(vault) ?: return LoginOutcome.NotConfigured
         val outcome = authentication.login(target)
         if (outcome is LoginOutcome.Success) {

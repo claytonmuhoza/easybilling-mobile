@@ -10,6 +10,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.SaveEbmsConnection
 import com.claytonmuhoza.easybilling.domain.configuration.SwitchEbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.configuration.TestEbmsConnection
 import com.claytonmuhoza.easybilling.domain.configuration.activeLoginTarget
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.identity.SecretGuard
 import com.claytonmuhoza.easybilling.domain.identity.UserRepository
 import com.claytonmuhoza.easybilling.domain.shared.SecretStore
@@ -63,36 +64,40 @@ object EbmsModule {
     /** @return the use case saving the address and the credentials of an environment. */
     @Provides
     fun saveEbmsConnection(
+        access: AccessControl,
         settings: EbmsSettingsRepository,
         vault: EbmsCredentialsVault,
         auditLog: AuditLog,
-    ): SaveEbmsConnection = SaveEbmsConnection(settings, vault, auditLog)
+    ): SaveEbmsConnection = SaveEbmsConnection(access, settings, vault, auditLog)
 
     /** @return the use case choosing the active environment. */
     @Provides
     fun switchEbmsEnvironment(
+        access: AccessControl,
         settings: EbmsSettingsRepository,
         users: UserRepository,
         guard: SecretGuard,
         auditLog: AuditLog,
         lock: EnvironmentLock,
-    ): SwitchEbmsEnvironment = SwitchEbmsEnvironment(settings, users, guard, auditLog, lock)
+    ): SwitchEbmsEnvironment = SwitchEbmsEnvironment(access, settings, users, guard, auditLog, lock)
 
     /** @return the use case testing the connection to the active environment. */
     @Provides
     fun testEbmsConnection(
+        access: AccessControl,
         settings: EbmsSettingsRepository,
         vault: EbmsCredentialsVault,
         authentication: ObrAuthentication,
         time: TimeProvider,
         auditLog: AuditLog,
-    ): TestEbmsConnection = TestEbmsConnection(settings, vault, authentication, time, auditLog)
+    ): TestEbmsConnection = TestEbmsConnection(access, settings, vault, authentication, time, auditLog)
 
     /** @return the use case choosing how long the exchanges are kept. */
     @Provides
     fun setExchangeRetention(
+        access: AccessControl,
         settings: EbmsSettingsRepository,
         journal: ExchangeJournal,
         auditLog: AuditLog,
-    ): SetExchangeRetention = SetExchangeRetention(settings, journal, auditLog)
+    ): SetExchangeRetention = SetExchangeRetention(access, settings, journal, auditLog)
 }

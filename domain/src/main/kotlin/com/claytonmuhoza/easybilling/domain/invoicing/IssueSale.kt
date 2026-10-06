@@ -1,5 +1,7 @@
 package com.claytonmuhoza.easybilling.domain.invoicing
 
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.configuration.BillingReadiness
@@ -60,6 +62,7 @@ class IssueStorage(
  * @param time source of the date of the invoice.
  */
 class IssueSale(
+    private val access: AccessControl,
     private val configuration: IssueConfiguration,
     private val storage: IssueStorage,
     private val priceSale: PriceSale,
@@ -95,8 +98,14 @@ class IssueSale(
      * @param draftId the sale to issue.
      * @param actor the user who issues it.
      * @return the invoice, or why nothing was issued.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
-    suspend operator fun invoke(draftId: DraftId, actor: UserId): Result =
+    suspend operator fun invoke(draftId: DraftId, actor: UserId): Result {
+        access.require(actor, Permission.SELL)
+        return allowed(draftId, actor)
+    }
+
+    private suspend fun allowed(draftId: DraftId, actor: UserId): Result =
         try {
             transactions.run { issued(draftId, actor) }
         } catch (aborted: Aborted) {

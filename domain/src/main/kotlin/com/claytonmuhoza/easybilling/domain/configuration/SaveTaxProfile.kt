@@ -1,5 +1,7 @@
 package com.claytonmuhoza.easybilling.domain.configuration
 
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.identity.UserId
@@ -16,6 +18,7 @@ import java.time.temporal.ChronoUnit
  * @param transactions makes the version and its audit entry a single write.
  */
 class SaveTaxProfile(
+    private val access: AccessControl,
     private val profiles: TaxProfileRepository,
     private val auditLog: AuditLog,
     private val time: TimeProvider,
@@ -40,8 +43,14 @@ class SaveTaxProfile(
      * @param form the profile typed by the user.
      * @param actor the user who saves it.
      * @return the saved version, or why nothing was saved.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
-    suspend operator fun invoke(form: TaxProfileForm, actor: UserId): Result =
+    suspend operator fun invoke(form: TaxProfileForm, actor: UserId): Result {
+        access.require(actor, Permission.CONFIGURE_BILLING)
+        return allowed(form, actor)
+    }
+
+    private suspend fun allowed(form: TaxProfileForm, actor: UserId): Result =
         when (val check = form.check()) {
             is TaxProfileCheck.Invalid -> Result.Invalid(check.problems, check.missingChoices)
             is TaxProfileCheck.Valid -> transactions.run { save(check.profile, actor) }

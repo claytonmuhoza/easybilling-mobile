@@ -1,5 +1,7 @@
 package com.claytonmuhoza.easybilling.domain.invoicing
 
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.catalog.ItemRepository
@@ -24,6 +26,7 @@ import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
  * @param time source of the time of the resend.
  */
 class ResendRejectedInvoice(
+    private val access: AccessControl,
     private val invoices: InvoiceRepository,
     private val profiles: TaxProfileRepository,
     private val outbox: OutboxRepository,
@@ -50,8 +53,14 @@ class ResendRejectedInvoice(
      * @param id the refused invoice.
      * @param actor the user who sends it again.
      * @return the invoice as it will be sent, or why nothing changed.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
-    suspend operator fun invoke(id: InvoiceId, actor: UserId): Result = transactions.run {
+    suspend operator fun invoke(id: InvoiceId, actor: UserId): Result {
+        access.require(actor, Permission.RESOLVE_INVOICES)
+        return allowed(id, actor)
+    }
+
+    private suspend fun allowed(id: InvoiceId, actor: UserId): Result = transactions.run {
         val invoice = invoices.find(id) ?: return@run Result.NotFound
         if (invoices.statusOf(id) !is InvoiceStatus.Rejected) return@run Result.NotRejected
         val resent = withCurrentSeller(invoice) ?: return@run Result.IdentifierTooLong

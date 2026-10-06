@@ -11,6 +11,9 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
 import com.claytonmuhoza.easybilling.domain.customer.CustomerDetails
 import com.claytonmuhoza.easybilling.domain.customer.CustomerOrigin
 import com.claytonmuhoza.easybilling.domain.customer.VerifiedTin
+import com.claytonmuhoza.easybilling.domain.identity.Permission
+import com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException
+import com.claytonmuhoza.easybilling.domain.invoicing.DraftId
 import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.Quantity
@@ -21,6 +24,7 @@ import java.math.BigDecimal
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
@@ -242,5 +246,16 @@ class IssueSaleTest {
         fixture.invoices.setStatus(invoice.id, InvoiceStatus.Registered, fixture.time.now())
         assertEquals(InvoiceStatus.Registered, fixture.invoices.statusOf(invoice.id))
         assertFalse(InvoiceStatus.Registered.canBecome(InvoiceStatus.Pending))
+    }
+
+    @Test
+    fun `a user who may not sell issues nothing`() = runTest {
+        val events = fixture.audit.events.size
+        fixture.access.denied += Permission.SELL
+
+        assertFailsWith<PermissionDeniedException> { fixture.issueSale(DraftId(1), fixture.alice) }
+
+        assertEquals(listOf(fixture.alice to Permission.SELL), fixture.access.required)
+        assertEquals(events, fixture.audit.events.size)
     }
 }

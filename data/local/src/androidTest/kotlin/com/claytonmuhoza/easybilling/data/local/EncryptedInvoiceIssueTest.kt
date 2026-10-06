@@ -23,6 +23,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileVersion
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
 import com.claytonmuhoza.easybilling.domain.configuration.TaxVersion
 import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.invoicing.AllocateInvoiceNumber
 import com.claytonmuhoza.easybilling.domain.invoicing.EditSale
@@ -72,6 +73,7 @@ class EncryptedInvoiceIssueTest {
     private val vault = SecretStoreCredentialsVault(secrets)
     private val edit = EditSale(storage.saleDrafts, time, storage.transactions)
     private val issue = IssueSale(
+            AccessControl { _, _ -> },
         IssueConfiguration(
             storage.taxProfiles,
             storage.ebmsSettings,

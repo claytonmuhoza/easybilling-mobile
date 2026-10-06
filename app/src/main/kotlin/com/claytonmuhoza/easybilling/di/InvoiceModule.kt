@@ -5,6 +5,7 @@ import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.catalog.ItemRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceListing
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.RedoSale
@@ -37,13 +38,14 @@ object InvoiceModule {
     /** @return the use case putting a refused invoice back in the send queue. */
     @Provides
     fun resendRejectedInvoice(
+        access: AccessControl,
         invoices: InvoiceRepository,
         profiles: TaxProfileRepository,
         outbox: OutboxRepository,
         auditLog: AuditLog,
         transactions: TransactionRunner,
         time: TimeProvider,
-    ): ResendRejectedInvoice = ResendRejectedInvoice(invoices, profiles, outbox, auditLog, transactions, time)
+    ): ResendRejectedInvoice = ResendRejectedInvoice(access, invoices, profiles, outbox, auditLog, transactions, time)
 
     /** @return the use case starting the sale of an invoice over. */
     @Provides

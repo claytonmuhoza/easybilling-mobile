@@ -219,7 +219,8 @@ class FirstLaunchFlowTest {
         composeRule.waitForText("ABCD-EFGH-JKLM")
 
         val alice = runBlocking { users.findAll().single() }
-        val stored = with(alice.credentials) { pinHash.salt + pinHash.hash + recoveryHash.salt + recoveryHash.hash }
+        val recoveryHash = checkNotNull(alice.credentials.recoveryHash)
+        val stored = alice.credentials.pinHash.let { it.salt + it.hash } + recoveryHash.salt + recoveryHash.hash
         val storedText = String(stored, Charsets.ISO_8859_1)
         assertEquals(false, "123456" in storedText)
         assertEquals(false, "ABCDEFGHJKLM" in storedText)

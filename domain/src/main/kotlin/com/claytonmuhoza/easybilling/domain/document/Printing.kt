@@ -1,5 +1,7 @@
 package com.claytonmuhoza.easybilling.domain.document
 
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.identity.UserId
@@ -91,6 +93,7 @@ interface ReceiptPrinter {
  * @param auditLog log that records each ticket printed.
  */
 class PrintInvoice(
+    private val access: AccessControl,
     private val build: BuildInvoiceDocument,
     private val settings: PrinterSettingsRepository,
     private val printer: ReceiptPrinter,
@@ -115,8 +118,14 @@ class PrintInvoice(
      * @param id the invoice.
      * @param actor the user who prints.
      * @return whether the ticket was printed.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
     suspend operator fun invoke(id: InvoiceId, actor: UserId): Result {
+        access.require(actor, Permission.SELL)
+        return allowed(id, actor)
+    }
+
+    private suspend fun allowed(id: InvoiceId, actor: UserId): Result {
         val chosen = settings.read()
         val target = chosen.printer ?: return Result.NoPrinter
         return when (val built = build(id)) {

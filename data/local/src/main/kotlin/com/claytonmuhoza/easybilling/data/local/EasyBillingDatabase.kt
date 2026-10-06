@@ -81,7 +81,7 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
         DocumentSettingsEntity::class,
         PrinterSettingsEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = false,
 )
 // One accessor per DAO: the list grows with the schema.

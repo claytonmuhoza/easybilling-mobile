@@ -1,8 +1,11 @@
 package com.claytonmuhoza.easybilling.domain.configuration
 
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
+import com.claytonmuhoza.easybilling.domain.identity.Permission
+import com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.testing.DirectTransactionRunner
+import com.claytonmuhoza.easybilling.domain.testing.FakeAccessControl
 import com.claytonmuhoza.easybilling.domain.testing.InMemoryTaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.testing.MutableTimeProvider
 import com.claytonmuhoza.easybilling.domain.testing.RecordingAuditLog
@@ -12,6 +15,7 @@ import java.time.Duration
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 
@@ -21,7 +25,8 @@ class SaveTaxProfileTest {
     private val time = MutableTimeProvider(Instant.parse("2026-10-03T08:00:00.123456Z"))
     private val profiles = InMemoryTaxProfileRepository()
     private val audit = RecordingAuditLog()
-    private val save = SaveTaxProfile(profiles, audit, time, DirectTransactionRunner)
+    private val access = FakeAccessControl()
+    private val save = SaveTaxProfile(access, profiles, audit, time, DirectTransactionRunner)
 
     private val alice = UserId(1)
     private val form = TaxProfileSamples.form()
@@ -93,5 +98,15 @@ class SaveTaxProfileTest {
         )
         assertEquals("version=2", audit.events.last().details)
         assertEquals("TAX_PROFILE_SAVED", audit.events.last().action)
+    }
+
+    @Test
+    fun `a user who may not configure the billing does not save the tax profile`() = runTest {
+        access.denied += Permission.CONFIGURE_BILLING
+
+        assertFailsWith<PermissionDeniedException> { save(form, alice) }
+
+        assertEquals(listOf(alice to Permission.CONFIGURE_BILLING), access.required)
+        assertEquals(emptyList(), audit.events)
     }
 }

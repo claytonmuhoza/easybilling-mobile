@@ -1,5 +1,7 @@
 package com.claytonmuhoza.easybilling.domain.catalog
 
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.configuration.NumberingRepository
@@ -63,6 +65,7 @@ class SuggestItemCode(private val items: ItemRepository) {
  * @param transactions makes the check of the code, the item and its audit entry a single write.
  */
 class CreateItem(
+    private val access: AccessControl,
     private val items: ItemRepository,
     private val readRules: ReadItemRules,
     private val auditLog: AuditLog,
@@ -81,8 +84,14 @@ class CreateItem(
      * @param form the item as typed.
      * @param actor the user who creates it.
      * @return the created item, or why nothing was stored.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
-    suspend operator fun invoke(form: ItemForm, actor: UserId): Result = transactions.run {
+    suspend operator fun invoke(form: ItemForm, actor: UserId): Result {
+        access.require(actor, Permission.EDIT_ITEMS)
+        return allowed(form, actor)
+    }
+
+    private suspend fun allowed(form: ItemForm, actor: UserId): Result = transactions.run {
         when (val check = form.check(readRules())) {
             is ItemCheck.Invalid -> Result.Invalid(check.problems)
             is ItemCheck.Valid -> {
@@ -119,6 +128,7 @@ internal suspend fun ItemRepository.barcodeTaken(barcode: String?, except: ItemI
  * @param transactions makes the change and its audit entry a single write.
  */
 class UpdateItem(
+    private val access: AccessControl,
     private val items: ItemRepository,
     private val readRules: ReadItemRules,
     private val auditLog: AuditLog,
@@ -141,8 +151,14 @@ class UpdateItem(
      * @param form the item as typed; its code is ignored.
      * @param actor the user who changes it.
      * @return whether the change was stored.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
-    suspend operator fun invoke(id: ItemId, form: ItemForm, actor: UserId): Result = transactions.run {
+    suspend operator fun invoke(id: ItemId, form: ItemForm, actor: UserId): Result {
+        access.require(actor, Permission.EDIT_ITEMS)
+        return allowed(id, form, actor)
+    }
+
+    private suspend fun allowed(id: ItemId, form: ItemForm, actor: UserId): Result = transactions.run {
         val existing = items.find(id) ?: return@run Result.NotFound
         when (val check = form.check(readRules(), existing)) {
             is ItemCheck.Invalid -> Result.Invalid(check.problems)
@@ -166,6 +182,7 @@ class UpdateItem(
  * @param transactions makes the change and its audit entry a single write.
  */
 class ArchiveItem(
+    private val access: AccessControl,
     private val items: ItemRepository,
     private val auditLog: AuditLog,
     private val transactions: TransactionRunner,
@@ -184,8 +201,14 @@ class ArchiveItem(
      * @param archived true to archive it, false to bring it back.
      * @param actor the user who asks for it.
      * @return whether the item was found.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
-    suspend operator fun invoke(id: ItemId, archived: Boolean, actor: UserId): Result = transactions.run {
+    suspend operator fun invoke(id: ItemId, archived: Boolean, actor: UserId): Result {
+        access.require(actor, Permission.EDIT_ITEMS)
+        return allowed(id, archived, actor)
+    }
+
+    private suspend fun allowed(id: ItemId, archived: Boolean, actor: UserId): Result = transactions.run {
         if (items.find(id) == null) return@run Result.NotFound
         items.setArchived(id, archived)
         auditLog.record(AuditEvent.ItemArchived(actor, id, archived))

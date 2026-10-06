@@ -39,7 +39,10 @@ import com.claytonmuhoza.easybilling.domain.document.PrinterSettings
 import com.claytonmuhoza.easybilling.domain.document.PrinterSettingsRepository
 import com.claytonmuhoza.easybilling.domain.document.Receipt
 import com.claytonmuhoza.easybilling.domain.document.ReceiptPrinter
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.identity.NewUser
+import com.claytonmuhoza.easybilling.domain.identity.Permission
+import com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCode
 import com.claytonmuhoza.easybilling.domain.identity.RecoveryCodeGenerator
 import com.claytonmuhoza.easybilling.domain.identity.SecretHash
@@ -82,8 +85,9 @@ class InMemoryUserRepository : UserRepository {
         val user = User(
             id = UserId(users.size + 1L),
             name = newUser.name,
-            role = newUser.role,
+            roles = newUser.roles,
             credentials = newUser.credentials,
+            pinTemporary = newUser.pinTemporary,
         )
         users[user.id] = user
         return user
@@ -389,5 +393,19 @@ class InMemoryCustomerRepository : CustomerRepository {
         val customer = Customer(CustomerId(customers.size + 1L), details, counter = counter)
         customers[customer.id] = customer
         return customer
+    }
+}
+
+/** Access control that allows everything but [denied], and remembers what was asked. */
+class FakeAccessControl : AccessControl {
+    /** The permissions refused to everyone. */
+    val denied = mutableSetOf<Permission>()
+
+    /** Every permission asked, in order, with the user who asked. */
+    val required = mutableListOf<Pair<UserId, Permission>>()
+
+    override suspend fun require(actor: UserId, permission: Permission) {
+        required += actor to permission
+        if (permission in denied) throw PermissionDeniedException(actor, permission)
     }
 }

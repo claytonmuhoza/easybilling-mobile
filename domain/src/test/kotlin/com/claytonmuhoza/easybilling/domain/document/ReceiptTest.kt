@@ -1,10 +1,13 @@
 package com.claytonmuhoza.easybilling.domain.document
 
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
+import com.claytonmuhoza.easybilling.domain.identity.Permission
+import com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatus
 import com.claytonmuhoza.easybilling.domain.invoicing.IssueSale
+import com.claytonmuhoza.easybilling.domain.testing.FakeAccessControl
 import com.claytonmuhoza.easybilling.domain.testing.FakeReceiptPrinter
 import com.claytonmuhoza.easybilling.domain.testing.InMemoryDocumentSettingsRepository
 import com.claytonmuhoza.easybilling.domain.testing.InMemoryPrinterSettingsRepository
@@ -14,6 +17,7 @@ import com.claytonmuhoza.easybilling.domain.transmission.ObrReceipt
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
@@ -29,8 +33,10 @@ class ReceiptTest {
     private val documentSettings = InMemoryDocumentSettingsRepository()
     private val printerSettings = InMemoryPrinterSettingsRepository()
     private val printer = FakeReceiptPrinter()
-    private val build = BuildInvoiceDocument(fixture.invoices, fixture.profiles, receipts, documentSettings)
-    private val print = PrintInvoice(build, printerSettings, printer, fixture.audit)
+    private val build =
+        BuildInvoiceDocument(fixture.invoices, fixture.profiles, fixture.users, receipts, documentSettings)
+    private val access = FakeAccessControl()
+    private val print = PrintInvoice(access, build, printerSettings, printer, fixture.audit)
     private val testPage = PrintTestPage(printerSettings, printer)
 
     private val associated = PrinterSettings(printer = PairedPrinter("00:11:22:33:44:55", "POS-58"))
@@ -64,6 +70,13 @@ class ReceiptTest {
             val missing = mandatory.filter { field -> field.value.filterNot { it.isWhitespace() } !in text }
             assertEquals(emptyList(), missing.map { it.obrName }, "$width")
         }
+    }
+
+    @Test
+    fun `the ticket names the cashier who issued the invoice (UC-H03)`() = runTest {
+        val receipt = Receipt.of(documentOf(issued()), ReceiptWidth.MM_58, accents = true)
+
+        assertTrue("Caissier : Alice" in receipt.lines.map { it.text }, receipt.text())
     }
 
     @Test
@@ -162,5 +175,17 @@ class ReceiptTest {
 
     private companion object {
         const val ASCII_LAST = 126
+    }
+
+    @Test
+    fun `a user who may not sell prints nothing`() = runTest {
+        val invoice = issued()
+        val events = fixture.audit.events.size
+        access.denied += Permission.SELL
+
+        assertFailsWith<PermissionDeniedException> { print(invoice.id, fixture.alice) }
+
+        assertEquals(listOf(fixture.alice to Permission.SELL), access.required)
+        assertEquals(events, fixture.audit.events.size)
     }
 }

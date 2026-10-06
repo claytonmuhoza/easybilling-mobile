@@ -31,7 +31,7 @@ class EncryptedStorageTest {
 
     private val alice = NewUser(
         name = "Alice Administrator",
-        role = Role.ADMINISTRATOR,
+        roles = setOf(Role.ADMINISTRATOR),
         credentials = Credentials(
             pinHash = SecretHash(byteArrayOf(1), byteArrayOf(2), 1),
             recoveryHash = SecretHash(byteArrayOf(3), byteArrayOf(4), 1),

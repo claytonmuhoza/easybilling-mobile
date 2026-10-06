@@ -20,6 +20,12 @@ class LogIn(
         /** The account refuses every attempt until [until]. */
         data class Locked(val until: Instant) : Result
 
+        /** The PIN is right but temporary: the user chooses one with [ChangeTemporaryPin]. No session is open. */
+        data object PinChangeRequired : Result
+
+        /** The account is disabled. The PIN was not looked at. */
+        data object Disabled : Result
+
         /** There is no user with that identifier. */
         data object UnknownUser : Result
     }
@@ -30,15 +36,23 @@ class LogIn(
      * @return whether the session was opened, or why not.
      */
     suspend operator fun invoke(userId: UserId, pin: String): Result {
-        val user = users.find(userId) ?: return Result.UnknownUser
-        val check = guard.check(user, pin, user.credentials.pinHash, AuditEvent.PinRejected(user.id))
-        return when (check) {
-            is SecretCheck.Accepted -> {
+        val user = users.find(userId)
+        return when {
+            user == null -> Result.UnknownUser
+            !user.active -> Result.Disabled
+            else -> checkPin(user, pin)
+        }
+    }
+
+    private suspend fun checkPin(user: User, pin: String): Result =
+        when (val check = guard.check(user, pin, user.credentials.pinHash, AuditEvent.PinRejected(user.id))) {
+            is SecretCheck.Accepted -> if (check.user.pinTemporary) {
+                Result.PinChangeRequired
+            } else {
                 sessions.open(check.user)
                 Result.Success
             }
             is SecretCheck.Rejected -> Result.WrongPin(check.remainingAttempts)
             is SecretCheck.Locked -> Result.Locked(check.until)
         }
-    }
 }

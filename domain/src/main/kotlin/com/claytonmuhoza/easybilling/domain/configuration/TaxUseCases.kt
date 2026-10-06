@@ -1,5 +1,7 @@
 package com.claytonmuhoza.easybilling.domain.configuration
 
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.identity.UserId
@@ -16,6 +18,7 @@ import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
  * @param transactions makes the tax and its audit entry a single write.
  */
 class CreateTax(
+    private val access: AccessControl,
     private val taxes: TaxRepository,
     private val auditLog: AuditLog,
     private val time: TimeProvider,
@@ -34,8 +37,14 @@ class CreateTax(
      * @param form the tax as typed.
      * @param actor the user who creates it.
      * @return the created tax, or why nothing was stored.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
-    suspend operator fun invoke(form: TaxForm, actor: UserId): Result =
+    suspend operator fun invoke(form: TaxForm, actor: UserId): Result {
+        access.require(actor, Permission.CONFIGURE_BILLING)
+        return allowed(form, actor)
+    }
+
+    private suspend fun allowed(form: TaxForm, actor: UserId): Result =
         when (val check = form.check(BusinessCalendar.today(time))) {
             is TaxCheck.Invalid -> Result.Invalid(check.problems)
             is TaxCheck.Valid -> transactions.run {
@@ -56,6 +65,7 @@ class CreateTax(
  * @param transactions makes the rate and its audit entry a single write.
  */
 class ScheduleTaxRate(
+    private val access: AccessControl,
     private val taxes: TaxRepository,
     private val auditLog: AuditLog,
     private val time: TimeProvider,
@@ -78,8 +88,14 @@ class ScheduleTaxRate(
      * @param form the new rate as typed.
      * @param actor the user who schedules it.
      * @return whether the rate was stored.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
     suspend operator fun invoke(id: TaxId, form: TaxRateForm, actor: UserId): Result {
+        access.require(actor, Permission.CONFIGURE_BILLING)
+        return allowed(id, form, actor)
+    }
+
+    private suspend fun allowed(id: TaxId, form: TaxRateForm, actor: UserId): Result {
         val tax = taxes.find(id) ?: return Result.NotFound
         return when (val check = form.check(tax.kind, BusinessCalendar.today(time), tax.latest.validFrom)) {
             is TaxRateCheck.Invalid -> Result.Invalid(check.problems)
@@ -101,6 +117,7 @@ class ScheduleTaxRate(
  * @param transactions makes the change and its audit entry a single write.
  */
 class ArchiveTax(
+    private val access: AccessControl,
     private val taxes: TaxRepository,
     private val auditLog: AuditLog,
     private val transactions: TransactionRunner,
@@ -119,8 +136,14 @@ class ArchiveTax(
      * @param archived true to archive it, false to bring it back.
      * @param actor the user who asks for it.
      * @return whether the tax was found.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
     suspend operator fun invoke(id: TaxId, archived: Boolean, actor: UserId): Result {
+        access.require(actor, Permission.CONFIGURE_BILLING)
+        return allowed(id, archived, actor)
+    }
+
+    private suspend fun allowed(id: TaxId, archived: Boolean, actor: UserId): Result {
         taxes.find(id) ?: return Result.NotFound
         transactions.run {
             taxes.setArchived(id, archived)

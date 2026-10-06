@@ -1,9 +1,12 @@
 package com.claytonmuhoza.easybilling.domain.document
 
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.identity.UserRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.transmission.ReceiptArchive
@@ -84,12 +87,14 @@ class SaveDocumentSettings(private val settings: DocumentSettingsRepository) {
  *
  * @param invoices the invoices and their status.
  * @param profiles the versions of the tax profile.
+ * @param users the accounts, for the name of the user who issued the invoice.
  * @param receipts the acknowledgements of the OBR.
  * @param settings the settings of the documents.
  */
 class BuildInvoiceDocument(
     private val invoices: InvoiceRepository,
     private val profiles: TaxProfileRepository,
+    private val users: UserRepository,
     private val receipts: ReceiptArchive,
     private val settings: DocumentSettingsRepository,
 ) {
@@ -113,7 +118,8 @@ class BuildInvoiceDocument(
         return if (invoice == null || status == null || seller == null) {
             Result.NotFound
         } else {
-            Result.Built(InvoiceDocument.of(invoice, seller, status, receipts.find(id), settings.read()))
+            val cashier = users.find(invoice.content.issuedBy)?.name
+            Result.Built(InvoiceDocument.of(invoice, seller, status, receipts.find(id), settings.read(), cashier))
         }
     }
 }
@@ -136,6 +142,7 @@ fun interface InvoicePdfWriter {
  * @param auditLog log that records each copy.
  */
 class CreateInvoicePdf(
+    private val access: AccessControl,
     private val build: BuildInvoiceDocument,
     private val writer: InvoicePdfWriter,
     private val auditLog: AuditLog,
@@ -158,8 +165,14 @@ class CreateInvoicePdf(
      * @param id the invoice.
      * @param actor the user who asks for the PDF.
      * @return the PDF, or why there is none.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
-    suspend operator fun invoke(id: InvoiceId, actor: UserId): Result =
+    suspend operator fun invoke(id: InvoiceId, actor: UserId): Result {
+        access.require(actor, Permission.SELL)
+        return allowed(id, actor)
+    }
+
+    private suspend fun allowed(id: InvoiceId, actor: UserId): Result =
         when (val built = build(id)) {
             BuildInvoiceDocument.Result.NotFound -> Result.NotFound
             is BuildInvoiceDocument.Result.Built -> {

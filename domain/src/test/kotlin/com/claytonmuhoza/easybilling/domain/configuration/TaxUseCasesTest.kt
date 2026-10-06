@@ -1,20 +1,25 @@
 package com.claytonmuhoza.easybilling.domain.configuration
 
-import com.claytonmuhoza.easybilling.domain.testing.percent
-import com.claytonmuhoza.easybilling.domain.testing.rateAt
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
+import com.claytonmuhoza.easybilling.domain.configuration.TaxId
+import com.claytonmuhoza.easybilling.domain.identity.Permission
+import com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.shared.BusinessCalendar
 import com.claytonmuhoza.easybilling.domain.testing.DirectTransactionRunner
+import com.claytonmuhoza.easybilling.domain.testing.FakeAccessControl
 import com.claytonmuhoza.easybilling.domain.testing.InMemoryTaxRepository
 import com.claytonmuhoza.easybilling.domain.testing.MutableTimeProvider
 import com.claytonmuhoza.easybilling.domain.testing.RecordingAuditLog
+import com.claytonmuhoza.easybilling.domain.testing.percent
+import com.claytonmuhoza.easybilling.domain.testing.rateAt
 import kotlinx.coroutines.test.runTest
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 
 /** Creating taxes, scheduling a new rate and archiving (UC-A07). */
@@ -24,9 +29,10 @@ class TaxUseCasesTest {
     private val time = MutableTimeProvider(Instant.parse("2026-10-02T23:30:00Z"))
     private val taxes = InMemoryTaxRepository()
     private val audit = RecordingAuditLog()
-    private val create = CreateTax(taxes, audit, time, DirectTransactionRunner)
-    private val schedule = ScheduleTaxRate(taxes, audit, time, DirectTransactionRunner)
-    private val archive = ArchiveTax(taxes, audit, DirectTransactionRunner)
+    private val access = FakeAccessControl()
+    private val create = CreateTax(access, taxes, audit, time, DirectTransactionRunner)
+    private val schedule = ScheduleTaxRate(access, taxes, audit, time, DirectTransactionRunner)
+    private val archive = ArchiveTax(access, taxes, audit, DirectTransactionRunner)
 
     private val alice = UserId(1)
     private val today = LocalDate.of(2026, 10, 3)
@@ -113,5 +119,18 @@ class TaxUseCasesTest {
 
         archive(tax.id, archived = false, alice)
         assertEquals(false, taxes.find(tax.id)!!.archived)
+    }
+
+    @Test
+    fun `a user who may not configure the billing changes no tax`() = runTest {
+        access.denied += Permission.CONFIGURE_BILLING
+        val rate = TaxRateForm(TaxMode.PERCENTAGE, "16", validFrom = today)
+
+        assertFailsWith<PermissionDeniedException> { create(vatForm, alice) }
+        assertFailsWith<PermissionDeniedException> { schedule(TaxId(1), rate, alice) }
+        assertFailsWith<PermissionDeniedException> { archive(TaxId(1), archived = true, alice) }
+
+        assertEquals(List(3) { alice to Permission.CONFIGURE_BILLING }, access.required)
+        assertEquals(emptyList(), audit.events)
     }
 }

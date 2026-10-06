@@ -1,5 +1,7 @@
 package com.claytonmuhoza.easybilling.domain.configuration
 
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
+import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.identity.UserId
@@ -14,6 +16,7 @@ import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
  * @param transactions makes the numbering and its audit entry a single write.
  */
 class SaveNumbering(
+    private val access: AccessControl,
     private val numbering: NumberingRepository,
     private val auditLog: AuditLog,
     private val transactions: TransactionRunner,
@@ -36,8 +39,14 @@ class SaveNumbering(
      * or null if it is not known yet.
      * @param actor the user who saves it.
      * @return whether the numbering was stored.
+     * @throws com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException if [actor] is not allowed to.
      */
-    suspend operator fun invoke(form: NumberingForm, identifierRoom: Int?, actor: UserId): Result = transactions.run {
+    suspend operator fun invoke(form: NumberingForm, identifierRoom: Int?, actor: UserId): Result {
+        access.require(actor, Permission.CONFIGURE_BILLING)
+        return allowed(form, identifierRoom, actor)
+    }
+
+    private suspend fun allowed(form: NumberingForm, identifierRoom: Int?, actor: UserId): Result = transactions.run {
         if (numbering.settings()?.locked == true) return@run Result.Locked
         when (val check = form.check(identifierRoom)) {
             is NumberingCheck.Invalid -> Result.Invalid(check.problems)

@@ -6,6 +6,7 @@ import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import java.time.Duration
 import java.time.Instant
 
@@ -14,9 +15,17 @@ import java.time.Instant
  *
  * @property userId identifier of the user.
  * @property userName name of the user.
- * @property role role of the user.
+ * @property roles roles of the user.
  */
-data class Session(val userId: UserId, val userName: String, val role: Role)
+data class Session(val userId: UserId, val userName: String, val roles: Set<Role>) {
+    /**
+     * @param permission what the user wants to do.
+     * @param policy the rights matrix.
+     * @return true if one of the roles of the user gives [permission].
+     */
+    fun can(permission: Permission, policy: PermissionPolicy = FixedPermissionPolicy): Boolean =
+        policy.allows(roles, permission)
+}
 
 /** Why a session was closed. */
 enum class LogoutReason {
@@ -56,8 +65,17 @@ class SessionManager(
      */
     suspend fun open(user: User) {
         lastActivity = time.now()
-        session.value = Session(user.id, user.name, user.role)
+        session.value = Session(user.id, user.name, user.roles)
         auditLog.record(AuditEvent.SessionOpened(user.id))
+    }
+
+    /**
+     * Takes the new name and roles of [user] if the open session is theirs.
+     *
+     * @param user an account that was just changed.
+     */
+    fun refresh(user: User) {
+        session.update { open -> if (open?.userId == user.id) Session(user.id, user.name, user.roles) else open }
     }
 
     /** Records a user action, which postpones the expiry of the session. */

@@ -3,7 +3,10 @@ package com.claytonmuhoza.easybilling.domain.transmission
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettings
+import com.claytonmuhoza.easybilling.domain.identity.Permission
+import com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.testing.FakeAccessControl
 import com.claytonmuhoza.easybilling.domain.testing.InMemoryEbmsSettingsRepository
 import com.claytonmuhoza.easybilling.domain.testing.InMemoryExchangeLog
 import com.claytonmuhoza.easybilling.domain.testing.MutableTimeProvider
@@ -13,6 +16,7 @@ import java.time.Duration
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 /** The log of the exchanges with the OBR (UC-D08) keeps them for a chosen number of days. */
 class ExchangeJournalTest {
@@ -22,7 +26,8 @@ class ExchangeJournalTest {
     private val settings = InMemoryEbmsSettingsRepository()
     private val audit = RecordingAuditLog()
     private val journal = ExchangeJournal(log, settings, time)
-    private val setRetention = SetExchangeRetention(settings, journal, audit)
+    private val access = FakeAccessControl()
+    private val setRetention = SetExchangeRetention(access, settings, journal, audit)
 
     private fun exchange(daysAgo: Long) = ObrExchange(
         startedAt = time.now() - Duration.ofDays(daysAgo),
@@ -80,5 +85,15 @@ class ExchangeJournalTest {
 
         assertEquals(1, journal.purge())
         assertEquals(1, log.exchanges.size)
+    }
+
+    @Test
+    fun `a user who may not configure the billing does not change the retention`() = runTest {
+        access.denied += Permission.CONFIGURE_BILLING
+
+        assertFailsWith<PermissionDeniedException> { setRetention(7, UserId(1)) }
+
+        assertEquals(listOf(UserId(1) to Permission.CONFIGURE_BILLING), access.required)
+        assertEquals(emptyList(), audit.events)
     }
 }

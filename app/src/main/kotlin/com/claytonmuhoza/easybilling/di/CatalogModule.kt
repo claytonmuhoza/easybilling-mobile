@@ -11,6 +11,7 @@ import com.claytonmuhoza.easybilling.domain.catalog.UpdateItem
 import com.claytonmuhoza.easybilling.domain.configuration.NumberingRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
 import dagger.Module
 import dagger.Provides
@@ -41,23 +42,30 @@ object CatalogModule {
     /** @return the use case creating an item. */
     @Provides
     fun createItem(
+        access: AccessControl,
         items: ItemRepository,
         readRules: ReadItemRules,
         auditLog: AuditLog,
         transactions: TransactionRunner,
-    ): CreateItem = CreateItem(items, readRules, auditLog, transactions)
+    ): CreateItem = CreateItem(access, items, readRules, auditLog, transactions)
 
     /** @return the use case changing an item. */
     @Provides
     fun updateItem(
+        access: AccessControl,
         items: ItemRepository,
         readRules: ReadItemRules,
         auditLog: AuditLog,
         transactions: TransactionRunner,
-    ): UpdateItem = UpdateItem(items, readRules, auditLog, transactions)
+    ): UpdateItem = UpdateItem(access, items, readRules, auditLog, transactions)
 
     /** @return the use case archiving an item. */
     @Provides
-    fun archiveItem(items: ItemRepository, auditLog: AuditLog, transactions: TransactionRunner): ArchiveItem =
-        ArchiveItem(items, auditLog, transactions)
+    fun archiveItem(
+        access: AccessControl,
+        items: ItemRepository,
+        auditLog: AuditLog,
+        transactions: TransactionRunner,
+    ): ArchiveItem =
+        ArchiveItem(access, items, auditLog, transactions)
 }

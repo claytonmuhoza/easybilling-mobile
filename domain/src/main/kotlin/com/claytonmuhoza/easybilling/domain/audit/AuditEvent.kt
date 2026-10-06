@@ -6,6 +6,8 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxId
 import com.claytonmuhoza.easybilling.domain.configuration.TaxKind
 import com.claytonmuhoza.easybilling.domain.customer.CustomerId
 import com.claytonmuhoza.easybilling.domain.identity.LogoutReason
+import com.claytonmuhoza.easybilling.domain.identity.Permission
+import com.claytonmuhoza.easybilling.domain.identity.Role
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import java.time.Instant
@@ -61,6 +63,41 @@ sealed interface AuditEvent {
     /** The PIN was replaced with the recovery code. */
     data class PinReset(override val actor: UserId) : AuditEvent {
         override val action get() = "PIN_RESET"
+    }
+
+    /** The account [user] was created with [roles]. */
+    data class UserCreated(override val actor: UserId, val user: UserId, val roles: Set<Role>) : AuditEvent {
+        override val action get() = "USER_CREATED"
+        override val details get() = "user=${user.value};roles=${roles.sorted().joinToString(",")}"
+    }
+
+    /** The name or the roles of [user] were changed; [roles] are the new ones. */
+    data class UserUpdated(override val actor: UserId, val user: UserId, val roles: Set<Role>) : AuditEvent {
+        override val action get() = "USER_UPDATED"
+        override val details get() = "user=${user.value};roles=${roles.sorted().joinToString(",")}"
+    }
+
+    /** [user] was disabled, or enabled again when [active] is true. */
+    data class UserActiveChanged(override val actor: UserId, val user: UserId, val active: Boolean) : AuditEvent {
+        override val action get() = "USER_ACTIVE_CHANGED"
+        override val details get() = "user=${user.value};active=$active"
+    }
+
+    /** An administrator gave a new temporary PIN to [user]. */
+    data class UserPinReset(override val actor: UserId, val user: UserId) : AuditEvent {
+        override val action get() = "USER_PIN_RESET"
+        override val details get() = "user=${user.value}"
+    }
+
+    /** A user replaced a temporary PIN with one of their own. */
+    data class TemporaryPinChanged(override val actor: UserId) : AuditEvent {
+        override val action get() = "TEMPORARY_PIN_CHANGED"
+    }
+
+    /** A user asked for something none of their roles allows. */
+    data class PermissionDenied(override val actor: UserId, val permission: Permission) : AuditEvent {
+        override val action get() = "PERMISSION_DENIED"
+        override val details get() = "permission=$permission"
     }
 
     /** The address and the credentials of [environment] were saved. No secret is kept here. */

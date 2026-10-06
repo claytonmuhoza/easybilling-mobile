@@ -9,6 +9,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.NumberingRepository
 import com.claytonmuhoza.easybilling.domain.configuration.SaveNumbering
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
+import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.invoicing.AllocateInvoiceNumber
 import com.claytonmuhoza.easybilling.domain.invoicing.ReadIdentifierContext
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
@@ -30,10 +31,11 @@ object NumberingModule {
     /** @return the use case saving the numbering. */
     @Provides
     fun saveNumbering(
+        access: AccessControl,
         numbering: NumberingRepository,
         auditLog: AuditLog,
         transactions: TransactionRunner,
-    ): SaveNumbering = SaveNumbering(numbering, auditLog, transactions)
+    ): SaveNumbering = SaveNumbering(access, numbering, auditLog, transactions)
 
     /** @return the use case giving the next number of a type of document. */
     @Provides
