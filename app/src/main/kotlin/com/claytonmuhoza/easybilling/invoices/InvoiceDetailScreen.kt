@@ -241,6 +241,8 @@ private fun Notice(notice: InvoiceNotice, onOpenSale: () -> Unit) {
         InvoiceNotice.Resent -> StatusBanner(StatusTone.SUCCESS, stringResource(R.string.invoice_resent))
         InvoiceNotice.IdentifierTooLong ->
             StatusBanner(StatusTone.ERROR, stringResource(R.string.invoice_identifier_too_long))
+        InvoiceNotice.InsufficientStock ->
+            StatusBanner(StatusTone.ERROR, stringResource(R.string.invoice_resend_stock_insufficient))
         InvoiceNotice.Failed -> StatusBanner(StatusTone.ERROR, stringResource(R.string.invoice_action_failed))
         is InvoiceNotice.SaleStarted -> if (notice.skippedLines > 0) {
             val skipped = notice.skippedLines

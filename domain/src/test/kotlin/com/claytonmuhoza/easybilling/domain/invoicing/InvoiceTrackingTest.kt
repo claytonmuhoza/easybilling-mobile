@@ -40,6 +40,7 @@ class InvoiceTrackingTest {
         fixture.invoices,
         fixture.profiles,
         fixture.outbox,
+        fixture.invoiceStock,
         fixture.audit,
         DirectTransactionRunner,
         fixture.time,

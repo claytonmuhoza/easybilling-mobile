@@ -950,4 +950,7 @@
         <item quantity="one">%1$d stock movement to deal with</item>
         <item quantity="other">%1$d stock movements to deal with</item>
     </plurals>
+    <string name="sale_problem_stock_insufficient">Not enough in stock for this quantity.</string>
+    <string name="stock_status_voided">Cancelled, not declared</string>
+    <string name="invoice_resend_stock_insufficient">The stock no longer has the items of this invoice: it cannot be sent again. Start the sale over.</string>
 </resources>

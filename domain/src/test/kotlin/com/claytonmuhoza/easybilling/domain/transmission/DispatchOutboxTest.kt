@@ -50,6 +50,7 @@ class DispatchOutboxTest {
             fixture.profiles,
             fixture.cancellations,
             fixture.stock,
+            fixture.invoiceStock,
             fixture.audit,
             DirectTransactionRunner,
         ),

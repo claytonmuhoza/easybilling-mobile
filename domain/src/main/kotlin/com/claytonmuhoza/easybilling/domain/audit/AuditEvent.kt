@@ -319,8 +319,8 @@ sealed interface AuditEvent {
     }
 
     /**
-     * What the OBR made of the stock movement [movement]: [outcome] is `DECLARED`, `REJECTED` or
-     * `TO_CONFIRM` when its answer never came.
+     * What the OBR made of the stock movement [movement]: [outcome] is `DECLARED`, `REJECTED`,
+     * `TO_CONFIRM` when its answer never came, or `VOIDED` when the OBR refused its invoice.
      */
     data class StockMovementSettled(val movement: MovementId, val outcome: String) : AuditEvent {
         override val actor: UserId? get() = null

@@ -10,6 +10,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatus
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
+import com.claytonmuhoza.easybilling.domain.stock.InvoiceStock
 import com.claytonmuhoza.easybilling.domain.stock.StockRepository
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -55,6 +56,7 @@ object LocalRefusals {
  * @property profiles the versions of the tax profile the invoices were issued with.
  * @property cancellations the cancellations of the invoices.
  * @property stock the stock movements and their status.
+ * @property invoiceStock what the stock makes of an invoice the OBR refused or cancelled.
  * @property auditLog log that records each acknowledgement and each rejection.
  * @property transactions makes the end of an operation a single write.
  */
@@ -65,6 +67,7 @@ class DispatchStorage(
     val profiles: TaxProfileRepository,
     val cancellations: InvoiceCancellationRepository,
     val stock: StockRepository,
+    val invoiceStock: InvoiceStock,
     val auditLog: AuditLog,
     val transactions: TransactionRunner,
 )
@@ -295,6 +298,8 @@ class DispatchOutbox(
                         else -> AuditEvent.InvoiceRegistered(invoice, receipt?.registeredNumber.orEmpty())
                     },
                 )
+                // Nothing of a refused document is declared: its stock movements are voided (D54).
+                if (status is InvoiceStatus.Rejected) storage.invoiceStock.void(invoice, now)
                 storage.invoices.find(invoice)?.let { cancellations.afterInvoice(it, status) }
             }
             storage.outbox.remove(entry.id)

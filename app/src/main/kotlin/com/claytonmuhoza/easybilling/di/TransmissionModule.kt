@@ -12,6 +12,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellationReposit
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
+import com.claytonmuhoza.easybilling.domain.stock.InvoiceStock
 import com.claytonmuhoza.easybilling.domain.stock.StockRepository
 import com.claytonmuhoza.easybilling.domain.transmission.DispatchConnection
 import com.claytonmuhoza.easybilling.domain.transmission.DispatchOutbox
@@ -56,10 +57,20 @@ object TransmissionModule {
         profiles: TaxProfileRepository,
         cancellations: InvoiceCancellationRepository,
         stock: StockRepository,
+        invoiceStock: InvoiceStock,
         auditLog: AuditLog,
         transactions: TransactionRunner,
-    ): DispatchStorage =
-        DispatchStorage(outbox, invoices, receipts, profiles, cancellations, stock, auditLog, transactions)
+    ): DispatchStorage = DispatchStorage(
+        outbox,
+        invoices,
+        receipts,
+        profiles,
+        cancellations,
+        stock,
+        invoiceStock,
+        auditLog,
+        transactions,
+    )
 
     /** @return how the send queue reaches the OBR, on the active environment. */
     @Provides

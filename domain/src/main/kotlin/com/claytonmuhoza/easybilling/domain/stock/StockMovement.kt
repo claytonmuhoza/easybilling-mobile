@@ -3,6 +3,7 @@ package com.claytonmuhoza.easybilling.domain.stock
 import com.claytonmuhoza.easybilling.domain.catalog.ItemId
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.Quantity
 import java.math.BigDecimal
@@ -124,6 +125,8 @@ object MovementReference {
  * @property environment the EBMS environment the movement is declared to.
  * @property recordedBy the user who recorded it.
  * @property approvedBy the manager who validated it with their PIN, or null.
+ * @property invoiceId the invoice or the credit note the movement was written with, or null for a
+ * movement typed by a user. It never leaves the device.
  */
 data class StockMovementContent(
     val reference: String,
@@ -140,6 +143,7 @@ data class StockMovementContent(
     val environment: EbmsEnvironment,
     val recordedBy: UserId,
     val approvedBy: UserId? = null,
+    val invoiceId: InvoiceId? = null,
 ) {
     /** `item_movement_description`: the reference, then what the user wrote. */
     val obrDescription: String get() = if (description.isEmpty()) reference else "$reference $description"
@@ -171,8 +175,8 @@ data class StockMovementContent(
 data class StockMovement(val id: MovementId, val content: StockMovementContent)
 
 /**
- * Where a movement stands with the OBR. Whatever its status, a recorded movement counts in the
- * local stock: the goods did move (D53).
+ * Where a movement stands with the OBR. A recorded movement counts in the local stock whatever the
+ * OBR says of it, since the goods did move (D53); only a voided one does not.
  *
  * @property code stable name of the status, stored with the movement.
  */
@@ -192,18 +196,27 @@ sealed class MovementStatus(val code: String) {
      */
     data object ToConfirm : MovementStatus("TO_CONFIRM")
 
+    /**
+     * Written with an invoice or a credit note the OBR refused: it was not declared, will not be,
+     * and does not count in the stock (D54). It comes back when its document is sent again.
+     */
+    data object Voided : MovementStatus("VOIDED")
+
+    /** Whether the movement counts in the stock of its item. */
+    val counts: Boolean get() = this != Voided
+
     /** Whether a manager has something to decide: the movement was refused or is uncertain. */
     val toResolve: Boolean get() = this is Rejected || this == ToConfirm
 
     /**
      * @param next another status.
      * @return whether a movement may go from this status to [next]: a pending one is declared,
-     * rejected or uncertain; a rejected or uncertain one is sent again; an uncertain one may be
-     * held as declared. A declared movement never changes.
+     * rejected, uncertain or voided; a rejected, uncertain or voided one is sent again; an
+     * uncertain one may be held as declared. A declared movement never changes.
      */
     fun canBecome(next: MovementStatus): Boolean = when (this) {
-        Pending -> next == Declared || next is Rejected || next == ToConfirm
-        is Rejected -> next == Pending
+        Pending -> next == Declared || next is Rejected || next == ToConfirm || next == Voided
+        is Rejected, Voided -> next == Pending
         ToConfirm -> next == Pending || next == Declared
         Declared -> false
     }
@@ -211,7 +224,7 @@ sealed class MovementStatus(val code: String) {
 
 /**
  * Storage of the stock movements. A movement is never deleted nor changed; only its status moves.
- * The stock of an item is the sum of its movements.
+ * The stock of an item is the sum of its movements that count (see [MovementStatus.counts]).
  */
 interface StockRepository {
     /**
@@ -245,7 +258,7 @@ interface StockRepository {
 
     /**
      * @param itemId an item.
-     * @return its stock: the sum of its movements, zero when it has none.
+     * @return its stock: the sum of its movements that count, zero when it has none.
      */
     suspend fun quantityOf(itemId: ItemId): BigDecimal
 
@@ -258,6 +271,12 @@ interface StockRepository {
      * @return its movements, the most recent first.
      */
     suspend fun movementsOf(itemId: ItemId, limit: Int): List<StockMovement>
+
+    /**
+     * @param invoiceId an invoice or a credit note.
+     * @return the movements written with it, the oldest first.
+     */
+    suspend fun ofInvoice(invoiceId: InvoiceId): List<StockMovement>
 
     /** @return the movements a manager has to decide about, the oldest first. */
     suspend fun toResolve(): List<StockMovement>

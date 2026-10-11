@@ -34,6 +34,7 @@ internal val SALE_PROBLEM_MESSAGES = mapOf(
     SaleProblem.ITEM_WITHOUT_VAT to R.string.sale_problem_item_without_vat,
     SaleProblem.DISCOUNT_TOO_HIGH to R.string.sale_problem_discount_too_high,
     SaleProblem.PRICE_BELOW_TAXES to R.string.sale_problem_price_below_taxes,
+    SaleProblem.STOCK_INSUFFICIENT to R.string.sale_problem_stock_insufficient,
 )
 
 /** @return the message saying why the sale cannot be issued. */

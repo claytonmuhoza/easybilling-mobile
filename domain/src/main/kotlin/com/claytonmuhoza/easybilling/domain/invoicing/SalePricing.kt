@@ -13,6 +13,7 @@ import com.claytonmuhoza.easybilling.domain.shared.BusinessCalendar
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.ObrRoundingPolicy
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
+import com.claytonmuhoza.easybilling.domain.stock.InvoiceStock
 import java.math.BigDecimal
 
 /** Why a sale cannot be issued as it is. */
@@ -34,6 +35,9 @@ enum class SaleProblem {
 
     /** A price including taxes does not cover the fixed taxes of the line. */
     PRICE_BELOW_TAXES,
+
+    /** The item is kept in stock and the stock has less than the quantity of the line (UC-F09). */
+    STOCK_INSUFFICIENT,
 }
 
 /**
@@ -46,6 +50,7 @@ enum class SaleProblem {
  * @property computations how each tax of the line is computed today.
  * @property amounts the amounts of the line, or null when a problem prevents the calculation.
  * @property problems why the line cannot be issued; empty when it can.
+ * @property available what the sale may take of the item now, or null when it is not kept in stock.
  */
 data class PricedLine(
     val line: DraftLine,
@@ -54,6 +59,7 @@ data class PricedLine(
     val computations: Map<TaxKind, TaxComputation>,
     val amounts: LineAmounts?,
     val problems: Set<SaleProblem>,
+    val available: BigDecimal? = null,
 ) {
     /** The taxes whose amount is typed on the line. */
     val freeTaxes: Set<TaxKind> get() = computations.filterValues { it == TaxComputation.FreeAmount }.keys
@@ -96,6 +102,7 @@ data class PricedSale(
  * @param customers where the customers are kept.
  * @param profiles where the tax registrations are kept.
  * @param time source of the current day.
+ * @param stock tells what a sale may take of an item kept in stock.
  * @param calculator the formula of the OBR.
  */
 class PriceSale(
@@ -104,6 +111,7 @@ class PriceSale(
     private val customers: CustomerRepository,
     private val profiles: TaxProfileRepository,
     private val time: TimeProvider,
+    private val stock: InvoiceStock,
     private val calculator: LineTaxCalculator = ObrLineTaxCalculator(),
 ) {
     /**
@@ -114,7 +122,9 @@ class PriceSale(
     suspend operator fun invoke(draft: SaleDraft): PricedSale {
         val registrations = profiles.current()?.profile?.taxes ?: TaxRegistrations()
         val customer = draft.customerId?.let { customers.find(it) } ?: customers.counter()
-        val lines = draft.lines.mapNotNull { line -> items.find(line.itemId)?.let { priced(line, it, registrations) } }
+        val lines = draft.lines.mapNotNull { line ->
+            items.find(line.itemId)?.let { priced(line, it, registrations).withStock(draft) }
+        }
         return PricedSale(
             draft = draft,
             customer = customer,
@@ -145,6 +155,17 @@ class PriceSale(
             amounts(input, registrations) ?: null.also { problems += SaleProblem.PRICE_BELOW_TAXES }
         }
         return PricedLine(line, item, netUnitPrice, computations, amounts, problems)
+    }
+
+    /** @return the line with what the sale may take of its item, and the problem of taking more. */
+    private suspend fun PricedLine.withStock(draft: SaleDraft): PricedLine {
+        if (!item.details.stockTracked) return this
+        val available = stock.available(item.id, draft.replacement?.invoiceId)
+        val short = line.quantity.value > available
+        return copy(
+            available = available,
+            problems = if (short) problems + SaleProblem.STOCK_INSUFFICIENT else problems,
+        )
     }
 
     /** @return the amounts, or null when the price including taxes does not cover its fixed taxes. */

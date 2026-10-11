@@ -107,7 +107,11 @@ internal class CancellationDispatch(
     }
 
     private suspend fun cancelled(cancellation: InvoiceCancellation) {
-        storage.invoices.setStatus(cancellation.invoiceId, InvoiceStatus.Cancelled, time.now())
+        val now = time.now()
+        storage.invoices.setStatus(cancellation.invoiceId, InvoiceStatus.Cancelled, now)
+        // What the invoice took comes back into the stock (UC-E01).
+        storage.invoices.find(cancellation.invoiceId)
+            ?.let { storage.invoiceStock.restore(it, cancellation.requestedBy, now) }
         storage.cancellations.save(cancellation.copy(state = CancellationState.Done))
         storage.auditLog.record(AuditEvent.InvoiceCancelled(cancellation.invoiceId))
     }

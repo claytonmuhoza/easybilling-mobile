@@ -14,6 +14,7 @@ import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
+import com.claytonmuhoza.easybilling.domain.stock.InvoiceStock
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
 import java.time.Instant
@@ -46,6 +47,7 @@ class IssueConfiguration(
  * @property outbox the send queue.
  * @property auditLog log that records each issue.
  * @property cancellations where the replacement of an invoice is recorded.
+ * @property stock takes the items of the sale out of the stock.
  */
 class IssueStorage(
     val drafts: SaleDraftRepository,
@@ -53,12 +55,14 @@ class IssueStorage(
     val outbox: OutboxRepository,
     val auditLog: AuditLog,
     val cancellations: InvoiceCancellationRepository,
+    val stock: InvoiceStock,
 )
 
 /**
  * Issues a sale as an invoice (UC-C01, steps 4 and 5): the number, the invoice, its entry in the
- * send queue and the audit entry are written together or not at all, and the sale leaves the
- * drafts. The invoice copies the customer, the lines, the rates and the amounts of that moment.
+ * send queue, the exits of stock of its items (UC-F06) and the audit entry are written together
+ * or not at all, and the sale leaves the drafts. The invoice copies the customer, the lines, the
+ * rates and the amounts of that moment.
  *
  * @param configuration what the invoice copies from the configuration.
  * @param storage where the invoice is written.
@@ -163,6 +167,7 @@ class IssueSale(
         val invoice = storage.invoices.create(content)
         draft.replacement?.let { recordReplacement(it, invoice, actor, issuedAt) }
         storage.outbox.enqueue(OutboxOperation.SendInvoice(invoice.id), issuedAt)
+        storage.stock.exits(invoice)
         storage.drafts.delete(draft.id)
         storage.auditLog.record(AuditEvent.InvoiceIssued(actor, invoice.id, stamp.number))
         return Result.Issued(invoice)

@@ -39,6 +39,7 @@ import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.SecretStore
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
+import com.claytonmuhoza.easybilling.domain.stock.InvoiceStock
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
@@ -75,6 +76,8 @@ class EncryptedInvoiceIssueTest {
     private val alice = UserId(1)
     private val vault = SecretStoreCredentialsVault(secrets)
     private val edit = EditSale(storage.saleDrafts, time, storage.transactions)
+    private val auditLog = ChainedAuditLog(storage.auditStore, time, storage.transactions)
+    private val invoiceStock = InvoiceStock(storage.stock, storage.numbering, storage.outbox, auditLog)
     private val issue = IssueSale(
         AccessControl { _, _ -> },
         IssueConfiguration(
@@ -89,10 +92,11 @@ class EncryptedInvoiceIssueTest {
             storage.saleDrafts,
             storage.invoices,
             storage.outbox,
-            ChainedAuditLog(storage.auditStore, time, storage.transactions),
+            auditLog,
             storage.cancellations,
+            invoiceStock,
         ),
-        PriceSale(storage.items, storage.taxes, storage.customers, storage.taxProfiles, time),
+        PriceSale(storage.items, storage.taxes, storage.customers, storage.taxProfiles, time, invoiceStock),
         AllocateInvoiceNumber(storage.numbering, time, storage.transactions),
         storage.transactions,
         time,
@@ -127,7 +131,8 @@ class EncryptedInvoiceIssueTest {
                     price = Money.of("1500", Currency.BIF),
                     priceMode = PriceMode.EXCLUDING_TAXES,
                     taxes = mapOf(TaxKind.VAT to vat.id),
-                    stockTracked = true,
+                    // This test is about the encrypted file, not the stock: nothing is entered first.
+                    stockTracked = false,
                 )
                 edit.addItem(storage.items.create("ART-%04d".format(rank), details).id)
             }

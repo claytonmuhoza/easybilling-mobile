@@ -7,6 +7,7 @@ import com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
+import com.claytonmuhoza.easybilling.domain.stock.InvoiceStock
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
 import java.time.Instant
@@ -33,11 +34,13 @@ data class CreditRequest(
  * @property invoices where the invoices and the credit notes are kept.
  * @property outbox the send queue.
  * @property auditLog log that records each issue.
+ * @property stock puts goods brought back into the stock.
  */
 class CreditNoteStorage(
     val invoices: InvoiceRepository,
     val outbox: OutboxRepository,
     val auditLog: AuditLog,
+    val stock: InvoiceStock,
 )
 
 /**
@@ -130,6 +133,8 @@ class IssueCreditNote(
             ),
         )
         storage.outbox.enqueue(OutboxOperation.SendInvoice(note.id), issuedAt)
+        // Goods brought back enter the stock again (UC-E06); any other credit leaves it alone.
+        if (reason.type == CreditReasonType.GOODS_RETURN) storage.stock.returns(note, creditable.invoice)
         storage.auditLog.record(
             AuditEvent.CreditNoteIssued(actor, note.id, stamp.number, creditable.invoice.id, approver),
         )

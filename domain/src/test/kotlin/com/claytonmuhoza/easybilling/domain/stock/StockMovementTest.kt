@@ -44,7 +44,7 @@ class StockMovementTest {
 
     private suspend fun soap(): Item {
         if (sale.profiles.current() == null) sale.ready()
-        return sale.items.findByCode("ART-0001") ?: sale.item("ART-0001", "1000")
+        return sale.items.findByCode("ART-0001") ?: sale.item("ART-0001", "1000", stockTracked = true)
     }
 
     private suspend fun record(
@@ -107,7 +107,7 @@ class StockMovementTest {
     @Test
     fun `the stock of an item is the sum of its movements`() = runTest {
         val item = soap()
-        val other = sale.item("ART-0002", "500")
+        val other = sale.item("ART-0002", "500", stockTracked = true)
         assertEquals(BigDecimal.ZERO, fixture.stock.quantityOf(item.id))
 
         recorded(MovementType.EI, "10")
@@ -133,7 +133,7 @@ class StockMovementTest {
             "SRV-0001",
             sale.items.findByCode("ART-0001")!!.details.copy(designation = "Livraison", stockTracked = false),
         )
-        sale.item("ART-0002", "500")
+        sale.item("ART-0002", "500", stockTracked = true)
 
         assertEquals(listOf("ART-0001", "ART-0002"), fixture.read("", 100).map { it.item.code })
         assertEquals(listOf("ART-0002"), fixture.read("0002", 100).map { it.item.code })
@@ -157,7 +157,7 @@ class StockMovementTest {
     @Test
     fun `an exit declares the unit sale price with taxes, an entry the purchase price typed`() = runTest {
         soap()
-        val bread = sale.item("ART-0003", "1000", PriceMode.INCLUDING_TAXES)
+        val bread = sale.item("ART-0003", "1000", PriceMode.INCLUDING_TAXES, stockTracked = true)
         recorded(MovementType.EN, "5")
         record(MovementType.EN, "5", unitCost = "650.5", item = bread.id)
 
@@ -208,7 +208,7 @@ class StockMovementTest {
     fun `an item that is not kept in stock, archived or unknown does not move`() = runTest {
         val item = soap()
         val service = sale.items.create("SRV-0001", item.details.copy(stockTracked = false))
-        val archived = sale.item("ART-0009", "500")
+        val archived = sale.item("ART-0009", "500", stockTracked = true)
         sale.items.setArchived(archived.id, true)
 
         fun refused(problem: StockProblem) = RecordStockMovement.Result.Refused(problem)

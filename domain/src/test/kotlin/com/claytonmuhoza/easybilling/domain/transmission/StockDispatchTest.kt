@@ -35,6 +35,7 @@ class StockDispatchTest {
             sale.profiles,
             sale.cancellations,
             sale.stock,
+            sale.invoiceStock,
             sale.audit,
             DirectTransactionRunner,
         ),
@@ -46,7 +47,7 @@ class StockDispatchTest {
     /** Records an entry of [quantity] soaps, a second after the previous one. */
     private suspend fun entry(quantity: String = "5"): StockMovement {
         if (sale.profiles.current() == null) sale.ready()
-        val soap = sale.items.findByCode("ART-0001") ?: sale.item("ART-0001", "1000")
+        val soap = sale.items.findByCode("ART-0001") ?: sale.item("ART-0001", "1000", stockTracked = true)
         sale.time.advance(Duration.ofSeconds(1))
         val form = StockMovementForm(soap.id, MovementType.EN, quantity, unitCost = "800")
         return assertIs<RecordStockMovement.Result.Recorded>(fixture.record(form, sale.alice)).movement
