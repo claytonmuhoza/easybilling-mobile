@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.claytonmuhoza.easybilling.R
+import com.claytonmuhoza.easybilling.access.allowed
 import com.claytonmuhoza.easybilling.core.designsystem.component.AppIcon
 import com.claytonmuhoza.easybilling.core.designsystem.component.AppIconImage
 import com.claytonmuhoza.easybilling.core.designsystem.component.ErrorState
@@ -26,6 +27,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.FormColumn
 import com.claytonmuhoza.easybilling.core.designsystem.component.LoadingState
 import com.claytonmuhoza.easybilling.core.designsystem.component.SectionHeader
 import com.claytonmuhoza.easybilling.core.designsystem.component.StatusBanner
+import com.claytonmuhoza.easybilling.core.designsystem.component.StatusChip
 import com.claytonmuhoza.easybilling.core.designsystem.component.TextAction
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
 import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
@@ -33,9 +35,16 @@ import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
 import com.claytonmuhoza.easybilling.core.designsystem.theme.StatusTone
 import com.claytonmuhoza.easybilling.core.designsystem.theme.palette
 import com.claytonmuhoza.easybilling.core.designsystem.theme.tabularNumbers
+import com.claytonmuhoza.easybilling.domain.identity.Permission
+import com.claytonmuhoza.easybilling.domain.stock.MovementStatus
+import com.claytonmuhoza.easybilling.domain.stock.StockMovementContent
+import com.claytonmuhoza.easybilling.domain.transmission.MovementToResolve
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
 import com.claytonmuhoza.easybilling.domain.transmission.QueuedDocument
 import com.claytonmuhoza.easybilling.domain.transmission.RejectedDocument
+import com.claytonmuhoza.easybilling.stock.label
+import com.claytonmuhoza.easybilling.stock.signedQuantityText
+import com.claytonmuhoza.easybilling.stock.tone
 import com.claytonmuhoza.easybilling.ui.amountText
 import com.claytonmuhoza.easybilling.ui.dateTimeText
 import java.time.Duration
@@ -64,6 +73,8 @@ fun TransmissionRoute(
             onOpenExchanges = onOpenExchanges,
             onRetryNow = viewModel::retryNow,
             onReload = viewModel::load,
+            onResendMovement = viewModel::resendMovement,
+            onHoldMovement = viewModel::holdMovementAsDeclared,
         ),
     )
 }
@@ -76,6 +87,8 @@ fun TransmissionRoute(
  * @property onOpenExchanges called when the user opens the log of the exchanges with the OBR.
  * @property onRetryNow called when the user asks to try the queue now.
  * @property onReload called when the user asks to read the state again.
+ * @property onResendMovement called with the identifier of the stock movement to send again.
+ * @property onHoldMovement called with the identifier of the stock movement to hold as declared.
  */
 class TransmissionActions(
     val onBack: () -> Unit = {},
@@ -83,11 +96,14 @@ class TransmissionActions(
     val onOpenExchanges: () -> Unit = {},
     val onRetryNow: () -> Unit = {},
     val onReload: () -> Unit = {},
+    val onResendMovement: (Long) -> Unit = {},
+    val onHoldMovement: (Long) -> Unit = {},
 )
 
 /**
  * The transmission to the OBR (UC-D02, D03, D05): the network, what waits and when it is tried
- * next, the invoices the OBR refused with its message, and the queue in the order it is sent.
+ * next, the invoices the OBR refused with its message, the stock movements a manager decides
+ * about, and the queue in the order it is sent.
  *
  * @param state the transmission state.
  * @param actions what the user can do.
@@ -110,9 +126,10 @@ fun TransmissionScreen(state: TransmissionUiState, actions: TransmissionActions,
             is TransmissionUiState.Ready -> FormColumn {
                 Situation(state, actions.onRetryNow)
                 Counters(state)
-                if (state.status.rejected.isNotEmpty()) {
+                if (state.status.rejected.isNotEmpty() || state.status.stockToResolve.isNotEmpty()) {
                     SectionHeader(stringResource(R.string.transmission_to_deal_with))
                     state.status.rejected.forEach { RejectedCard(it, actions.onOpenInvoice) }
+                    state.status.stockToResolve.forEach { MovementToResolveCard(it, actions) }
                 }
                 SectionHeader(stringResource(R.string.transmission_queue))
                 if (state.status.queue.isEmpty()) {
@@ -226,7 +243,77 @@ private fun RejectedCard(document: RejectedDocument, onOpenInvoice: (Long) -> Un
     }
 }
 
-/** A document of the queue: its rank, the invoice it sends and what the last attempt left. */
+/**
+ * A stock movement the OBR refused, or may or may not have: which one, why it waits, and what a
+ * manager can decide. Holding it as declared is only offered when the OBR may have it.
+ */
+@Composable
+private fun MovementToResolveCard(toResolve: MovementToResolve, actions: TransmissionActions) {
+    val movement = toResolve.movement
+    val content = movement.content
+    val status = toResolve.status
+    TonalCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(Spacing.medium), verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+            Text(
+                text = stringResource(R.string.transmission_stock_movement, content.reference, content.designation),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(text = content.summary(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            StatusChip(status.tone(), status.label())
+            StatusBanner(
+                StatusTone.ERROR,
+                if (status is MovementStatus.Rejected) {
+                    stringResource(R.string.transmission_obr_reason, status.message)
+                } else {
+                    stringResource(R.string.transmission_stock_to_confirm)
+                },
+            )
+            if (allowed(Permission.MANAGE_STOCK)) {
+                MovementDecisions(toResolve, actions)
+            } else {
+                Text(
+                    text = stringResource(R.string.transmission_stock_manager),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MovementDecisions(toResolve: MovementToResolve, actions: TransmissionActions) {
+    val id = toResolve.movement.id.value
+    val reference = toResolve.movement.content.reference
+    val resend = stringResource(R.string.transmission_stock_resend_of, reference)
+    OutlinedButton(
+        onClick = { actions.onResendMovement(id) },
+        modifier = Modifier.semantics { contentDescription = resend },
+    ) {
+        Text(stringResource(R.string.transmission_stock_resend))
+    }
+    if (toResolve.status == MovementStatus.ToConfirm) {
+        val hold = stringResource(R.string.transmission_stock_hold_of, reference)
+        OutlinedButton(
+            onClick = { actions.onHoldMovement(id) },
+            modifier = Modifier.semantics { contentDescription = hold },
+        ) {
+            Text(stringResource(R.string.transmission_stock_hold))
+        }
+    }
+}
+
+/** @return the movement in one line: its type, what it does to the stock and when. */
+@Composable
+private fun StockMovementContent.summary(): String = stringResource(
+    R.string.transmission_stock_detail,
+    type.label(),
+    signedQuantityText(),
+    dateTimeText(occurredAt),
+)
+
+/** A document of the queue: its rank, what it sends and what the last attempt left. */
 @Composable
 private fun QueuedCard(rank: Int, document: QueuedDocument) {
     val entry = document.entry
@@ -236,11 +323,22 @@ private fun QueuedCard(rank: Int, document: QueuedDocument) {
             verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
         ) {
             val invoice = document.invoice?.content
+            val movement = document.movement?.content
             Text(
-                text = if (invoice == null) {
-                    stringResource(R.string.transmission_queue_rank, rank)
-                } else {
-                    stringResource(R.string.transmission_queue_document, rank, invoice.number, invoice.customer.name)
+                text = when {
+                    invoice != null -> stringResource(
+                        R.string.transmission_queue_document,
+                        rank,
+                        invoice.number,
+                        invoice.customer.name,
+                    )
+                    movement != null -> stringResource(
+                        R.string.transmission_queue_movement,
+                        rank,
+                        movement.reference,
+                        movement.designation,
+                    )
+                    else -> stringResource(R.string.transmission_queue_rank, rank)
                 },
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
@@ -255,6 +353,7 @@ private fun QueuedCard(rank: Int, document: QueuedDocument) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            if (movement != null) Text(text = movement.summary(), color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (entry.operation is OutboxOperation.CancelInvoice) {
                 Text(
                     text = stringResource(R.string.transmission_queue_cancellation),

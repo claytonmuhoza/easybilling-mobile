@@ -107,6 +107,9 @@ enum class AppIcon(@DrawableRes internal val drawable: Int) {
 
     /** The settings of the application. */
     SETTINGS(R.drawable.ds_ic_settings),
+
+    /** The stock of the items. */
+    INVENTORY(R.drawable.ds_ic_inventory),
 }
 
 /** Side of the rounded square an [IconTile] draws behind its icon. */

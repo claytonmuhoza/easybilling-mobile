@@ -104,7 +104,7 @@ internal fun TransmissionUiState.Ready.tone(): StatusTone = when (status.level) 
 
 private fun TransmissionUiState.Ready.icon(): AppIcon = when {
     !online -> AppIcon.CLOUD_OFF
-    status.rejected.isNotEmpty() -> AppIcon.ERROR
+    status.rejected.isNotEmpty() || status.stockToResolve.isNotEmpty() -> AppIcon.ERROR
     status.queue.isNotEmpty() -> AppIcon.SCHEDULE
     else -> AppIcon.CLOUD_DONE
 }
@@ -114,6 +114,11 @@ private fun TransmissionUiState.Ready.icon(): AppIcon = when {
 internal fun TransmissionUiState.Ready.headline(): String = when {
     status.rejected.isNotEmpty() ->
         pluralStringResource(R.plurals.transmission_rejected, status.rejected.size, status.rejected.size)
+    status.stockToResolve.isNotEmpty() -> pluralStringResource(
+        R.plurals.transmission_stock_to_resolve,
+        status.stockToResolve.size,
+        status.stockToResolve.size,
+    )
     !online -> stringResource(R.string.transmission_offline)
     status.queue.isNotEmpty() ->
         pluralStringResource(R.plurals.transmission_waiting, status.queue.size, status.queue.size)

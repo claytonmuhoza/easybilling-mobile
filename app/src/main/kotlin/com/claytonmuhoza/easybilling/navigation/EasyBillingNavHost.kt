@@ -42,6 +42,7 @@ import com.claytonmuhoza.easybilling.sale.SaleRoute
 import com.claytonmuhoza.easybilling.settings.SettingsActions
 import com.claytonmuhoza.easybilling.settings.SettingsRoute
 import com.claytonmuhoza.easybilling.setup.SetupRoute
+import com.claytonmuhoza.easybilling.stock.StockListRoute
 import com.claytonmuhoza.easybilling.taxes.LinePreviewRoute
 import com.claytonmuhoza.easybilling.taxes.TaxEditorRoute
 import com.claytonmuhoza.easybilling.taxes.TaxListRoute
@@ -119,6 +120,7 @@ fun EasyBillingNavHost(
         customerScreens(access, navController)
         saleScreens(access, navController)
         invoiceScreens(access, navController)
+        stockScreens(access, navController)
     }
 }
 
@@ -340,9 +342,9 @@ private fun NavGraphBuilder.saleScreens(access: AccessState.Ready, navController
 }
 
 /**
- * The two main screens, each inside the navigation that leads to the other: the home screen
- * ("Register") and the issued invoices (UC-C08). They replace each other without a transition, so
- * the navigation does not move.
+ * The main screens, each inside the navigation that leads to the others: the home screen
+ * ("Register"), the issued invoices (UC-C08) and the stock (UC-F10). They replace each other
+ * without a transition, so the navigation does not move.
  */
 private fun NavGraphBuilder.mainTabs(access: AccessState.Ready, navController: NavHostController) {
     val openTab: (MainTab) -> Unit = { tab ->
@@ -386,6 +388,18 @@ private fun NavGraphBuilder.mainTabs(access: AccessState.Ready, navController: N
         LoggedIn(access, navController, Permission.VIEW_INVOICES) {
             MainTabs(selected = MainTab.INVOICES, onSelect = openTab) {
                 InvoiceListRoute(onOpenInvoice = { id -> navController.navigate(InvoiceDestination(id)) })
+            }
+        }
+    }
+    composable<StockDestination>(
+        enterTransition = { EnterTransition.None },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = { ExitTransition.None },
+    ) {
+        LoggedIn(access, navController, Permission.VIEW_STOCK) {
+            MainTabs(selected = MainTab.STOCK, onSelect = openTab) {
+                StockListRoute(onOpenItem = { id -> navController.navigate(StockItemDestination(id)) })
             }
         }
     }

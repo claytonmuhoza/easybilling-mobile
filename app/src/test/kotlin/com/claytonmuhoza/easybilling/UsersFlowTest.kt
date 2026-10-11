@@ -255,7 +255,7 @@ class UsersFlowTest {
     }
 
     @Test
-    fun `a storekeeper only sees the items, without the sale, the invoices nor the customers`() {
+    fun `a storekeeper sees the items and the stock, without the sale, the invoices nor the customers`() {
         account("Carine", Role.STOREKEEPER)
         launch()
         firstLogin("Carine")
@@ -263,7 +263,10 @@ class UsersFlowTest {
         composeRule.onNodeWithText("Items").assertExists()
         composeRule.onNodeWithText("Customers").assertDoesNotExist()
         composeRule.onNodeWithText("New sale").assertDoesNotExist()
-        composeRule.onNodeWithTag(NavigationFrameTags.BAR).assertDoesNotExist()
+        // The navigation leads to the stock, and not to the invoices.
+        composeRule.onNodeWithTag(NavigationFrameTags.BAR).assertExists()
+        composeRule.onNodeWithText("Stock").assertExists()
+        composeRule.onNodeWithText("Invoices").assertDoesNotExist()
         composeRule.press("Items")
         composeRule.waitForText("No item yet")
         assertEquals(2, composeRule.onAllNodesWithTextCount("New item"))
