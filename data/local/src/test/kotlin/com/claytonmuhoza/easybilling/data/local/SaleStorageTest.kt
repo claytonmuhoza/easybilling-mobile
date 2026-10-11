@@ -60,6 +60,10 @@ import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.Quantity
 import com.claytonmuhoza.easybilling.domain.shared.SecretStore
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
+import com.claytonmuhoza.easybilling.domain.stock.InvoiceStock
+import com.claytonmuhoza.easybilling.domain.stock.MovementType
+import com.claytonmuhoza.easybilling.domain.stock.StockMovementContent
+import com.claytonmuhoza.easybilling.domain.stock.StockRepository
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxEntry
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
@@ -142,7 +146,8 @@ class SaleStorageTest {
             price = Money.of(price, Currency.BIF),
             priceMode = mode,
             taxes = mapOf(TaxKind.VAT to vat.id),
-            stockTracked = true,
+            // The soap and the sugar are sold without stock: the oil of the stock test is kept in stock.
+            stockTracked = false,
         )
         soap = storage.items.create("ART-0001", details("Savon de Marseille", "1000", PriceMode.EXCLUDING_TAXES))
         sugar = storage.items.create("ART-0002", details("Sucre 1 kg", "2360", PriceMode.INCLUDING_TAXES))
@@ -176,6 +181,11 @@ class SaleStorageTest {
         val auditLog = object : AuditLog by audit {
             override suspend fun record(event: AuditEvent) = audit.record(event).also { crashIf("audit") }
         }
+        val movements = object : StockRepository by storage.stock {
+            override suspend fun record(content: StockMovementContent) =
+                storage.stock.record(content).also { crashIf("stock") }
+        }
+        val invoiceStock = InvoiceStock(movements, storage.numbering, outbox, auditLog)
         return IssueSale(
             AccessControl { _, _ -> },
             IssueConfiguration(
@@ -186,8 +196,8 @@ class SaleStorageTest {
                 DiscountLimits(storage.users, storage.discountSettings, FixedPermissionPolicy),
                 CancellationRules(storage.invoices, storage.cancellations, storage.saleDrafts),
             ),
-            IssueStorage(drafts, invoices, outbox, auditLog, storage.cancellations),
-            PriceSale(storage.items, storage.taxes, storage.customers, storage.taxProfiles, time),
+            IssueStorage(drafts, invoices, outbox, auditLog, storage.cancellations, invoiceStock),
+            PriceSale(storage.items, storage.taxes, storage.customers, storage.taxProfiles, time, invoiceStock),
             AllocateInvoiceNumber(storage.numbering, time, storage.transactions),
             storage.transactions,
             time,
@@ -351,6 +361,68 @@ class SaleStorageTest {
         crashAfter = null
         assertEquals("FN-00001/2026", issued(draft).content.number)
         assertEquals("FN-00002/2026", issued(typedSale()).content.number)
+    }
+
+    @Test
+    fun `the exit of stock of a sale is written with its invoice, or not at all`() = runTest {
+        val oil = storage.items.create(
+            "ART-0003",
+            soap.details.copy(designation = "Huile de palme", stockTracked = true),
+        )
+        val opening = storage.stock.record(
+            StockMovementContent(
+                reference = "000001",
+                itemId = oil.id,
+                itemCode = oil.code,
+                designation = oil.details.designation,
+                unit = oil.details.unit,
+                type = MovementType.EI,
+                quantity = Quantity.of("5"),
+                unitCost = Money.of("800", Currency.BIF),
+                description = "",
+                occurredAt = now,
+                environment = EbmsEnvironment.TEST,
+                recordedBy = alice,
+            ),
+        )
+        edit().addItem(oil.id)
+        val draft = edit().setLine(oil.id, SaleLineCheck.Valid(Quantity.of("2"), null, emptyMap()))
+
+        crashAfter = "stock"
+        assertFailsWith<IllegalStateException> { issue()(draft.id, alice) }
+
+        // The application restarts on the same file.
+        storage.close()
+        storage = LocalStorage.unencryptedFile(context, name)
+        assertEquals(0, storage.invoices.count())
+        assertEquals(emptyList(), storage.outbox.pending())
+        assertEquals(1L, storage.stock.count())
+        assertEquals(0, BigDecimal("5").compareTo(storage.stock.quantityOf(oil.id)))
+
+        crashAfter = null
+        val invoice = issued(draft)
+
+        assertEquals(invoice, storage.invoices.find(invoice.id))
+        assertTrue(invoice.content.lines.single().stockTracked)
+        val exit = storage.stock.ofInvoice(invoice.id).single()
+        assertEquals(MovementType.SN, exit.content.type)
+        assertEquals("000002", exit.content.reference)
+        assertEquals(Quantity.of("2"), exit.content.quantity)
+        assertEquals(Money.of("1180", Currency.BIF), exit.content.unitCost)
+        assertEquals(listOf(exit, opening), storage.stock.movementsOf(oil.id, limit = 10))
+        assertEquals(0, BigDecimal("3").compareTo(storage.stock.quantityOf(oil.id)))
+        assertEquals(
+            listOf(OutboxOperation.SendInvoice(invoice.id), OutboxOperation.SendStockMovement(exit.id)),
+            storage.outbox.pending().map { it.operation },
+        )
+        val audited = storage.auditStore.readAll().map { it.action }
+        assertEquals(listOf("STOCK_MOVEMENT_RECORDED", "INVOICE_ISSUED"), audited)
+
+        // A sale of more than what is left is refused, and writes nothing.
+        edit().addItem(oil.id)
+        val tooMuch = edit().setLine(oil.id, SaleLineCheck.Valid(Quantity.of("4"), null, emptyMap()))
+        assertIs<IssueSale.Result.Invalid>(issue()(tooMuch.id, alice))
+        assertEquals(1, storage.invoices.count())
     }
 
     @Test

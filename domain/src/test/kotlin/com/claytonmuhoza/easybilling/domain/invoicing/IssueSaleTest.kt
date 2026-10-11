@@ -40,9 +40,13 @@ class IssueSaleTest {
 
     private fun bif(amount: String) = Money.of(amount, Currency.BIF)
 
-    /** A sale of two soaps at 1 000 and one sugar at 2 360 taxes included. */
-    private suspend fun typedSale(): SaleDraft {
-        val soap = fixture.item("ART-0001", "1000")
+    /**
+     * A sale of two soaps at 1 000 and one sugar at 2 360 taxes included.
+     *
+     * @param soapInStock whether the soap is kept in stock, with enough of it.
+     */
+    private suspend fun typedSale(soapInStock: Boolean = false): SaleDraft {
+        val soap = fixture.item("ART-0001", "1000", stockTracked = soapInStock, stock = "10".takeIf { soapInStock })
         val sugar = fixture.item("ART-0002", "2360", PriceMode.INCLUDING_TAXES)
         edit.addItem(soap.id)
         edit.addItem(soap.id)
@@ -73,7 +77,7 @@ class IssueSaleTest {
     @Test
     fun `the invoice copies the lines, their amounts and the rate applied`() = runTest {
         fixture.ready()
-        val draft = typedSale()
+        val draft = typedSale(soapInStock = true)
         val discounted = SaleLineCheck.Valid(Quantity.of("2"), Discount.Percent(BigDecimal("10")), emptyMap())
         edit.setLine(draft.lines[0].itemId, discounted)
 

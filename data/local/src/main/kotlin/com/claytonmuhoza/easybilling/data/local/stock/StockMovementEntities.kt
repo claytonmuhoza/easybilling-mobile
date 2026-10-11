@@ -12,6 +12,7 @@ import com.claytonmuhoza.easybilling.data.local.EasyBillingDatabase
 import com.claytonmuhoza.easybilling.domain.catalog.ItemId
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.Quantity
@@ -30,10 +31,11 @@ import java.time.Instant
  * `AppendOnlyTables`) and the reference is unique at the database level. The quantity and the unit
  * cost are stored as decimal text, never as floating numbers; [signedQuantity] is the quantity as
  * it moves the stock, negative for an exit, also as decimal text. [occurredAt] is in milliseconds.
+ * [invoiceId] is the invoice or the credit note the movement was written with, if any.
  */
 @Entity(
     tableName = "stock_movements",
-    indices = [Index("reference", unique = true), Index("itemId")],
+    indices = [Index("reference", unique = true), Index("itemId"), Index("invoiceId")],
 )
 internal data class StockMovementEntity(
     @PrimaryKey(autoGenerate = true) val id: Long,
@@ -53,6 +55,7 @@ internal data class StockMovementEntity(
     val environment: String,
     val recordedBy: Long,
     val approvedBy: Long?,
+    val invoiceId: Long?,
 )
 
 /**
@@ -87,12 +90,28 @@ internal interface StockMovementDao {
     @Query("SELECT COUNT(*) FROM stock_movements")
     suspend fun count(): Long
 
-    /** The quantities are summed by the application: the database only sums floating numbers. */
-    @Query("SELECT signedQuantity FROM stock_movements WHERE itemId = :itemId")
-    suspend fun signedQuantitiesOf(itemId: Long): List<String>
+    /**
+     * The quantities are summed by the application: the database only sums floating numbers. A
+     * movement whose status is [excluded] does not count.
+     */
+    @Query(
+        """
+        SELECT m.signedQuantity FROM stock_movements m JOIN stock_movement_statuses s ON s.movementId = m.id
+        WHERE m.itemId = :itemId AND s.status != :excluded
+        """,
+    )
+    suspend fun signedQuantitiesOf(itemId: Long, excluded: String): List<String>
 
-    @Query("SELECT itemId, signedQuantity FROM stock_movements")
-    suspend fun signedQuantities(): List<ItemQuantityRow>
+    @Query(
+        """
+        SELECT m.itemId, m.signedQuantity FROM stock_movements m
+        JOIN stock_movement_statuses s ON s.movementId = m.id WHERE s.status != :excluded
+        """,
+    )
+    suspend fun signedQuantities(excluded: String): List<ItemQuantityRow>
+
+    @Query("SELECT * FROM stock_movements WHERE invoiceId = :invoiceId ORDER BY id")
+    suspend fun ofInvoice(invoiceId: Long): List<StockMovementEntity>
 
     @Query("SELECT * FROM stock_movements WHERE itemId = :itemId ORDER BY id DESC LIMIT :limit")
     suspend fun movementsOf(itemId: Long, limit: Int): List<StockMovementEntity>
@@ -133,14 +152,17 @@ internal class RoomStockRepository(private val database: EasyBillingDatabase) : 
     override suspend fun count(): Long = dao.count()
 
     override suspend fun quantityOf(itemId: ItemId): BigDecimal =
-        dao.signedQuantitiesOf(itemId.value).sumOf { BigDecimal(it) }
+        dao.signedQuantitiesOf(itemId.value, MovementStatus.Voided.code).sumOf { BigDecimal(it) }
 
-    override suspend fun quantities(): Map<ItemId, BigDecimal> = dao.signedQuantities()
+    override suspend fun quantities(): Map<ItemId, BigDecimal> = dao.signedQuantities(MovementStatus.Voided.code)
         .groupBy({ ItemId(it.itemId) }, { BigDecimal(it.signedQuantity) })
         .mapValues { (_, quantities) -> quantities.sumOf { it } }
 
     override suspend fun movementsOf(itemId: ItemId, limit: Int): List<StockMovement> =
         dao.movementsOf(itemId.value, limit).map { it.toDomain() }
+
+    override suspend fun ofInvoice(invoiceId: InvoiceId): List<StockMovement> =
+        dao.ofInvoice(invoiceId.value).map { it.toDomain() }
 
     override suspend fun toResolve(): List<StockMovement> =
         dao.withStatus(listOf(REJECTED, MovementStatus.ToConfirm.code)).map { it.toDomain() }
@@ -167,6 +189,7 @@ private fun StockMovementContent.toEntity() = StockMovementEntity(
     environment = environment.name,
     recordedBy = recordedBy.value,
     approvedBy = approvedBy?.value,
+    invoiceId = invoiceId?.value,
 )
 
 private fun StockMovementEntity.toDomain(): StockMovement {
@@ -191,6 +214,7 @@ private fun StockMovementEntity.toDomain(): StockMovement {
             environment = EbmsEnvironment.valueOf(environment),
             recordedBy = UserId(recordedBy),
             approvedBy = approvedBy?.let { UserId(it) },
+            invoiceId = invoiceId?.let { InvoiceId(it) },
         ),
     )
 }
@@ -206,6 +230,7 @@ private fun StockMovementStatusEntity.toDomain(): MovementStatus = when (status)
     MovementStatus.Pending.code -> MovementStatus.Pending
     MovementStatus.Declared.code -> MovementStatus.Declared
     MovementStatus.ToConfirm.code -> MovementStatus.ToConfirm
+    MovementStatus.Voided.code -> MovementStatus.Voided
     REJECTED -> MovementStatus.Rejected(message)
     else -> error("Unknown movement status $status")
 }

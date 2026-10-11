@@ -66,6 +66,7 @@ fun MovementStatus.label(): String = stringResource(
         MovementStatus.Declared -> R.string.stock_status_declared
         is MovementStatus.Rejected -> R.string.stock_status_rejected
         MovementStatus.ToConfirm -> R.string.stock_status_to_confirm
+        MovementStatus.Voided -> R.string.stock_status_voided
     },
 )
 
@@ -74,6 +75,7 @@ fun MovementStatus.tone(): StatusTone = when (this) {
     MovementStatus.Pending -> StatusTone.PENDING
     MovementStatus.Declared -> StatusTone.SUCCESS
     is MovementStatus.Rejected, MovementStatus.ToConfirm -> StatusTone.ERROR
+    MovementStatus.Voided -> StatusTone.NEUTRAL
 }
 
 /**

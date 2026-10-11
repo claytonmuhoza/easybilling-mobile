@@ -66,7 +66,7 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
  * of the discount of a line and cap of the discount (step 14b); 15 cancellations of the invoices,
  * replaced invoice of an invoice and of a sale (step 15a); 16 credited invoice and reason of a credit
  * note (step 15b); 17 stock movements with their status, and what an entry of the send queue is
- * about (step 16a).
+ * about (step 16a); 18 invoice a stock movement was written with (step 16b).
  */
 @Database(
     entities = [
@@ -96,7 +96,7 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
         StockMovementEntity::class,
         StockMovementStatusEntity::class,
     ],
-    version = 17,
+    version = 18,
     exportSchema = false,
 )
 // One accessor per DAO: the list grows with the schema.

@@ -4,12 +4,14 @@ import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
+import com.claytonmuhoza.easybilling.domain.catalog.ItemId
 import com.claytonmuhoza.easybilling.domain.catalog.ItemRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
+import com.claytonmuhoza.easybilling.domain.stock.InvoiceStock
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
 
@@ -30,6 +32,7 @@ class ResendRejectedInvoice(
     private val invoices: InvoiceRepository,
     private val profiles: TaxProfileRepository,
     private val outbox: OutboxRepository,
+    private val stock: InvoiceStock,
     private val auditLog: AuditLog,
     private val transactions: TransactionRunner,
     private val time: TimeProvider,
@@ -47,6 +50,12 @@ class ResendRejectedInvoice(
 
         /** With the NIF of the tax profile the identifier is longer than the OBR accepts. */
         data object IdentifierTooLong : Result
+
+        /**
+         * The stock no longer has what the invoice took of [itemIds]: its stock came back when the
+         * OBR refused it, and was sold since (UC-F09).
+         */
+        data class InsufficientStock(val itemIds: Set<ItemId>) : Result
     }
 
     /**
@@ -63,11 +72,14 @@ class ResendRejectedInvoice(
     private suspend fun allowed(id: InvoiceId, actor: UserId): Result = transactions.run {
         val invoice = invoices.find(id) ?: return@run Result.NotFound
         if (invoices.statusOf(id) !is InvoiceStatus.Rejected) return@run Result.NotRejected
+        val missing = stock.missingToRevive(id)
+        if (missing.isNotEmpty()) return@run Result.InsufficientStock(missing)
         val resent = withCurrentSeller(invoice) ?: return@run Result.IdentifierTooLong
 
         val now = time.now()
         invoices.setStatus(id, InvoiceStatus.Pending, now)
         outbox.enqueue(OutboxOperation.SendInvoice(id), now)
+        stock.revive(id, now)
         auditLog.record(AuditEvent.InvoiceResent(actor, id, resent.content.profileVersion))
         Result.Resent(resent)
     }

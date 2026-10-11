@@ -13,6 +13,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.ResendRejectedInvoice
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
+import com.claytonmuhoza.easybilling.domain.stock.InvoiceStock
 import com.claytonmuhoza.easybilling.domain.transmission.DispatchConnection
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
 import com.claytonmuhoza.easybilling.domain.transmission.VerifyInvoice
@@ -42,10 +43,12 @@ object InvoiceModule {
         invoices: InvoiceRepository,
         profiles: TaxProfileRepository,
         outbox: OutboxRepository,
+        stock: InvoiceStock,
         auditLog: AuditLog,
         transactions: TransactionRunner,
         time: TimeProvider,
-    ): ResendRejectedInvoice = ResendRejectedInvoice(access, invoices, profiles, outbox, auditLog, transactions, time)
+    ): ResendRejectedInvoice =
+        ResendRejectedInvoice(access, invoices, profiles, outbox, stock, auditLog, transactions, time)
 
     /** @return the use case starting the sale of an invoice over. */
     @Provides

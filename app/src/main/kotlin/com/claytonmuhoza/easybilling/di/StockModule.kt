@@ -12,6 +12,7 @@ import com.claytonmuhoza.easybilling.domain.identity.UserRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.PriceSale
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
+import com.claytonmuhoza.easybilling.domain.stock.InvoiceStock
 import com.claytonmuhoza.easybilling.domain.stock.ReadStock
 import com.claytonmuhoza.easybilling.domain.stock.RecordStockMovement
 import com.claytonmuhoza.easybilling.domain.stock.ResolveStockMovement
@@ -40,6 +41,15 @@ object StockModule {
         users: UserRepository,
         policy: PermissionPolicy,
     ): ApprovalAuthority = ApprovalAuthority(access, users, policy)
+
+    /** @return the stock movements that come with the invoices and the credit notes. */
+    @Provides
+    fun invoiceStock(
+        stock: StockRepository,
+        numbering: NumberingRepository,
+        outbox: OutboxRepository,
+        auditLog: AuditLog,
+    ): InvoiceStock = InvoiceStock(stock, numbering, outbox, auditLog)
 
     /** @return where the record of a movement reads and writes. */
     @Provides

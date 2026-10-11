@@ -956,4 +956,7 @@
         <item quantity="one">%1$d mouvement de stock à traiter</item>
         <item quantity="other">%1$d mouvements de stock à traiter</item>
     </plurals>
+    <string name="sale_problem_stock_insufficient">Stock insuffisant pour cette quantité.</string>
+    <string name="stock_status_voided">Annulé, non déclaré</string>
+    <string name="invoice_resend_stock_insufficient">Le stock n’a plus les articles de cette facture : elle ne peut pas être renvoyée. Refaites la vente.</string>
 </resources>

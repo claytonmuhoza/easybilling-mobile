@@ -35,6 +35,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellation
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellationRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.RedoSale
 import com.claytonmuhoza.easybilling.domain.invoicing.ReplaceInvoice
+import com.claytonmuhoza.easybilling.domain.invoicing.ResendRejectedInvoice
 import com.claytonmuhoza.easybilling.domain.invoicing.DiscountLimits
 import com.claytonmuhoza.easybilling.domain.invoicing.SaveDiscountSettings
 import com.claytonmuhoza.easybilling.domain.invoicing.AllocateInvoiceNumber
@@ -58,6 +59,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraft
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
+import com.claytonmuhoza.easybilling.domain.stock.InvoiceStock
 import com.claytonmuhoza.easybilling.domain.stock.StockMovement
 import com.claytonmuhoza.easybilling.domain.transmission.CancelOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.LoginTarget
@@ -73,6 +75,7 @@ import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
 import com.claytonmuhoza.easybilling.domain.transmission.ReceiptArchive
 import com.claytonmuhoza.easybilling.domain.transmission.RejectedDocument
 import com.claytonmuhoza.easybilling.domain.transmission.SendOutcome
+import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
 import kotlin.test.assertIs
@@ -361,8 +364,9 @@ class SaleFixture {
     val outbox = InMemoryOutboxRepository()
     val audit = RecordingAuditLog()
     val stock = InMemoryStockRepository()
+    val invoiceStock = InvoiceStock(stock, numbering, outbox, audit)
 
-    val priceSale = PriceSale(items, taxes, customers, profiles, time)
+    val priceSale = PriceSale(items, taxes, customers, profiles, time, invoiceStock)
     val editSale = EditSale(drafts, time, DirectTransactionRunner)
     val access = FakeAccessControl()
     val discountSettings = InMemoryDiscountSettingsRepository()
@@ -397,7 +401,7 @@ class SaleFixture {
             discountLimits,
             cancellationRules,
         ),
-        IssueStorage(drafts, invoices, outbox, audit, cancellations),
+        IssueStorage(drafts, invoices, outbox, audit, cancellations, invoiceStock),
         priceSale,
         AllocateInvoiceNumber(numbering, time, DirectTransactionRunner),
         DirectTransactionRunner,
@@ -415,7 +419,18 @@ class SaleFixture {
             readiness,
             AllocateInvoiceNumber(numbering, time, DirectTransactionRunner),
         ),
-        CreditNoteStorage(invoices, outbox, audit),
+        CreditNoteStorage(invoices, outbox, audit, invoiceStock),
+        DirectTransactionRunner,
+        time,
+    )
+
+    val resendRejected = ResendRejectedInvoice(
+        access,
+        invoices,
+        profiles,
+        outbox,
+        invoiceStock,
+        audit,
         DirectTransactionRunner,
         time,
     )
@@ -448,12 +463,18 @@ class SaleFixture {
     suspend fun tax(kind: TaxKind, name: String, computation: TaxComputation): TaxDefinition =
         taxes.create(kind, name, TaxVersion(LocalDate.of(2026, 10, 2), computation))
 
-    /** Stores an item with the VAT of 18 %, unless [taxes] says otherwise. */
+    /**
+     * Stores an item with the VAT of 18 %, unless [taxes] says otherwise. It is not kept in stock,
+     * unless [stockTracked]: the tests that are not about the stock sell without it. [stock] is
+     * what the item has in stock before the test: no movement tells of it.
+     */
     suspend fun item(
         code: String,
         price: String,
         priceMode: PriceMode = PriceMode.EXCLUDING_TAXES,
         taxes: Map<TaxKind, TaxDefinition> = mapOf(TaxKind.VAT to vat),
+        stockTracked: Boolean = false,
+        stock: String? = null,
     ): Item = items.create(
         code,
         ItemDetails(
@@ -462,9 +483,9 @@ class SaleFixture {
             price = Money.of(price, Currency.BIF),
             priceMode = priceMode,
             taxes = taxes.mapValues { it.value.id },
-            stockTracked = true,
+            stockTracked = stockTracked,
         ),
-    )
+    ).also { item -> if (stock != null) this.stock.opening[item.id] = BigDecimal(stock) }
 }
 
 /** Cancellations kept in a map, one per invoice. */

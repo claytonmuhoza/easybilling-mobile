@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.claytonmuhoza.easybilling.domain.catalog.ItemId
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.Quantity
@@ -93,6 +94,32 @@ class StockStorageTest {
         assertEquals(0, storage.stock.quantityOf(ItemId(3)).signum())
         val quantities = storage.stock.quantities().mapValues { it.value.stripTrailingZeros().toPlainString() }
         assertEquals(mapOf(ItemId(1) to "6.25", ItemId(2) to "7"), quantities)
+    }
+
+    @Test
+    fun `the movements written with an invoice are found, and a voided one no longer counts`() = runTest {
+        val opening = recorded(MovementType.EI, "10")
+        val invoice = InvoiceId(7)
+        val exit = storage.stock.record(content(MovementType.SN, "4").copy(invoiceId = invoice))
+        val other = storage.stock.record(content(MovementType.SN, "1").copy(invoiceId = InvoiceId(8)))
+
+        assertEquals(listOf(exit), storage.stock.ofInvoice(invoice))
+        assertEquals(invoice, storage.stock.find(exit.id)?.content?.invoiceId)
+        assertNull(storage.stock.find(opening.id)?.content?.invoiceId)
+        assertEquals(emptyList(), storage.stock.ofInvoice(InvoiceId(99)))
+        assertEquals(0, BigDecimal("5").compareTo(storage.stock.quantityOf(ItemId(1))))
+
+        storage.stock.setStatus(exit.id, MovementStatus.Voided, now)
+
+        assertEquals(MovementStatus.Voided, storage.stock.statusOf(exit.id))
+        assertEquals(0, BigDecimal("9").compareTo(storage.stock.quantityOf(ItemId(1))))
+        assertEquals(0, BigDecimal("9").compareTo(storage.stock.quantities().getValue(ItemId(1))))
+        assertEquals(emptyList(), storage.stock.toResolve())
+        assertEquals(listOf(other, exit, opening), storage.stock.movementsOf(ItemId(1), limit = 10))
+
+        // Its invoice is sent again: the movement counts again.
+        storage.stock.setStatus(exit.id, MovementStatus.Pending, now)
+        assertEquals(0, BigDecimal("5").compareTo(storage.stock.quantityOf(ItemId(1))))
     }
 
     @Test

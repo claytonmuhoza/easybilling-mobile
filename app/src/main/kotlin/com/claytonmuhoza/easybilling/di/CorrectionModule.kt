@@ -24,6 +24,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.ReplaceInvoice
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
+import com.claytonmuhoza.easybilling.domain.stock.InvoiceStock
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
 import dagger.Module
 import dagger.Provides
@@ -103,8 +104,11 @@ object CorrectionModule {
         invoices: InvoiceRepository,
         outbox: OutboxRepository,
         auditLog: AuditLog,
+        stock: InvoiceStock,
         transactions: TransactionRunner,
         time: TimeProvider,
-    ): IssueCreditNote =
-        IssueCreditNote(rules, authority, stamper, CreditNoteStorage(invoices, outbox, auditLog), transactions, time)
+    ): IssueCreditNote {
+        val storage = CreditNoteStorage(invoices, outbox, auditLog, stock)
+        return IssueCreditNote(rules, authority, stamper, storage, transactions, time)
+    }
 }

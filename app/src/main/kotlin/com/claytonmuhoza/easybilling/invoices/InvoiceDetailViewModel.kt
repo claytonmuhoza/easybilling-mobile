@@ -73,6 +73,12 @@ sealed interface InvoiceNotice {
     /** The identifier would be too long with the NIF of the tax profile: nothing was sent again. */
     data object IdentifierTooLong : InvoiceNotice
 
+    /**
+     * The stock no longer has the items of the invoice, whose stock came back when the OBR refused
+     * it: nothing was sent again.
+     */
+    data object InsufficientStock : InvoiceNotice
+
     /** The action could not be written. */
     data object Failed : InvoiceNotice
 
@@ -217,6 +223,8 @@ class InvoiceDetailViewModel @Inject constructor(
                 .copy(invoice = result.invoice, status = InvoiceStatus.Pending, notice = InvoiceNotice.Resent)
                 .also { transmission.kick() }
             ResendRejectedInvoice.Result.IdentifierTooLong -> shown.copy(notice = InvoiceNotice.IdentifierTooLong)
+            is ResendRejectedInvoice.Result.InsufficientStock ->
+                shown.copy(notice = InvoiceNotice.InsufficientStock)
             ResendRejectedInvoice.Result.NotRejected, ResendRejectedInvoice.Result.NotFound -> shown
         }
     }

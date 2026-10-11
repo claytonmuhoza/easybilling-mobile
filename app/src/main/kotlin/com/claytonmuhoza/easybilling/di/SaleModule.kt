@@ -23,6 +23,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.PriceSale
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
+import com.claytonmuhoza.easybilling.domain.stock.InvoiceStock
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
 import dagger.Module
 import dagger.Provides
@@ -54,7 +55,8 @@ object SaleModule {
         customers: CustomerRepository,
         profiles: TaxProfileRepository,
         time: TimeProvider,
-    ): PriceSale = PriceSale(items, taxes, customers, profiles, time)
+        stock: InvoiceStock,
+    ): PriceSale = PriceSale(items, taxes, customers, profiles, time, stock)
 
     /** @return the use case changing the sale being typed and the sales on hold. */
     @Provides
@@ -81,7 +83,8 @@ object SaleModule {
         outbox: OutboxRepository,
         auditLog: AuditLog,
         cancellations: InvoiceCancellationRepository,
-    ): IssueStorage = IssueStorage(drafts, invoices, outbox, auditLog, cancellations)
+        stock: InvoiceStock,
+    ): IssueStorage = IssueStorage(drafts, invoices, outbox, auditLog, cancellations, stock)
 
     /** @return the use case issuing a sale as an invoice. */
     @Provides
