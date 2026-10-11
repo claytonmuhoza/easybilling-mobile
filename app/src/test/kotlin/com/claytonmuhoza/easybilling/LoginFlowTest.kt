@@ -27,7 +27,7 @@ import com.claytonmuhoza.easybilling.domain.identity.CreateAdministrator
 import com.claytonmuhoza.easybilling.domain.identity.User
 import com.claytonmuhoza.easybilling.testing.TestClock
 import com.claytonmuhoza.easybilling.testing.enterPin
-import com.claytonmuhoza.easybilling.testing.openSettings
+import com.claytonmuhoza.easybilling.testing.openLoadedSettings
 import com.claytonmuhoza.easybilling.testing.press
 import com.claytonmuhoza.easybilling.testing.pressInForm
 import com.claytonmuhoza.easybilling.testing.pressKey
@@ -315,7 +315,7 @@ class LoginFlowTest {
         logIn("123456")
         composeRule.waitForText("Welcome, Alice")
 
-        composeRule.openSettings()
+        composeRule.openLoadedSettings()
         composeRule.pressInForm("Log out")
 
         composeRule.waitForText("Enter your PIN to continue").assertIsDisplayed()

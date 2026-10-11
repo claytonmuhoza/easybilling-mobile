@@ -16,6 +16,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.NavigationFrame
 import com.claytonmuhoza.easybilling.domain.identity.CreateAdministrator
 import com.claytonmuhoza.easybilling.domain.identity.SessionManager
 import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
+import com.claytonmuhoza.easybilling.testing.openLoadedSettings
 import com.claytonmuhoza.easybilling.testing.openSettings
 import com.claytonmuhoza.easybilling.testing.pressInForm
 import com.claytonmuhoza.easybilling.testing.waitForText
@@ -77,17 +78,6 @@ class NavigationFlowTest {
 
     private fun barExists() = composeRule.onNodeWithTag(NavigationFrameTags.BAR).assertExists()
 
-    /**
-     * Opens the settings and waits for what is left to do before the first invoice. It is read after
-     * the screen appears: its sentence then pushes down everything under it, and a press made
-     * meanwhile misses its button. The marks of the steps come with the sentence and, unlike it,
-     * are not on the home screen.
-     */
-    private fun openLoadedSettings() {
-        composeRule.openSettings()
-        composeRule.waitUntil(TIMEOUT_MILLIS) { composeRule.onAllNodesWithTextCount(TO_DO) > 0 }
-    }
-
     private fun noNavigation() {
         composeRule.onNodeWithTag(NavigationFrameTags.BAR).assertDoesNotExist()
         composeRule.onNodeWithTag(NavigationFrameTags.RAIL).assertDoesNotExist()
@@ -148,7 +138,7 @@ class NavigationFlowTest {
 
     @Test
     fun `the settings hold the four steps and the logout, without the navigation`() {
-        openLoadedSettings()
+        composeRule.openLoadedSettings()
 
         noNavigation()
         for (setting in listOf("Tax profile", "EBMS connection", "Taxes", "Numbering")) {
@@ -178,7 +168,7 @@ class NavigationFlowTest {
 
     @Test
     fun `logging out from the settings returns to the login screen`() {
-        openLoadedSettings()
+        composeRule.openLoadedSettings()
 
         composeRule.pressInForm("Log out")
 
@@ -187,7 +177,6 @@ class NavigationFlowTest {
     }
 
     private companion object {
-        const val TIMEOUT_MILLIS = 10_000L
         const val TO_DO = "To do"
     }
 }

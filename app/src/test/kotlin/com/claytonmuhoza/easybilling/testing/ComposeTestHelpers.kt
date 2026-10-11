@@ -71,6 +71,20 @@ fun ComposeTestRule.openSettings(settings: String = "Settings") {
 }
 
 /**
+ * Opens the settings and waits for what is left to do before the first invoice. It is read after
+ * the screen appears: its sentence then pushes down everything under it, and a press made
+ * meanwhile misses its button. The marks of the steps come with the sentence and, unlike it,
+ * are not on the home screen.
+ *
+ * @param settings the name of the settings, in the language of the test.
+ * @param toDo the mark of a step that is left to do, in the language of the test.
+ */
+fun ComposeTestRule.openLoadedSettings(settings: String = "Settings", toDo: String = "To do") {
+    openSettings(settings)
+    waitUntil(TIMEOUT_MILLIS) { onAllNodesWithTextCount(toDo) > 0 }
+}
+
+/**
  * Opens the settings from the home screen, then presses the row showing [text].
  *
  * @param text what the row shows.
