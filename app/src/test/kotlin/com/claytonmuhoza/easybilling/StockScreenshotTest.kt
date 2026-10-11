@@ -178,6 +178,19 @@ class StockScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant) 
     }
 
     @Test
+    fun stockItemSales() = capture("stock_item_sales") {
+        val sold = movement(7, MovementType.SN, "3", "Facture FN-00049/2026")
+        val refused = movement(6, MovementType.SN, "12", "Facture FN-00048/2026")
+        val back = movement(5, MovementType.ER, "1", "Retour marchandises, avoir FA-00003/2026")
+        val rows = listOf(
+            MovementRow(sold, MovementStatus.Pending),
+            MovementRow(refused, MovementStatus.Voided),
+            MovementRow(back, MovementStatus.Declared),
+        )
+        detail(StockItemUiState.Ready(soap, BigDecimal("146"), rows))
+    }
+
+    @Test
     fun stockItemWithoutMovement() = capture("stock_item_without_movement") {
         detail(StockItemUiState.Ready(soap, BigDecimal.ZERO, emptyList()))
     }

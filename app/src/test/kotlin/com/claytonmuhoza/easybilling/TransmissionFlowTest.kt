@@ -196,7 +196,8 @@ class TransmissionFlowTest {
             price = "1000",
             priceMode = PriceMode.EXCLUDING_TAXES,
             taxes = mapOf(TaxKind.VAT to vat.id),
-            stockTracked = true,
+            // Sold without stock: the stock and the sale have their own tests (StockSalesFlowTest).
+            stockTracked = false,
         )
         assertIs<CreateItem.Result.Created>(createItem(soap, alice.id))
     }

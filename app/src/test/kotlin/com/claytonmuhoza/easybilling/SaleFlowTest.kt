@@ -240,7 +240,8 @@ class SaleFlowTest {
                 price = price,
                 priceMode = mode,
                 taxes = mapOf(TaxKind.VAT to vat.id),
-                stockTracked = true,
+                // Sold without stock: the stock and the sale have their own tests (StockSalesFlowTest).
+                stockTracked = false,
                 barcode = barcode,
             )
             assertIs<CreateItem.Result.Created>(createItem(form, alice.id)).item

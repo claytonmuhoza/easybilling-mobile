@@ -41,6 +41,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.PricedLine
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleLineProblem
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.taxes.shortLabel
+import com.claytonmuhoza.easybilling.stock.quantityText
 import com.claytonmuhoza.easybilling.ui.MoneyText
 import com.claytonmuhoza.easybilling.ui.amountText
 import com.claytonmuhoza.easybilling.ui.decimalText
@@ -172,6 +173,14 @@ private fun LineSummary(line: PricedLine) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             line.line.discount?.let { Text(text = it.label(), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            // An item kept in stock says what the sale may take of it (UC-F09).
+            line.available?.let { available ->
+                Text(
+                    text = stringResource(R.string.stock_in_stock, quantityText(available, line.item.details.unit)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         line.amounts?.let {
             MoneyText(it.total, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)

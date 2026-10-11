@@ -1,10 +1,12 @@
 package com.claytonmuhoza.easybilling
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ActivityScenario
@@ -37,6 +39,7 @@ import com.claytonmuhoza.easybilling.domain.identity.Role
 import com.claytonmuhoza.easybilling.domain.identity.SessionManager
 import com.claytonmuhoza.easybilling.domain.identity.User
 import com.claytonmuhoza.easybilling.domain.identity.UserForm
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.PriceMode
 import com.claytonmuhoza.easybilling.domain.stock.MovementStatus
 import com.claytonmuhoza.easybilling.domain.stock.MovementType
@@ -51,6 +54,7 @@ import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
 import com.claytonmuhoza.easybilling.testing.obr.ObrSimulator
 import com.claytonmuhoza.easybilling.testing.pressInForm
 import com.claytonmuhoza.easybilling.testing.pressKey
+import com.claytonmuhoza.easybilling.testing.pressNewSale
 import com.claytonmuhoza.easybilling.testing.typeInForm
 import com.claytonmuhoza.easybilling.testing.waitForText
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -119,6 +123,9 @@ class StockFlowTest {
 
     @Inject
     lateinit var stock: StockRepository
+
+    @Inject
+    lateinit var invoices: InvoiceRepository
 
     @Inject
     lateinit var record: RecordStockMovement
@@ -360,6 +367,56 @@ class StockFlowTest {
         // The OBR cannot tell the two apart: it keeps both.
         assertEquals(2, simulator.stockMovements.size)
         assertEquals(0, BigDecimal("6").compareTo(stockOfSoap()))
+    }
+
+    /** Opens the cash register, adds [taps] soaps and opens the sale. */
+    private fun typeSaleOfSoap(taps: Int, total: String) {
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        composeRule.pressNewSale()
+        repeat(taps) { tap ->
+            composeRule.waitForText("Savon de Marseille").performClick()
+            // The sale holds one more before the next touch.
+            composeRule.waitForText("× ${tap + 1}")
+        }
+        composeRule.waitForText(total, substring = true)
+        composeRule.onNodeWithText("Checkout").performClick()
+        composeRule.waitForText("Validate the sale")
+    }
+
+    @Test
+    fun `a sale takes its item out of the stock and declares the exit after the invoice`() {
+        entered("5")
+        typeSaleOfSoap(taps = 1, total = "1 item · 1,180 BIF")
+        shown("In stock: 5 piece")
+
+        composeRule.pressInForm("Validate the sale")
+        composeRule.waitForText("Invoice FN-00001/2026")
+
+        val invoice = runBlocking { invoices.findByNumber("FN-00001/2026") }!!
+        val exit = runBlocking { stock.ofInvoice(invoice.id) }.single()
+        assertEquals(MovementType.SN, exit.content.type)
+        assertEquals(0, BigDecimal("4").compareTo(stockOfSoap()))
+        waitForStatus(exit, MovementStatus.Declared)
+        val calls = simulator.requests.map { it.url.encodedPath.substringAfterLast("ebms_api/") }
+        assertEquals(listOf("AddStockMovement/", "addInvoice_confirm/", "AddStockMovement/"), calls - "login/")
+        val sent = simulator.stockMovements.last().mapValues { (it.value as JsonPrimitive).content }
+        assertEquals("SN", sent["item_movement_type"])
+        assertEquals("1", sent["item_quantity"])
+        assertEquals("1180", sent["item_cost_price"])
+        assertEquals("000002 Facture FN-00001/2026", sent["item_movement_description"])
+        assertEquals("", sent["item_movement_invoice_ref"])
+    }
+
+    @Test
+    fun `the cash register does not sell more than the stock`() {
+        entered("1")
+        typeSaleOfSoap(taps = 2, total = "2,360 BIF")
+
+        shown("Not enough in stock for this quantity.")
+        shown("In stock: 1 piece")
+        composeRule.onNodeWithText("Validate the sale").assertIsNotEnabled()
+        assertNull(runBlocking { invoices.findByNumber("FN-00001/2026") })
+        assertEquals(0, BigDecimal("1").compareTo(stockOfSoap()))
     }
 
     private companion object {

@@ -215,6 +215,17 @@ class SaleScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant) {
     }
 
     @Test
+    fun saleStock() = capture("sale_stock") {
+        val short = setOf(SaleProblem.STOCK_INSUFFICIENT)
+        val lines = listOf(
+            line(soap, "2").copy(available = BigDecimal("148")),
+            line(oil, "3", problems = short).copy(available = BigDecimal("1.5")),
+            line(coffee, "1", problems = short).copy(available = BigDecimal.ZERO),
+        )
+        register(ready(sale(lines)))
+    }
+
+    @Test
     fun saleNotReady() = capture("sale_not_ready") {
         val readiness = BillingReadiness(mapOf(ReadinessStep.TAX_PROFILE to true, ReadinessStep.NUMBERING to false))
         register(SaleUiState.NotReady(readiness))
