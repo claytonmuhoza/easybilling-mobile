@@ -36,11 +36,17 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
 import com.claytonmuhoza.easybilling.domain.customer.Customer
 import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
 import com.claytonmuhoza.easybilling.domain.customer.VerifiedTin
+import com.claytonmuhoza.easybilling.domain.identity.ChangeTemporaryPin
 import com.claytonmuhoza.easybilling.domain.identity.CreateAdministrator
+import com.claytonmuhoza.easybilling.domain.identity.CreateUser
+import com.claytonmuhoza.easybilling.domain.identity.Role
 import com.claytonmuhoza.easybilling.domain.identity.SessionManager
 import com.claytonmuhoza.easybilling.domain.identity.User
+import com.claytonmuhoza.easybilling.domain.identity.UserForm
+import com.claytonmuhoza.easybilling.domain.invoicing.CancellationState
 import com.claytonmuhoza.easybilling.domain.invoicing.EditSale
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellationRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatus
 import com.claytonmuhoza.easybilling.domain.invoicing.IssueSale
@@ -51,11 +57,14 @@ import com.claytonmuhoza.easybilling.testing.IssuedInvoiceStatus
 import com.claytonmuhoza.easybilling.testing.TestCertificates
 import com.claytonmuhoza.easybilling.testing.TestClock
 import com.claytonmuhoza.easybilling.testing.backToHomeOnce
+import com.claytonmuhoza.easybilling.testing.enterPin
 import com.claytonmuhoza.easybilling.testing.obr.ObrSimulator
 import com.claytonmuhoza.easybilling.testing.onAllNodesWithTextCount
 import com.claytonmuhoza.easybilling.testing.pressInForm
+import com.claytonmuhoza.easybilling.testing.pressKey
 import com.claytonmuhoza.easybilling.testing.pressNewSale
 import com.claytonmuhoza.easybilling.testing.type
+import com.claytonmuhoza.easybilling.testing.typeInForm
 import com.claytonmuhoza.easybilling.testing.waitForText
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -139,6 +148,15 @@ class InvoicesFlowTest {
 
     @Inject
     lateinit var clock: TestClock
+
+    @Inject
+    lateinit var cancellations: InvoiceCancellationRepository
+
+    @Inject
+    lateinit var createUser: CreateUser
+
+    @Inject
+    lateinit var changeTemporaryPin: ChangeTemporaryPin
 
     private val simulator: ObrSimulator = TestCertificates.startSimulator()
     private lateinit var alice: User
@@ -454,6 +472,96 @@ class InvoicesFlowTest {
         assertEquals(invoice.content.customer.id, started.customerId)
         assertIs<InvoiceStatus.Rejected>(statusOf(invoice))
         assertEquals(1, runBlocking { invoices.count() })
+    }
+
+    private fun cancellationOf(invoice: Invoice) = runBlocking { cancellations.find(invoice.id) }
+
+    private fun calls(service: String) = simulator.requests.filter { it.url.encodedPath.endsWith("$service/") }
+
+    @Test
+    fun `a registered invoice is cancelled with its reason, and the OBR cancels it`() {
+        readyToSell(simulator.baseUrl)
+        val invoice = sellOneSoap()
+        openFromHome("FN-00001/2026", IssuedInvoiceStatus.REGISTERED)
+
+        composeRule.pressInForm("Cancel the invoice")
+        composeRule.waitForText("Reason")
+        composeRule.pressInForm("Cancel only")
+        shown("Enter the reason of the cancellation")
+        composeRule.typeInForm("Reason", "Erreur de saisie")
+        composeRule.pressInForm("Cancel only")
+
+        // The screen is waited for first: reading the database here meanwhile would block its write.
+        shown("Cancelled at the OBR. Reason: Erreur de saisie")
+        assertEquals(InvoiceStatus.Cancelled, statusOf(invoice))
+        val body = Json.parseToJsonElement(calls("cancelInvoice").single().body!!.utf8()).jsonObject
+        assertEquals("Erreur de saisie", body.text("cn_motif"))
+        assertEquals(invoice.content.identifier, body.text("invoice_identifier"))
+        composeRule.onNodeWithText("Cancel the invoice").assertDoesNotExist()
+    }
+
+    @Test
+    fun `cancel and replace issues a new invoice that cancels the old one at the OBR`() {
+        readyToSell(simulator.baseUrl)
+        val invoice = sellOneSoap()
+        openFromHome("FN-00001/2026", IssuedInvoiceStatus.REGISTERED)
+
+        composeRule.pressInForm("Cancel the invoice")
+        composeRule.waitForText("Reason")
+        composeRule.typeInForm("Reason", "Mauvais client")
+        composeRule.pressInForm("Cancel and replace")
+
+        composeRule.waitForText("This sale replaces the invoice FN-00001/2026.")
+        composeRule.waitForText("1 item · 1,180 BIF").assertIsDisplayed()
+        composeRule.onNodeWithText("Checkout").performClick()
+        composeRule.waitForText("Validate the sale")
+        composeRule.pressInForm("Validate the sale")
+        composeRule.waitForText("Invoice FN-00002/2026")
+        composeRule.backToHomeOnce(IssuedInvoiceStatus.REGISTERED)
+
+        assertEquals(InvoiceStatus.Cancelled, statusOf(invoice))
+        val replacement = sentInvoices().single { it.text("invoice_number") == "FN-00002/2026" }
+        assertEquals("FN-00001/2026", replacement.text("cancelled_invoice_ref"))
+        assertEquals(emptyList(), calls("cancelInvoice"))
+        assertEquals(CancellationState.Done, cancellationOf(invoice)?.state)
+    }
+
+    @Test
+    fun `a cashier cancels an invoice with the PIN of a manager`() {
+        readyToSell(simulator.baseUrl)
+        val invoice = issued()
+        val marc = account("Marc", Role.MANAGER, pin = "333333")
+        val bob = account("Bob", Role.CASHIER, pin = "222222")
+        runBlocking { sessions.open(bob) }
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        openInvoices()
+        composeRule.waitForText("FN-00001/2026").performClick()
+        composeRule.waitForText("At the OBR")
+
+        composeRule.pressInForm("Cancel the invoice")
+        composeRule.waitForText("Reason")
+        composeRule.typeInForm("Reason", "Erreur de saisie")
+        composeRule.pressInForm("Cancel only")
+        composeRule.waitForText("Approval of a manager")
+        composeRule.waitForText("Marc").performClick()
+        composeRule.enterPin("333333")
+        composeRule.pressKey("Approve")
+
+        // Back on the invoice, which the simulated OBR does not know: it refuses the cancellation.
+        composeRule.waitForText("The OBR refused the cancellation", substring = true)
+        assertEquals(bob.id, cancellationOf(invoice)?.requestedBy)
+        assertEquals(marc.id, cancellationOf(invoice)?.approvedBy)
+    }
+
+    /** Creates [name] with [roles], who then chooses [pin], as Alice. */
+    private fun account(name: String, vararg roles: Role, pin: String): User = runBlocking {
+        val user = assertIs<CreateUser.Result.Created>(
+            createUser(UserForm(name, roles.toSet()), "111111", "111111", alice.id),
+        ).user
+        changeTemporaryPin(user.id, "111111", pin, pin)
+        // Choosing the PIN opened a session: the session of the test comes back to Alice.
+        sessions.open(alice)
+        user
     }
 
     private companion object {

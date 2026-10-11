@@ -8,6 +8,9 @@ import com.claytonmuhoza.easybilling.domain.catalog.ItemId
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.customer.CustomerId
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.invoicing.CancellationKind
+import com.claytonmuhoza.easybilling.domain.invoicing.CancellationState
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellation
 import com.claytonmuhoza.easybilling.domain.invoicing.DocumentType
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceContent
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCustomer
@@ -211,4 +214,55 @@ class TransmissionStorageTest {
         assertEquals(2, storage.invoices.countIn(EbmsEnvironment.TEST))
         assertEquals(1, storage.invoices.countIn(EbmsEnvironment.PRODUCTION))
     }
+
+    @Test
+    fun `a replacement keeps the replaced number`() = runTest {
+        storage.invoices.create(content("FN-00001/2026"))
+
+        val replacement = storage.invoices.create(content("FN-00002/2026").copy(cancelledInvoiceRef = "FN-00001/2026"))
+
+        assertEquals(replacement, storage.invoices.find(replacement.id))
+        assertNull(storage.invoices.findByNumber("FN-00001/2026")?.content?.cancelledInvoiceRef)
+    }
+
+    @Test
+    fun `a cancellation waits after its invoice`() = runTest {
+        storage.outbox.enqueue(OutboxOperation.SendInvoice(InvoiceId(7)), now)
+        storage.outbox.enqueue(OutboxOperation.CancelInvoice(InvoiceId(7)), now.plusSeconds(1))
+
+        assertEquals(
+            listOf(OutboxOperation.SendInvoice(InvoiceId(7)), OutboxOperation.CancelInvoice(InvoiceId(7))),
+            storage.outbox.pending().map { it.operation },
+        )
+    }
+
+    @Test
+    fun `a cancellation is read back in each state`() = runTest {
+        val invoice = storage.invoices.create(content("FN-00001/2026"))
+        val asked = InvoiceCancellation(
+            invoiceId = invoice.id,
+            kind = CancellationKind.CANCEL,
+            reason = "Erreur de saisie",
+            requestedBy = UserId(1),
+            approvedBy = UserId(2),
+            requestedAt = now,
+            state = CancellationState.Requested,
+        )
+        assertNull(storage.cancellations.find(invoice.id))
+
+        for (state in listOf(
+            CancellationState.Requested,
+            CancellationState.Refused("Identifiant de la facture inconnu"),
+            CancellationState.Abandoned,
+            CancellationState.Done,
+        )) {
+            storage.cancellations.save(asked.copy(state = state))
+            assertEquals(asked.copy(state = state), storage.cancellations.find(invoice.id))
+        }
+
+        val replaced = asked.copy(kind = CancellationKind.REPLACE, approvedBy = null, replacement = InvoiceId(9))
+        storage.cancellations.save(replaced)
+        assertEquals(replaced, storage.cancellations.find(invoice.id))
+    }
+
 }

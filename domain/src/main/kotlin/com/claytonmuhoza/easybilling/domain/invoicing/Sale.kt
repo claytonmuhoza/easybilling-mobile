@@ -105,6 +105,7 @@ data class DraftLine(
  * @property lines the lines, in the order the items were added.
  * @property held whether the sale was put on hold; at most one sale is not: the one being typed.
  * @property updatedAt when the sale last changed.
+ * @property replacement the invoice this sale replaces once issued (UC-E02), or null.
  */
 data class SaleDraft(
     val id: DraftId,
@@ -113,6 +114,7 @@ data class SaleDraft(
     val lines: List<DraftLine> = emptyList(),
     val held: Boolean = false,
     val updatedAt: Instant,
+    val replacement: Replacement? = null,
 )
 
 /** Storage of the sales that are not issued yet. */

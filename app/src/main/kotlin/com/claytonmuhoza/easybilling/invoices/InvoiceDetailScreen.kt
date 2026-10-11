@@ -41,6 +41,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.theme.StatusTone
 import com.claytonmuhoza.easybilling.documents.PdfButtons
 import com.claytonmuhoza.easybilling.documents.PrintButton
 import com.claytonmuhoza.easybilling.domain.identity.Permission
+import com.claytonmuhoza.easybilling.domain.invoicing.CancellationState
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceContent
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCustomer
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceLine
@@ -57,12 +58,14 @@ import com.claytonmuhoza.easybilling.ui.decimalText
  *
  * @param onBack called when the user goes back.
  * @param onOpenSale called when the sale of the invoice was started over and is to be shown.
+ * @param onCancelInvoice called when the user asks to cancel or replace the invoice.
  * @param viewModel holder of the invoice state.
  */
 @Composable
 fun InvoiceDetailRoute(
     onBack: () -> Unit,
     onOpenSale: () -> Unit,
+    onCancelInvoice: () -> Unit,
     viewModel: InvoiceDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -89,6 +92,7 @@ fun InvoiceDetailRoute(
             onOpenPdf = viewModel::openPdf,
             onSharePdf = viewModel::sharePdf,
             onRetry = viewModel::load,
+            onCancelInvoice = onCancelInvoice,
         ),
     )
 }
@@ -105,6 +109,7 @@ fun InvoiceDetailRoute(
  * @property onOpenPdf called when the user opens the PDF of the invoice.
  * @property onSharePdf called when the user shares the PDF of the invoice.
  * @property onRetry called when the user asks to read the invoice again.
+ * @property onCancelInvoice called when the user asks to cancel or replace the invoice.
  */
 class InvoiceDetailActions(
     val onBack: () -> Unit = {},
@@ -116,6 +121,7 @@ class InvoiceDetailActions(
     val onOpenPdf: () -> Unit = {},
     val onSharePdf: () -> Unit = {},
     val onRetry: () -> Unit = {},
+    val onCancelInvoice: () -> Unit = {},
 )
 
 /**
@@ -146,6 +152,7 @@ fun InvoiceDetailScreen(state: InvoiceDetailUiState, actions: InvoiceDetailActio
                 PrintButton(actions.onPrint, state.print, enabled = !state.busy)
                 PdfButtons(actions.onOpenPdf, actions.onSharePdf, state.pdfProblem, enabled = !state.busy)
                 StatusSection(state, actions)
+                CorrectionSection(state, actions.onCancelInvoice)
                 state.notice?.let { Notice(it, actions.onOpenSale) }
                 CustomerCard(invoice.customer)
                 LinesCard(invoice)
@@ -315,5 +322,35 @@ internal fun Fact(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.medium)) {
         Text(text = label, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(text = value, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End)
+    }
+}
+
+/**
+ * What the invoice says of its cancellation (UC-E01, E02): what it replaces, where its
+ * cancellation stands, what replaces it, and the way to cancel it while it may be.
+ */
+@Composable
+private fun CorrectionSection(state: InvoiceDetailUiState.Ready, onCancelInvoice: () -> Unit) {
+    state.invoice.content.cancelledInvoiceRef?.let { Help(stringResource(R.string.invoice_replaces, it)) }
+    state.cancellation?.let { cancellation ->
+        val text = when (val stage = cancellation.state) {
+            CancellationState.Requested -> stringResource(R.string.invoice_cancellation_requested, cancellation.reason)
+            CancellationState.Done -> stringResource(R.string.invoice_cancellation_done, cancellation.reason)
+            is CancellationState.Refused -> stringResource(R.string.invoice_cancellation_refused, stage.message)
+            CancellationState.Abandoned -> stringResource(R.string.invoice_cancellation_abandoned)
+        }
+        val tone = when (cancellation.state) {
+            CancellationState.Requested -> StatusTone.PENDING
+            CancellationState.Done -> StatusTone.NEUTRAL
+            is CancellationState.Refused, CancellationState.Abandoned -> StatusTone.ERROR
+        }
+        StatusBanner(tone, text)
+    }
+    state.replacedBy?.let { Help(stringResource(R.string.invoice_replaced_by, it)) }
+    if (state.cancellable) {
+        OutlinedButton(onClick = onCancelInvoice, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+            AppIconImage(AppIcon.BLOCK, contentDescription = null)
+            Text(stringResource(R.string.invoice_cancel), modifier = Modifier.padding(start = Spacing.small))
+        }
     }
 }

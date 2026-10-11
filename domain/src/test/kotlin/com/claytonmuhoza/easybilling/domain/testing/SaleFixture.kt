@@ -24,6 +24,13 @@ import com.claytonmuhoza.easybilling.domain.identity.NewUser
 import com.claytonmuhoza.easybilling.domain.identity.Role
 import com.claytonmuhoza.easybilling.domain.identity.SecretHash
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.invoicing.CancelInvoice
+import com.claytonmuhoza.easybilling.domain.invoicing.CancellationRules
+import com.claytonmuhoza.easybilling.domain.invoicing.CorrectionAuthority
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellation
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellationRepository
+import com.claytonmuhoza.easybilling.domain.invoicing.RedoSale
+import com.claytonmuhoza.easybilling.domain.invoicing.ReplaceInvoice
 import com.claytonmuhoza.easybilling.domain.invoicing.DiscountLimits
 import com.claytonmuhoza.easybilling.domain.invoicing.SaveDiscountSettings
 import com.claytonmuhoza.easybilling.domain.invoicing.AllocateInvoiceNumber
@@ -47,6 +54,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraft
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
+import com.claytonmuhoza.easybilling.domain.transmission.CancelOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.LoginTarget
 import com.claytonmuhoza.easybilling.domain.transmission.LookupOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.ObrGateway
@@ -244,6 +252,28 @@ class FakeObrGateway : ObrGateway {
             ?: if (identifier in known) found(identifier) else LookupOutcome.NotFound
     }
 
+    /** Outcomes given to the next cancellations instead of the normal ones, oldest first. */
+    val forcedCancels = mutableListOf<CancelOutcome>()
+
+    /** The `cn_motif` of each cancellation, in order. */
+    val cancelReasons = mutableListOf<String>()
+
+    override suspend fun cancelInvoice(
+        target: LoginTarget,
+        token: String,
+        identifier: String,
+        reason: String,
+    ): CancelOutcome {
+        calls += Triple("cancelInvoice", token, identifier)
+        cancelReasons += reason
+        return forcedCancels.removeFirstOrNull() ?: if (identifier in known) {
+            copies[identifier]?.let { copies[identifier] = it.copy(cancelled = true) }
+            CancelOutcome.Cancelled
+        } else {
+            CancelOutcome.Rejected("Identifiant de la facture inconnu")
+        }
+    }
+
     /** Makes the OBR have [invoice] as it was issued, without a call. */
     fun accept(invoice: Invoice) {
         known += invoice.content.identifier
@@ -312,6 +342,24 @@ class SaleFixture {
     val discountSettings = InMemoryDiscountSettingsRepository()
     val discountLimits = DiscountLimits(users, discountSettings, FixedPermissionPolicy)
     val saveDiscountSettings = SaveDiscountSettings(access, discountSettings, audit)
+    val cancellations = InMemoryInvoiceCancellationRepository()
+    val cancellationRules = CancellationRules(invoices, cancellations, drafts)
+    private val authority = CorrectionAuthority(access, users, FixedPermissionPolicy)
+    val cancelInvoice = CancelInvoice(
+        cancellationRules,
+        authority,
+        cancellations,
+        outbox,
+        audit,
+        DirectTransactionRunner,
+        time,
+    )
+    val replaceInvoice = ReplaceInvoice(
+        cancellationRules,
+        authority,
+        RedoSale(invoices, items, customers, drafts, DirectTransactionRunner, time),
+        audit,
+    )
     val issueSale = IssueSale(
         access,
         IssueConfiguration(
@@ -320,8 +368,9 @@ class SaleFixture {
             vault,
             CheckBillingReadiness(profiles, ebmsSettings, taxes, numbering, time),
             discountLimits,
+            cancellationRules,
         ),
-        IssueStorage(drafts, invoices, outbox, audit),
+        IssueStorage(drafts, invoices, outbox, audit, cancellations),
         priceSale,
         AllocateInvoiceNumber(numbering, time, DirectTransactionRunner),
         DirectTransactionRunner,
@@ -373,4 +422,15 @@ class SaleFixture {
             stockTracked = true,
         ),
     )
+}
+
+/** Cancellations kept in a map, one per invoice. */
+class InMemoryInvoiceCancellationRepository : InvoiceCancellationRepository {
+    private val cancellations = mutableMapOf<InvoiceId, InvoiceCancellation>()
+
+    override suspend fun save(cancellation: InvoiceCancellation) {
+        cancellations[cancellation.invoiceId] = cancellation
+    }
+
+    override suspend fun find(invoiceId: InvoiceId): InvoiceCancellation? = cancellations[invoiceId]
 }

@@ -38,6 +38,7 @@ import java.time.Instant
  * is in milliseconds. [total] is the sum of the totals of the lines, as decimal text, and
  * [searchText] the number and the name of the customer without case nor accents: both are written
  * once, for the list of the invoices.
+ * [cancelledInvoiceRef] is the number of the invoice this one replaces (`cancelled_invoice_ref`), or null.
  */
 @Entity(
     tableName = "invoices",
@@ -61,6 +62,7 @@ internal data class InvoiceEntity(
     val issuedBy: Long,
     val total: String,
     val searchText: String,
+    val cancelledInvoiceRef: String?,
 )
 
 /**
@@ -213,6 +215,7 @@ internal class RoomInvoiceRepository(private val database: EasyBillingDatabase) 
                 currency = currency,
                 lines = dao.lines(id).map { it.toDomain(currency) },
                 issuedBy = UserId(issuedBy),
+                cancelledInvoiceRef = cancelledInvoiceRef,
             ),
         )
     }
@@ -236,6 +239,7 @@ private fun InvoiceContent.toEntity() = InvoiceEntity(
     issuedBy = issuedBy.value,
     total = totals.total.toPlainString(),
     searchText = SearchText.normalize("$number ${customer.name}"),
+    cancelledInvoiceRef = cancelledInvoiceRef,
 )
 
 /** Code of [InvoiceStatus.Rejected], the only status that is not an object. */

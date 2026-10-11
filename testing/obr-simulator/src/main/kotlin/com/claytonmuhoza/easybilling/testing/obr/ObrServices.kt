@@ -72,6 +72,7 @@ internal class ObrServices(var username: String, var password: String) {
         "${ObrSimulator.API_PATH}checkTIN/" -> authenticated(request, ::checkTin)
         "${ObrSimulator.API_PATH}addInvoice_confirm/" -> authenticated(request, ::addInvoice)
         "${ObrSimulator.API_PATH}getInvoice/" -> authenticated(request, ::getInvoice)
+        "${ObrSimulator.API_PATH}cancelInvoice/" -> authenticated(request) { cancelInvoice(it) }
         else -> MockResponse.Builder().code(NOT_FOUND).build()
     }
 
@@ -137,6 +138,8 @@ internal class ObrServices(var username: String, var password: String) {
     private fun addInvoice(body: JsonObject): MockResponse {
         val number = body.text("invoice_number")
         val customerTin = body.text("customer_TIN")
+        val replacedNumber = body.text("cancelled_invoice_ref")
+        val replaced = invoices.entries.firstOrNull { it.value.text("invoice_number") == replacedNumber }?.key
         val complete = MANDATORY_INVOICE_FIELDS.all { body.text(it).isNotEmpty() } &&
             (body["invoice_items"] as? JsonArray).orEmpty().isNotEmpty()
         return when {
@@ -148,8 +151,12 @@ internal class ObrServices(var username: String, var password: String) {
             )
             customerTin.isNotEmpty() && customerTin !in taxpayers ->
                 refusal(ObrSimulator.MESSAGE_UNKNOWN_CUSTOMER_TIN)
+            replacedNumber.isNotEmpty() && replaced == null -> refusal(ObrSimulator.MESSAGE_UNKNOWN_REPLACED)
+            replaced != null && replaced in cancelled -> refusal(ObrSimulator.MESSAGE_REPLACED_ALREADY_CANCELLED)
             else -> {
                 invoices[body.text("invoice_identifier")] = body
+                // A replacement cancels the invoice it names, as the server does (6 October 2026).
+                replaced?.let { cancelled += it }
                 if (loseNextAcknowledgement) lost() else acknowledgement(number)
             }
         }
@@ -201,7 +208,7 @@ internal class ObrServices(var username: String, var password: String) {
     }
 
     /** @return the refusal of the specification, or the one the server was seen to give instead. */
-    private fun refusal(specified: String, observedCode: Int, observed: String = specified) =
+    fun refusal(specified: String, observedCode: Int, observed: String = specified) =
         if (asSpecified) refusal(specified) else jsonResponse(observedCode, failure(observed))
 
     private companion object {
@@ -233,3 +240,30 @@ internal fun jsonResponse(code: Int, body: JsonObject) = MockResponse.Builder()
     .setHeader("Content-Type", "application/json")
     .body(body.toString())
     .build()
+
+/**
+ * Cancels an invoice. The server answers a success again for an invoice already cancelled, and
+ * does not ask for `cn_motif` (6 October 2026); the specification refuses the first.
+ */
+private fun ObrServices.cancelInvoice(body: JsonObject): MockResponse {
+    val identifier = body.text("invoice_identifier")
+    return when {
+        identifier.isEmpty() -> refusal(ObrSimulator.MESSAGE_NO_IDENTIFIER)
+        identifier !in invoices -> refusal(
+            ObrSimulator.MESSAGE_UNKNOWN_IDENTIFIER,
+            BAD_REQUEST,
+            ObrSimulator.MESSAGE_UNKNOWN_IDENTIFIER_CANCEL,
+        )
+        asSpecified && identifier in cancelled -> refusal(ObrSimulator.MESSAGE_ALREADY_CANCELLED)
+        else -> {
+            cancelled += identifier
+            jsonResponse(
+                HTTP_OK,
+                buildJsonObject {
+                    put("success", true)
+                    put("msg", ObrSimulator.MESSAGE_INVOICE_CANCELLED.format(identifier))
+                },
+            )
+        }
+    }
+}

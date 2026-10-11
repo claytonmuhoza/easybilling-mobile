@@ -814,4 +814,29 @@
     <string name="discount_cap_saved">Plafond enregistré.</string>
     <string name="discount_cap_load_error">Le plafond n\'a pas pu être lu.</string>
     <string name="discount_cap_save_error">Le plafond n\'a pas pu être enregistré. Réessayez.</string>
+
+    <!-- Cancellation and replacement of an invoice -->
+    <string name="invoice_cancel">Annuler la facture</string>
+    <string name="invoice_cancel_load_error">La facture n\'a pas pu être lue.</string>
+    <string name="invoice_cancel_approval">L\'annulation de la facture %1$s demande l\'autorisation d\'un gérant ou d\'un administrateur.</string>
+    <string name="invoice_cancel_help">Facture %1$s. Le motif est envoyé à l\'OBR avec l\'annulation.</string>
+    <string name="invoice_cancel_reason">Motif</string>
+    <string name="invoice_cancel_reason_blank">Saisissez le motif de l\'annulation</string>
+    <string name="invoice_cancel_reason_too_long">Le motif est limité à 100 caractères</string>
+    <string name="invoice_cancel_only">Annuler seulement</string>
+    <string name="invoice_cancel_replace">Annuler et remplacer</string>
+    <string name="invoice_cancel_replace_help">« Annuler et remplacer » ouvre une nouvelle vente avec les mêmes lignes. La facture est annulée dès que l\'OBR enregistre la nouvelle.</string>
+    <string name="invoice_cancel_problem_rejected">L\'OBR a rejeté cette facture : il n\'y a rien à annuler.</string>
+    <string name="invoice_cancel_problem_cancelled">Cette facture est déjà annulée.</string>
+    <string name="invoice_cancel_problem_cancelling">L\'annulation de cette facture attend l\'OBR.</string>
+    <string name="invoice_cancel_problem_replacing">Une vente qui remplace cette facture est en cours ou en attente.</string>
+    <string name="invoice_replaces">Remplace la facture %1$s</string>
+    <string name="invoice_replaced_by">Remplacée par la facture %1$s</string>
+    <string name="invoice_cancellation_requested">Annulation en attente de l\'OBR. Motif : %1$s</string>
+    <string name="invoice_cancellation_done">Annulée chez l\'OBR. Motif : %1$s</string>
+    <string name="invoice_cancellation_refused">L\'OBR a refusé l\'annulation : %1$s</string>
+    <string name="invoice_cancellation_abandoned">Annulation abandonnée : l\'OBR a rejeté la facture.</string>
+    <string name="sale_replaces">Cette vente remplace la facture %1$s.</string>
+    <string name="sale_refusal_replaced_not_cancellable">La facture que cette vente remplace ne peut plus être annulée. Mettez la vente en attente ou videz-la.</string>
+    <string name="transmission_queue_cancellation">Annulation de la facture</string>
 </resources>

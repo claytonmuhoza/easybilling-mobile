@@ -26,6 +26,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxpayerType
 import com.claytonmuhoza.easybilling.domain.identity.FixedPermissionPolicy
 import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.invoicing.CancellationRules
 import com.claytonmuhoza.easybilling.domain.invoicing.DiscountLimits
 import com.claytonmuhoza.easybilling.domain.invoicing.AllocateInvoiceNumber
 import com.claytonmuhoza.easybilling.domain.invoicing.EditSale
@@ -82,12 +83,14 @@ class EncryptedInvoiceIssueTest {
             vault,
             CheckBillingReadiness(storage.taxProfiles, storage.ebmsSettings, storage.taxes, storage.numbering, time),
             DiscountLimits(storage.users, storage.discountSettings, FixedPermissionPolicy),
+            CancellationRules(storage.invoices, storage.cancellations, storage.saleDrafts),
         ),
         IssueStorage(
             storage.saleDrafts,
             storage.invoices,
             storage.outbox,
             ChainedAuditLog(storage.auditStore, time, storage.transactions),
+            storage.cancellations,
         ),
         PriceSale(storage.items, storage.taxes, storage.customers, storage.taxProfiles, time),
         AllocateInvoiceNumber(storage.numbering, time, storage.transactions),

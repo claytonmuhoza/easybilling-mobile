@@ -33,6 +33,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
 import com.claytonmuhoza.easybilling.core.designsystem.theme.StatusTone
 import com.claytonmuhoza.easybilling.core.designsystem.theme.palette
 import com.claytonmuhoza.easybilling.core.designsystem.theme.tabularNumbers
+import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
 import com.claytonmuhoza.easybilling.domain.transmission.QueuedDocument
 import com.claytonmuhoza.easybilling.domain.transmission.RejectedDocument
 import com.claytonmuhoza.easybilling.ui.amountText
@@ -252,6 +253,12 @@ private fun QueuedCard(rank: Int, document: QueuedDocument) {
                         dateTimeText(invoice.issuedAt),
                     ),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (entry.operation is OutboxOperation.CancelInvoice) {
+                Text(
+                    text = stringResource(R.string.transmission_queue_cancellation),
+                    style = MaterialTheme.typography.bodySmall,
                 )
             }
             if (entry.uncertain) {

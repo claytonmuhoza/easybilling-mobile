@@ -28,6 +28,7 @@ import java.time.temporal.ChronoUnit
  * @property vault where the system identifiers are kept.
  * @property readiness tells whether invoices can be issued.
  * @property discountLimits tells which discounts need the approval of a manager.
+ * @property cancellationRules tells whether the invoice a sale replaces may still be cancelled.
  */
 class IssueConfiguration(
     val profiles: TaxProfileRepository,
@@ -35,6 +36,7 @@ class IssueConfiguration(
     val vault: EbmsCredentialsVault,
     val readiness: CheckBillingReadiness,
     val discountLimits: DiscountLimits,
+    val cancellationRules: CancellationRules,
 )
 
 /**
@@ -44,12 +46,14 @@ class IssueConfiguration(
  * @property invoices where the issued invoices are kept.
  * @property outbox the send queue.
  * @property auditLog log that records each issue.
+ * @property cancellations where the replacement of an invoice is recorded.
  */
 class IssueStorage(
     val drafts: SaleDraftRepository,
     val invoices: InvoiceRepository,
     val outbox: OutboxRepository,
     val auditLog: AuditLog,
+    val cancellations: InvoiceCancellationRepository,
 )
 
 /**
@@ -93,6 +97,9 @@ class IssueSale(
          */
         data class DiscountNotApproved(val itemIds: Set<ItemId>) : Result
 
+        /** The invoice the sale replaces can no longer be cancelled, for [problem]; nothing was issued. */
+        data class ReplacedInvoiceNotCancellable(val problem: CancellationProblem) : Result
+
         /** The counter reached the last number its digits allow; nothing was issued. */
         data object NumbersExhausted : Result
 
@@ -125,6 +132,7 @@ class IssueSale(
         val draft = storage.drafts.find(draftId) ?: return Result.NotFound
         val seller = seller()
         val sale = issuable(draft, actor)
+        val replaced = draft.replacement?.let { replaced(draft, it) }
 
         // The OBR reads the date to the second.
         val issuedAt = time.now().truncatedTo(ChronoUnit.SECONDS)
@@ -146,8 +154,10 @@ class IssueSale(
             currency = Currency.BIF,
             lines = sale.lines.map { it.toInvoiceLine(sale) },
             issuedBy = actor,
+            cancelledInvoiceRef = replaced?.content?.number,
         )
         val invoice = storage.invoices.create(content)
+        draft.replacement?.let { recordReplacement(it, invoice, actor, issuedAt) }
         storage.outbox.enqueue(OutboxOperation.SendInvoice(invoice.id), issuedAt)
         storage.drafts.delete(draft.id)
         storage.auditLog.record(AuditEvent.InvoiceIssued(actor, invoice.id, number))
@@ -161,6 +171,29 @@ class IssueSale(
         val unapproved = configuration.discountLimits.unapproved(actor, sale)
         if (unapproved.isNotEmpty()) throw Aborted(Result.DiscountNotApproved(unapproved.map { it.item.id }.toSet()))
         return sale
+    }
+
+    /** @return the invoice [replacement] replaces, once it may still be cancelled. */
+    private suspend fun replaced(draft: SaleDraft, replacement: Replacement): Invoice {
+        val problem = configuration.cancellationRules.problem(replacement.invoiceId, replacingDraft = draft.id)
+        if (problem != null) throw Aborted(Result.ReplacedInvoiceNotCancellable(problem))
+        return checkNotNull(storage.invoices.find(replacement.invoiceId)) { "A cancellable invoice exists" }
+    }
+
+    /** The replaced invoice is cancelled once the OBR accepts [invoice], which replaces it. */
+    private suspend fun recordReplacement(replacement: Replacement, invoice: Invoice, actor: UserId, at: Instant) {
+        storage.cancellations.save(
+            InvoiceCancellation(
+                invoiceId = replacement.invoiceId,
+                kind = CancellationKind.REPLACE,
+                reason = replacement.reason,
+                requestedBy = actor,
+                approvedBy = replacement.approvedBy,
+                requestedAt = at,
+                state = CancellationState.Requested,
+                replacement = invoice.id,
+            ),
+        )
     }
 
     /** What the invoice takes from the configuration. */

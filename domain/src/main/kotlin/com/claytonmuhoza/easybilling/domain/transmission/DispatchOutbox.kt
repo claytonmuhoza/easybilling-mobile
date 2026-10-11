@@ -5,6 +5,7 @@ import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfile
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellationRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatus
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
@@ -38,6 +39,7 @@ object ObrMessages {
  * @property invoices the invoices and their status.
  * @property receipts the acknowledgements of the OBR.
  * @property profiles the versions of the tax profile the invoices were issued with.
+ * @property cancellations the cancellations of the invoices.
  * @property auditLog log that records each acknowledgement and each rejection.
  * @property transactions makes the end of an operation a single write.
  */
@@ -46,6 +48,7 @@ class DispatchStorage(
     val invoices: InvoiceRepository,
     val receipts: ReceiptArchive,
     val profiles: TaxProfileRepository,
+    val cancellations: InvoiceCancellationRepository,
     val auditLog: AuditLog,
     val transactions: TransactionRunner,
 )
@@ -88,8 +91,14 @@ class DispatchConnection(
  * @property registered how many invoices the OBR acknowledged.
  * @property rejected how many invoices the OBR refused.
  * @property remaining how many operations are still in the queue.
+ * @property cancelled how many invoices the OBR cancelled.
  */
-data class DispatchReport(val registered: Int = 0, val rejected: Int = 0, val remaining: Int = 0)
+data class DispatchReport(
+    val registered: Int = 0,
+    val rejected: Int = 0,
+    val remaining: Int = 0,
+    val cancelled: Int = 0,
+)
 
 /**
  * Sends the operations of the queue to the OBR, in the order they were created (UC-D02). A refused
@@ -108,6 +117,10 @@ class DispatchOutbox(
     private val time: TimeProvider,
 ) {
     private val mutex = Mutex()
+    private val cancellations = CancellationDispatch(storage, connection, time)
+
+    /** How an operation of the queue was settled, for the report. */
+    private enum class Settled { REGISTERED, REJECTED, CANCELLED, DROPPED }
 
     /** How an attempt ended. */
     private sealed interface Attempt {
@@ -128,13 +141,16 @@ class DispatchOutbox(
      * @return what the pass did.
      */
     suspend operator fun invoke(force: Boolean = false): DispatchReport = mutex.withLock {
-        var registered = 0
-        var rejected = 0
+        val settled = mutableListOf<Settled>()
         for (entry in storage.outbox.pending()) {
-            val settled = settled(entry, force) ?: break
-            if (settled is InvoiceStatus.Rejected) rejected++ else registered++
+            settled += settled(entry, force) ?: break
         }
-        DispatchReport(registered, rejected, storage.outbox.pending().size)
+        DispatchReport(
+            registered = settled.count { it == Settled.REGISTERED },
+            rejected = settled.count { it == Settled.REJECTED },
+            remaining = storage.outbox.pending().size,
+            cancelled = settled.count { it == Settled.CANCELLED },
+        )
     }
 
     /**
@@ -142,18 +158,33 @@ class DispatchOutbox(
      *
      * @return the status the OBR gave to the invoice, or null when the operation stays in the queue.
      */
-    private suspend fun settled(entry: OutboxEntry, force: Boolean): InvoiceStatus? {
+    private suspend fun settled(entry: OutboxEntry, force: Boolean): Settled? {
         val waiting = entry.nextAttemptAt?.isAfter(time.now()) == true
-        return when (val attempt = if (waiting && !force) null else attempt(entry)) {
-            null -> null
-            is Attempt.Registered -> InvoiceStatus.Registered.also { settle(entry, it, attempt.receipt) }
-            is Attempt.Rejected -> InvoiceStatus.Rejected(attempt.message).also { settle(entry, it, receipt = null) }
-            is Attempt.Later -> null.also { postpone(entry, attempt) }
+        if (waiting && !force) return null
+        return when (val operation = entry.operation) {
+            is OutboxOperation.SendInvoice -> sent(entry, operation)
+            is OutboxOperation.CancelInvoice -> cancelled(entry, operation)
         }
     }
 
-    private suspend fun attempt(entry: OutboxEntry): Attempt {
-        val operation = entry.operation as OutboxOperation.SendInvoice
+    private suspend fun sent(entry: OutboxEntry, operation: OutboxOperation.SendInvoice): Settled? =
+        when (val attempt = attempt(entry, operation)) {
+            is Attempt.Registered ->
+                Settled.REGISTERED.also { settle(entry, InvoiceStatus.Registered, attempt.receipt) }
+            is Attempt.Rejected ->
+                Settled.REJECTED.also { settle(entry, InvoiceStatus.Rejected(attempt.message), receipt = null) }
+            is Attempt.Later -> null.also { postpone(entry, attempt) }
+        }
+
+    private suspend fun cancelled(entry: OutboxEntry, operation: OutboxOperation.CancelInvoice): Settled? =
+        when (val outcome = cancellations.send(entry, operation)) {
+            CancellationDispatch.Outcome.Cancelled -> Settled.CANCELLED
+            CancellationDispatch.Outcome.Dropped -> Settled.DROPPED
+            is CancellationDispatch.Outcome.Later ->
+                null.also { postpone(entry, Attempt.Later(outcome.reason, uncertain = false)) }
+        }
+
+    private suspend fun attempt(entry: OutboxEntry, operation: OutboxOperation.SendInvoice): Attempt {
         val invoice = storage.invoices.find(operation.invoice)
         val seller = invoice?.let { storage.profiles.find(it.content.profileVersion) }?.profile
         val target = connection.target()
@@ -224,6 +255,7 @@ class DispatchOutbox(
                         else -> AuditEvent.InvoiceRegistered(invoice, receipt?.registeredNumber.orEmpty())
                     },
                 )
+                storage.invoices.find(invoice)?.let { cancellations.afterInvoice(it, status) }
             }
             storage.outbox.remove(entry.id)
         }

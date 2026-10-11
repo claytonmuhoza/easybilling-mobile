@@ -191,5 +191,22 @@ class ObrSimulator(
 
         /** Message of `getInvoice/` for an identifier the OBR does not know (400), page 19 of the specification. */
         const val MESSAGE_UNKNOWN_IDENTIFIER = "Identifiant de la facture inconnu."
+
+        /** `cancelInvoice/`, unknown identifier, as the server words it (no final dot, § 7.28). */
+        const val MESSAGE_UNKNOWN_IDENTIFIER_CANCEL = "Identifiant de la facture inconnu"
+
+        /** `cancelInvoice/` succeeded; `%s` is the identifier (page 29, and the server). */
+        const val MESSAGE_INVOICE_CANCELLED = "La facture avec l'identifiant %s a été annulée avec succès! "
+
+        /** `cancelInvoice/` of an invoice already cancelled, in the specification only (page 30). */
+        const val MESSAGE_ALREADY_CANCELLED = "La facture que vous voulez annuler a été déjà annulée..."
+
+        /** `addInvoice_confirm/` with a `cancelled_invoice_ref` the taxpayer never sent (page 25). */
+        const val MESSAGE_UNKNOWN_REPLACED = "La valeur du champ Numéro de référence de la facture annulée ne " +
+            "correspond à aucune de vos facture enregistré dans le système."
+
+        /** `addInvoice_confirm/` with a `cancelled_invoice_ref` already cancelled (server, § 7.28). */
+        const val MESSAGE_REPLACED_ALREADY_CANCELLED =
+            "La facture referencée dans le champ reference de la facture annulée a été déjà annulée."
     }
 }

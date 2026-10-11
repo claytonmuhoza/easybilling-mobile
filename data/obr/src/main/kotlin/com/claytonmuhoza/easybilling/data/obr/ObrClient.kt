@@ -5,6 +5,7 @@ import com.claytonmuhoza.easybilling.domain.customer.TinLookup
 import com.claytonmuhoza.easybilling.domain.customer.TinReply
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
+import com.claytonmuhoza.easybilling.domain.transmission.CancelOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.ExchangeRecorder
 import com.claytonmuhoza.easybilling.domain.transmission.LoginOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.LoginTarget
@@ -155,11 +156,44 @@ class ObrClient(http: OkHttpClient, recorder: ExchangeRecorder, time: TimeProvid
         }
     }
 
+    override suspend fun cancelInvoice(
+        target: LoginTarget,
+        token: String,
+        identifier: String,
+        reason: String,
+    ): CancelOutcome {
+        val body = buildJsonObject {
+            put("invoice_identifier", identifier)
+            put("cn_motif", reason)
+        }
+        return when (val reply = transport.post(target, CANCEL_INVOICE, body.toString(), token)) {
+            is ObrReply.Failed ->
+                if (reply.requestSent) CancelOutcome.Uncertain(reply.cause) else CancelOutcome.NotDelivered(reply.cause)
+            is ObrReply.Answered -> cancelOutcome(reply)
+        }
+    }
+
+    private fun cancelOutcome(reply: ObrReply.Answered): CancelOutcome {
+        val message = parse(reply.body)?.text("msg").orEmpty()
+        return when (reply.code) {
+            HTTP_OK -> CancelOutcome.Cancelled
+            HTTP_FORBIDDEN -> CancelOutcome.TokenRefused
+            // The specification refuses an invoice already cancelled; the server answers 200 again (§ 7.28).
+            in UNKNOWN_CODES ->
+                if (message.startsWith(ALREADY_CANCELLED)) CancelOutcome.Cancelled else CancelOutcome.Rejected(message)
+            else -> CancelOutcome.NotDelivered("HTTP ${reply.code}")
+        }
+    }
+
     private companion object {
         const val LOGIN = "login/"
         const val CHECK_TIN = "checkTIN/"
         const val ADD_INVOICE = "addInvoice_confirm/"
         const val GET_INVOICE = "getInvoice/"
+        const val CANCEL_INVOICE = "cancelInvoice/"
+
+        /** The refusal of `cancelInvoice/` for an invoice already cancelled (page 30), which is a success. */
+        const val ALREADY_CANCELLED = "La facture que vous voulez annuler a été déjà annulée"
 
         /** The only refusal of `getInvoice/` that means the OBR does not have the invoice (page 19). */
         const val UNKNOWN_IDENTIFIER = "Identifiant de la facture inconnu."

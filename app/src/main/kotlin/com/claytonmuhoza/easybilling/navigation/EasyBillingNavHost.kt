@@ -118,14 +118,7 @@ fun EasyBillingNavHost(
         itemScreens(access, navController)
         customerScreens(access, navController)
         saleScreens(access, navController)
-        composable<InvoiceDestination> {
-            LoggedIn(access, navController, Permission.VIEW_INVOICES) {
-                InvoiceDetailRoute(
-                    onBack = { navController.popBackStack() },
-                    onOpenSale = { navController.navigate(SaleDestination) },
-                )
-            }
-        }
+        invoiceScreens(access, navController)
     }
 }
 

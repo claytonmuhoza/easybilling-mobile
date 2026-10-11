@@ -16,7 +16,7 @@ import java.time.Instant
 
 /**
  * Row of the `outbox_entries` table: an operation to send to the OBR. The identifier gives the
- * order of the queue. [kind] names the operation and [invoiceId] is the invoice it sends. The
+ * order of the queue. [kind] names the operation and [invoiceId] is the invoice it sends or cancels. The
  * times are in milliseconds; [nextAttemptAt] is null while the operation can be tried at once.
  */
 @Entity(tableName = "outbox_entries")
@@ -64,8 +64,11 @@ internal class RoomOutboxRepository(private val dao: OutboxDao) : OutboxReposito
 
     private fun OutboxEntry.toEntity() = OutboxEntryEntity(
         id = id,
-        kind = SEND_INVOICE,
-        invoiceId = (operation as OutboxOperation.SendInvoice).invoice.value,
+        kind = when (operation) {
+            is OutboxOperation.SendInvoice -> SEND_INVOICE
+            is OutboxOperation.CancelInvoice -> CANCEL_INVOICE
+        },
+        invoiceId = operation.invoice.value,
         createdAt = createdAt.toEpochMilli(),
         attempts = attempts,
         nextAttemptAt = nextAttemptAt?.toEpochMilli(),
@@ -77,6 +80,7 @@ internal class RoomOutboxRepository(private val dao: OutboxDao) : OutboxReposito
         id = id,
         operation = when (kind) {
             SEND_INVOICE -> OutboxOperation.SendInvoice(InvoiceId(invoiceId))
+            CANCEL_INVOICE -> OutboxOperation.CancelInvoice(InvoiceId(invoiceId))
             else -> error("Unknown outbox operation $kind")
         },
         createdAt = Instant.ofEpochMilli(createdAt),
@@ -88,6 +92,7 @@ internal class RoomOutboxRepository(private val dao: OutboxDao) : OutboxReposito
 
     private companion object {
         const val SEND_INVOICE = "SEND_INVOICE"
+        const val CANCEL_INVOICE = "CANCEL_INVOICE"
     }
 }
 

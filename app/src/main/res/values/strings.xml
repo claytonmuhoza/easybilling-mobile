@@ -808,4 +808,29 @@
     <string name="discount_cap_saved">Cap saved.</string>
     <string name="discount_cap_load_error">The cap could not be read.</string>
     <string name="discount_cap_save_error">The cap could not be saved. Try again.</string>
+
+    <!-- Cancellation and replacement of an invoice -->
+    <string name="invoice_cancel">Cancel the invoice</string>
+    <string name="invoice_cancel_load_error">The invoice could not be read.</string>
+    <string name="invoice_cancel_approval">Cancelling the invoice %1$s needs the approval of a manager or an administrator.</string>
+    <string name="invoice_cancel_help">Invoice %1$s. The reason is sent to the OBR with the cancellation.</string>
+    <string name="invoice_cancel_reason">Reason</string>
+    <string name="invoice_cancel_reason_blank">Enter the reason of the cancellation</string>
+    <string name="invoice_cancel_reason_too_long">The reason is limited to 100 characters</string>
+    <string name="invoice_cancel_only">Cancel only</string>
+    <string name="invoice_cancel_replace">Cancel and replace</string>
+    <string name="invoice_cancel_replace_help">Cancel and replace starts a new sale with the same lines. The invoice is cancelled once the OBR registers the new one.</string>
+    <string name="invoice_cancel_problem_rejected">The OBR rejected this invoice: there is nothing to cancel.</string>
+    <string name="invoice_cancel_problem_cancelled">This invoice is already cancelled.</string>
+    <string name="invoice_cancel_problem_cancelling">The cancellation of this invoice is waiting for the OBR.</string>
+    <string name="invoice_cancel_problem_replacing">A sale that replaces this invoice is being typed or is on hold.</string>
+    <string name="invoice_replaces">Replaces the invoice %1$s</string>
+    <string name="invoice_replaced_by">Replaced by the invoice %1$s</string>
+    <string name="invoice_cancellation_requested">Cancellation waiting for the OBR. Reason: %1$s</string>
+    <string name="invoice_cancellation_done">Cancelled at the OBR. Reason: %1$s</string>
+    <string name="invoice_cancellation_refused">The OBR refused the cancellation: %1$s</string>
+    <string name="invoice_cancellation_abandoned">Cancellation dropped: the OBR rejected the invoice.</string>
+    <string name="sale_replaces">This sale replaces the invoice %1$s.</string>
+    <string name="sale_refusal_replaced_not_cancellable">The invoice this sale replaces can no longer be cancelled. Put the sale on hold or empty it.</string>
+    <string name="transmission_queue_cancellation">Cancellation of the invoice</string>
 </resources>
