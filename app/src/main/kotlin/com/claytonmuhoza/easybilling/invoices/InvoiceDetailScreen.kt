@@ -47,6 +47,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCustomer
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceLine
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatus
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatusKind
+import com.claytonmuhoza.easybilling.domain.transmission.LocalRefusals
 import com.claytonmuhoza.easybilling.sale.label
 import com.claytonmuhoza.easybilling.ui.MoneyText
 import com.claytonmuhoza.easybilling.ui.amountText
@@ -59,6 +60,8 @@ import com.claytonmuhoza.easybilling.ui.decimalText
  * @param onBack called when the user goes back.
  * @param onOpenSale called when the sale of the invoice was started over and is to be shown.
  * @param onCancelInvoice called when the user asks to cancel or replace the invoice.
+ * @param onCreditInvoice called when the user asks to issue a credit note on the invoice.
+ * @param onOpenDocument called with the identifier of a linked document the user opens.
  * @param viewModel holder of the invoice state.
  */
 @Composable
@@ -66,6 +69,8 @@ fun InvoiceDetailRoute(
     onBack: () -> Unit,
     onOpenSale: () -> Unit,
     onCancelInvoice: () -> Unit,
+    onCreditInvoice: () -> Unit,
+    onOpenDocument: (Long) -> Unit,
     viewModel: InvoiceDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -93,6 +98,8 @@ fun InvoiceDetailRoute(
             onSharePdf = viewModel::sharePdf,
             onRetry = viewModel::load,
             onCancelInvoice = onCancelInvoice,
+            onCreditInvoice = onCreditInvoice,
+            onOpenDocument = onOpenDocument,
         ),
     )
 }
@@ -110,6 +117,9 @@ fun InvoiceDetailRoute(
  * @property onSharePdf called when the user shares the PDF of the invoice.
  * @property onRetry called when the user asks to read the invoice again.
  * @property onCancelInvoice called when the user asks to cancel or replace the invoice.
+ * @property onCreditInvoice called when the user asks to issue a credit note on the invoice.
+ * @property onOpenDocument called with the identifier of a linked document the user opens: a credit
+ * note of the invoice, or the invoice a credit note credits.
  */
 class InvoiceDetailActions(
     val onBack: () -> Unit = {},
@@ -122,6 +132,8 @@ class InvoiceDetailActions(
     val onSharePdf: () -> Unit = {},
     val onRetry: () -> Unit = {},
     val onCancelInvoice: () -> Unit = {},
+    val onCreditInvoice: () -> Unit = {},
+    val onOpenDocument: (Long) -> Unit = {},
 )
 
 /**
@@ -153,6 +165,7 @@ fun InvoiceDetailScreen(state: InvoiceDetailUiState, actions: InvoiceDetailActio
                 PdfButtons(actions.onOpenPdf, actions.onSharePdf, state.pdfProblem, enabled = !state.busy)
                 StatusSection(state, actions)
                 CorrectionSection(state, actions.onCancelInvoice)
+                CreditSection(state, actions)
                 state.notice?.let { Notice(it, actions.onOpenSale) }
                 CustomerCard(invoice.customer)
                 LinesCard(invoice)
@@ -184,17 +197,26 @@ private fun Summary(invoice: InvoiceContent, kind: InvoiceStatusKind) {
 private fun StatusSection(state: InvoiceDetailUiState.Ready, actions: InvoiceDetailActions) {
     when (val status = state.status) {
         is InvoiceStatus.Rejected -> {
-            // The message of the OBR is shown as it gave it.
-            StatusBanner(StatusTone.ERROR, stringResource(R.string.transmission_obr_reason, status.message))
+            // The message of the OBR is shown as it gave it; a refusal of the application is not its message.
+            val local = status.message == LocalRefusals.CREDITED_INVOICE_NOT_REGISTERED
+            StatusBanner(
+                StatusTone.ERROR,
+                if (local) status.message else stringResource(R.string.transmission_obr_reason, status.message),
+            )
             if (!allowed(Permission.RESOLVE_INVOICES)) {
                 Help(stringResource(R.string.invoice_rejected_ask_manager))
                 return
             }
-            Help(stringResource(R.string.invoice_rejected_help))
+            // The sale of a credit note is not started over: another one is issued from its invoice.
+            val creditNote = state.invoice.content.credit != null
+            Help(
+                stringResource(if (creditNote) R.string.credit_note_rejected_help else R.string.invoice_rejected_help),
+            )
             Button(onClick = actions.onResend, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
                 AppIconImage(AppIcon.REFRESH, contentDescription = null)
                 Text(stringResource(R.string.invoice_resend), modifier = Modifier.padding(start = Spacing.small))
             }
+            if (creditNote) return
             OutlinedButton(onClick = actions.onRedo, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
                 AppIconImage(AppIcon.CART, contentDescription = null)
                 Text(stringResource(R.string.invoice_redo), modifier = Modifier.padding(start = Spacing.small))

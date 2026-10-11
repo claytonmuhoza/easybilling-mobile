@@ -81,6 +81,7 @@ fun InvoiceListRoute(
             onQueryChange = viewModel::onQueryChange,
             onStatusChange = viewModel::onStatusChange,
             onPeriodChange = viewModel::onPeriodChange,
+            onTypeChange = viewModel::onTypeChange,
             onRetry = viewModel::load,
         ),
     )
@@ -93,6 +94,7 @@ fun InvoiceListRoute(
  * @property onQueryChange called with the new content of the search field.
  * @property onStatusChange called with the status to list, or null for every status.
  * @property onPeriodChange called with the period to list.
+ * @property onTypeChange called with the type of document to list, or null for every type.
  * @property onRetry called when the user asks to read the invoices again.
  */
 class InvoiceListActions(
@@ -100,6 +102,7 @@ class InvoiceListActions(
     val onQueryChange: (String) -> Unit = {},
     val onStatusChange: (InvoiceStatusKind?) -> Unit = {},
     val onPeriodChange: (InvoicePeriod) -> Unit = {},
+    val onTypeChange: (DocumentType?) -> Unit = {},
     val onRetry: () -> Unit = {},
 )
 
@@ -144,6 +147,7 @@ private fun InvoiceListContent(state: InvoiceListUiState.Ready, actions: Invoice
         SearchField(state.query, actions.onQueryChange, stringResource(R.string.invoices_search))
         StatusFilters(state, actions.onStatusChange)
         PeriodFilters(state.period, actions.onPeriodChange)
+        if (state.typeFilter) TypeFilters(state.type, actions.onTypeChange)
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(Spacing.small),
             contentPadding = PaddingValues(bottom = Spacing.large),
@@ -199,6 +203,23 @@ private fun PeriodFilters(selected: InvoicePeriod, onPeriodChange: (InvoicePerio
                 selected = selected == period,
                 onClick = { onPeriodChange(period) },
                 label = { Text(stringResource(PERIOD_LABELS.getValue(period))) },
+            )
+        }
+    }
+}
+
+/** Every type, the invoices or the credit notes: offered once a credit note exists. */
+@Composable
+private fun TypeFilters(selected: DocumentType?, onTypeChange: (DocumentType?) -> Unit) {
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+    ) {
+        TYPE_FILTER_LABELS.forEach { (type, label) ->
+            FilterChip(
+                selected = selected == type,
+                onClick = { onTypeChange(type) },
+                label = { Text(stringResource(label)) },
             )
         }
     }

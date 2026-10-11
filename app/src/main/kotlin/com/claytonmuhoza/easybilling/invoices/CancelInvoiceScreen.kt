@@ -171,5 +171,7 @@ private fun CancellationProblem.message(): String = stringResource(
         CancellationProblem.CANCELLED -> R.string.invoice_cancel_problem_cancelled
         CancellationProblem.CANCELLING -> R.string.invoice_cancel_problem_cancelling
         CancellationProblem.REPLACING -> R.string.invoice_cancel_problem_replacing
+        CancellationProblem.CREDIT_NOTE -> R.string.invoice_cancel_problem_credit_note
+        CancellationProblem.CREDITED -> R.string.invoice_cancel_problem_credited
     },
 )

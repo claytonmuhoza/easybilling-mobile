@@ -18,9 +18,9 @@ import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.ReasonProblem
 import com.claytonmuhoza.easybilling.domain.invoicing.ReplaceInvoice
-import com.claytonmuhoza.easybilling.identity.ApprovalError
 import com.claytonmuhoza.easybilling.identity.ApprovalUiState
-import com.claytonmuhoza.easybilling.identity.Approver
+import com.claytonmuhoza.easybilling.identity.approvalFor
+import com.claytonmuhoza.easybilling.identity.refusalOf
 import com.claytonmuhoza.easybilling.navigation.CancelInvoiceDestination
 import com.claytonmuhoza.easybilling.transmission.TransmissionRunner
 import com.claytonmuhoza.easybilling.ui.storageCall
@@ -147,10 +147,8 @@ class CancelInvoiceViewModel @Inject constructor(
             problem != null -> mutableState.value = form.copy(reasonProblem = problem)
             session.can(Permission.CORRECT_INVOICES) -> run(form, kind, approver = null)
             else -> viewModelScope.launch {
-                val approvers = storageCall { useCases.authorize.approvers(session.userId) }
-                    .getOrDefault(emptyList())
-                    .map { Approver(it.id.value, it.name) }
-                mutableState.value = form.copy(pending = PendingCorrection(kind, ApprovalUiState(approvers)))
+                val dialog = useCases.authorize.approvalFor(session.userId)
+                mutableState.value = form.copy(pending = PendingCorrection(kind, dialog))
             }
         }
     }
@@ -173,13 +171,7 @@ class CancelInvoiceViewModel @Inject constructor(
         viewModelScope.launch {
             val actor = sessions.current.value?.userId ?: return@launch
             val action = SensitiveAction.InvoiceCancellation(form.number, pending.kind == CancellationKind.REPLACE)
-            val result = storageCall { useCases.authorize(actor, approver, pending.dialog.pin, action) }.getOrNull()
-            val error = when (result) {
-                is AuthorizeSensitiveAction.Result.Authorized -> null
-                is AuthorizeSensitiveAction.Result.WrongPin -> ApprovalError.WrongPin(result.remainingAttempts)
-                is AuthorizeSensitiveAction.Result.Locked -> ApprovalError.Locked
-                AuthorizeSensitiveAction.Result.NotAllowed, null -> ApprovalError.NotAllowed
-            }
+            val error = useCases.authorize.refusalOf(actor, approver, pending.dialog.pin, action)
             val idle = form.copy(busy = false)
             if (error == null) {
                 run(idle.copy(pending = null), pending.kind, approver)
