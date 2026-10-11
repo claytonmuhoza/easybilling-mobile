@@ -959,4 +959,45 @@
     <string name="sale_problem_stock_insufficient">Stock insuffisant pour cette quantité.</string>
     <string name="stock_status_voided">Annulé, non déclaré</string>
     <string name="invoice_resend_stock_insufficient">Le stock n’a plus les articles de cette facture : elle ne peut pas être renvoyée. Refaites la vente.</string>
+    <string name="inventory_title">Inventaire</string>
+    <string name="inventory_load_error">L’inventaire n’a pas pu être lu.</string>
+    <string name="inventory_help">Saisissez ce que vous comptez : c’est conservé, et le stock ne bouge qu’à la clôture de l’inventaire. Une vente faite entre-temps change l’écart : comptez caisse fermée.</string>
+    <string name="inventory_expected">%1$s · Stock : %2$s</string>
+    <string name="inventory_counted">Quantité comptée</string>
+    <string name="inventory_counted_of">Quantité comptée de %1$s</string>
+    <string name="inventory_gap">Écart : %1$s</string>
+    <string name="inventory_no_gap">Aucun écart</string>
+    <string name="inventory_last_cost">Vide : le dernier prix d’achat, %1$s</string>
+    <string name="inventory_cost_missing">Aucun prix d’achat n’est connu pour cet article : saisissez-en un.</string>
+    <string name="inventory_cost_missing_any">Un article compté en plus n’a pas de prix d’achat : saisissez-le sur sa ligne.</string>
+    <string name="inventory_note">Note</string>
+    <string name="inventory_note_too_long">La note est trop longue.</string>
+    <string name="inventory_nothing_counted">Rien n’est encore compté.</string>
+    <string name="inventory_validated">Un gérant valide la clôture de l’inventaire.</string>
+    <string name="inventory_close">Clôturer l’inventaire</string>
+    <string name="inventory_discard">Abandonner l’inventaire</string>
+    <string name="stock_value">Valeur du stock, aux derniers prix d’achat</string>
+    <string name="stock_line_value">Valeur : %1$s</string>
+    <string name="stock_to_reorder">À réapprovisionner</string>
+    <string name="stock_to_reorder_only">Seulement les articles à réapprovisionner (%1$d)</string>
+    <string name="stock_threshold_title">Réapprovisionnement</string>
+    <string name="stock_threshold_field">Seuil de réapprovisionnement</string>
+    <string name="stock_threshold_help">En %1$s. À ce stock ou en dessous, l’article est à réapprovisionner. Vide : pas de seuil.</string>
+    <string name="stock_threshold_invalid">Saisissez un nombre de zéro ou plus, avec deux décimales au plus.</string>
+    <string name="stock_threshold_save">Enregistrer le seuil</string>
+    <string name="stock_threshold_none">Aucun seuil de réapprovisionnement.</string>
+    <string name="stock_threshold_value">Seuil de réapprovisionnement : %1$s</string>
+    <plurals name="inventory_closed">
+        <item quantity="one">Inventaire clôturé : %1$d ajustement enregistré.</item>
+        <item quantity="other">Inventaire clôturé : %1$d ajustements enregistrés.</item>
+    </plurals>
+    <plurals name="inventory_approval">
+        <item quantity="one">Clôture de l’inventaire à approuver : %1$d article ajusté.</item>
+        <item quantity="other">Clôture de l’inventaire à approuver : %1$d articles ajustés.</item>
+    </plurals>
+    <plurals name="stock_unvalued">
+        <item quantity="one">%1$d article en stock n’a pas de prix d’achat connu et n’est pas compté.</item>
+        <item quantity="other">%1$d articles en stock n’ont pas de prix d’achat connu et ne sont pas comptés.</item>
+    </plurals>
+    <string name="stock_threshold_reached">Seuil atteint</string>
 </resources>

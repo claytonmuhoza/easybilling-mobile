@@ -17,6 +17,7 @@ import com.claytonmuhoza.easybilling.domain.stock.ReadStock
 import com.claytonmuhoza.easybilling.domain.stock.RecordStockMovement
 import com.claytonmuhoza.easybilling.domain.stock.ResolveStockMovement
 import com.claytonmuhoza.easybilling.domain.stock.StockRepository
+import com.claytonmuhoza.easybilling.domain.stock.StockSettingsRepository
 import com.claytonmuhoza.easybilling.domain.stock.StockStorage
 import com.claytonmuhoza.easybilling.domain.stock.UnitSalePrice
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
@@ -75,7 +76,8 @@ object StockModule {
 
     /** @return the use case reading the stock of the items. */
     @Provides
-    fun readStock(items: ItemRepository, stock: StockRepository): ReadStock = ReadStock(items, stock)
+    fun readStock(items: ItemRepository, stock: StockRepository, settings: StockSettingsRepository): ReadStock =
+        ReadStock(items, stock, settings)
 
     /** @return the use case deciding what happens to a refused or uncertain movement. */
     @Provides

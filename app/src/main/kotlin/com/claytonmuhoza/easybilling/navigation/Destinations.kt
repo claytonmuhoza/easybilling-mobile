@@ -194,6 +194,10 @@ data object DiscountCapDestination
 @Serializable
 data object StockDestination
 
+/** The inventory in progress: what is counted of each item kept in stock. */
+@Serializable
+data object InventoryDestination
+
 /**
  * The stock of an item and its movements.
  *

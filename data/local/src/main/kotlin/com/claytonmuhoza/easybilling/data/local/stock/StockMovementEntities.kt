@@ -110,6 +110,15 @@ internal interface StockMovementDao {
     )
     suspend fun signedQuantities(excluded: String): List<ItemQuantityRow>
 
+    /** The entries of [types] that count, the oldest first: the last one of an item gives its last cost. */
+    @Query(
+        """
+        SELECT m.* FROM stock_movements m JOIN stock_movement_statuses s ON s.movementId = m.id
+        WHERE m.type IN (:types) AND s.status != :excluded ORDER BY m.id
+        """,
+    )
+    suspend fun ofTypes(types: List<String>, excluded: String): List<StockMovementEntity>
+
     @Query("SELECT * FROM stock_movements WHERE invoiceId = :invoiceId ORDER BY id")
     suspend fun ofInvoice(invoiceId: Long): List<StockMovementEntity>
 
@@ -160,6 +169,10 @@ internal class RoomStockRepository(private val database: EasyBillingDatabase) : 
 
     override suspend fun movementsOf(itemId: ItemId, limit: Int): List<StockMovement> =
         dao.movementsOf(itemId.value, limit).map { it.toDomain() }
+
+    override suspend fun lastEntryCosts(): Map<ItemId, Money> =
+        dao.ofTypes(listOf(MovementType.EN.name, MovementType.EI.name), MovementStatus.Voided.code)
+            .associate { ItemId(it.itemId) to Money.of(it.unitCost, Currency.valueOf(it.currency)) }
 
     override suspend fun ofInvoice(invoiceId: InvoiceId): List<StockMovement> =
         dao.ofInvoice(invoiceId.value).map { it.toDomain() }

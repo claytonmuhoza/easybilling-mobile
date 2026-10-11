@@ -11,6 +11,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.Quantity
+import com.claytonmuhoza.easybilling.domain.stock.InventoryCount
 import com.claytonmuhoza.easybilling.domain.stock.MovementId
 import com.claytonmuhoza.easybilling.domain.stock.MovementStatus
 import com.claytonmuhoza.easybilling.domain.stock.MovementType
@@ -120,6 +121,46 @@ class StockStorageTest {
         // Its invoice is sent again: the movement counts again.
         storage.stock.setStatus(exit.id, MovementStatus.Pending, now)
         assertEquals(0, BigDecimal("5").compareTo(storage.stock.quantityOf(ItemId(1))))
+    }
+
+    @Test
+    fun `the last purchase price of an item is the one of its last purchase or initial inventory`() = runTest {
+        fun bought(type: MovementType, cost: String, item: Long = 1) =
+            content(type, "1", item).copy(unitCost = Money.of(cost, Currency.BIF))
+        storage.stock.record(bought(MovementType.EI, "700"))
+        storage.stock.record(bought(MovementType.EN, "812.5"))
+        storage.stock.record(bought(MovementType.EAJ, "999"))
+        storage.stock.record(bought(MovementType.EAU, "999", item = 2))
+        val voided = storage.stock.record(bought(MovementType.EN, "5", item = 3))
+        storage.stock.setStatus(voided.id, MovementStatus.Voided, now)
+
+        assertEquals(mapOf(ItemId(1) to Money.of("812.5", Currency.BIF)), storage.stock.lastEntryCosts())
+    }
+
+    @Test
+    fun `the inventory in progress and the thresholds survive a restart`() = runTest {
+        val soap = InventoryCount(ItemId(1), BigDecimal("7.5"), Money.of("812.5", Currency.BIF))
+        val sugar = InventoryCount(ItemId(2), BigDecimal.ZERO)
+        storage.inventory.save(InventoryCount(ItemId(1), BigDecimal("3")))
+        storage.inventory.save(soap)
+        storage.inventory.save(sugar)
+        storage.inventory.save(InventoryCount(ItemId(3), BigDecimal("1")))
+        storage.inventory.remove(ItemId(3))
+        storage.stockSettings.setThreshold(ItemId(1), BigDecimal("10"))
+        storage.stockSettings.setThreshold(ItemId(2), BigDecimal("2.5"))
+        storage.stockSettings.setThreshold(ItemId(2), null)
+
+        // The application restarts on the same file.
+        storage.close()
+        storage = LocalStorage.unencryptedFile(context, name)
+
+        assertEquals(listOf(soap, sugar), storage.inventory.counts())
+        assertEquals(mapOf(ItemId(1) to BigDecimal("10")), storage.stockSettings.thresholds())
+
+        storage.inventory.clear()
+        assertEquals(emptyList(), storage.inventory.counts())
+        // Counting never moves the stock.
+        assertEquals(0L, storage.stock.count())
     }
 
     @Test

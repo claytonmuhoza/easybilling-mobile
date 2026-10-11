@@ -953,4 +953,45 @@
     <string name="sale_problem_stock_insufficient">Not enough in stock for this quantity.</string>
     <string name="stock_status_voided">Cancelled, not declared</string>
     <string name="invoice_resend_stock_insufficient">The stock no longer has the items of this invoice: it cannot be sent again. Start the sale over.</string>
+    <string name="inventory_title">Inventory</string>
+    <string name="inventory_load_error">The inventory could not be read.</string>
+    <string name="inventory_help">Type what you count: it is kept, and the stock only moves when you close the inventory. A sale made meanwhile changes the gap, so count with the register closed.</string>
+    <string name="inventory_expected">%1$s · Stock: %2$s</string>
+    <string name="inventory_counted">Counted quantity</string>
+    <string name="inventory_counted_of">Counted quantity of %1$s</string>
+    <string name="inventory_gap">Gap: %1$s</string>
+    <string name="inventory_no_gap">No gap</string>
+    <string name="inventory_last_cost">Empty: the last purchase price, %1$s</string>
+    <string name="inventory_cost_missing">No purchase price is known for this item: type one.</string>
+    <string name="inventory_cost_missing_any">An item found in excess has no purchase price: type it on its line.</string>
+    <string name="inventory_note">Note</string>
+    <string name="inventory_note_too_long">The note is too long.</string>
+    <string name="inventory_nothing_counted">Nothing is counted yet.</string>
+    <string name="inventory_validated">A manager validates the closing of the inventory.</string>
+    <string name="inventory_close">Close the inventory</string>
+    <string name="inventory_discard">Give the inventory up</string>
+    <string name="stock_value">Value of the stock, at the last purchase prices</string>
+    <string name="stock_line_value">Value: %1$s</string>
+    <string name="stock_to_reorder">To reorder</string>
+    <string name="stock_to_reorder_only">Only the items to reorder (%1$d)</string>
+    <string name="stock_threshold_title">Reordering</string>
+    <string name="stock_threshold_field">Reorder threshold</string>
+    <string name="stock_threshold_help">In %1$s. At this stock or under it, the item is to reorder. Empty: no threshold.</string>
+    <string name="stock_threshold_invalid">Type a number of zero or more, with two decimals at most.</string>
+    <string name="stock_threshold_save">Save the threshold</string>
+    <string name="stock_threshold_none">No reorder threshold.</string>
+    <string name="stock_threshold_value">Reorder threshold: %1$s</string>
+    <plurals name="inventory_closed">
+        <item quantity="one">Inventory closed: %1$d adjustment recorded.</item>
+        <item quantity="other">Inventory closed: %1$d adjustments recorded.</item>
+    </plurals>
+    <plurals name="inventory_approval">
+        <item quantity="one">Closing of the inventory to approve: %1$d item adjusted.</item>
+        <item quantity="other">Closing of the inventory to approve: %1$d items adjusted.</item>
+    </plurals>
+    <plurals name="stock_unvalued">
+        <item quantity="one">%1$d item in stock has no known purchase price and is left out.</item>
+        <item quantity="other">%1$d items in stock have no known purchase price and are left out.</item>
+    </plurals>
+    <string name="stock_threshold_reached">Threshold reached</string>
 </resources>

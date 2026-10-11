@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -15,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.claytonmuhoza.easybilling.R
@@ -56,7 +59,13 @@ fun StockItemRoute(
 
     StockItemScreen(
         state = state,
-        actions = StockItemActions(onBack = onBack, onNewMovement = onNewMovement, onRetry = viewModel::load),
+        actions = StockItemActions(
+            onBack = onBack,
+            onNewMovement = onNewMovement,
+            onRetry = viewModel::load,
+            onThresholdChange = viewModel::onThresholdChange,
+            onSaveThreshold = viewModel::saveThreshold,
+        ),
     )
 }
 
@@ -67,11 +76,15 @@ fun StockItemRoute(
  * @property onNewMovement called with the identifier of the item and whether the movement to type
  * is an exit.
  * @property onRetry called when the user asks to read the stock again.
+ * @property onThresholdChange called with the new content of the threshold field.
+ * @property onSaveThreshold called when the user keeps the threshold typed.
  */
 class StockItemActions(
     val onBack: () -> Unit = {},
     val onNewMovement: (Long, Boolean) -> Unit = { _, _ -> },
     val onRetry: () -> Unit = {},
+    val onThresholdChange: (String) -> Unit = {},
+    val onSaveThreshold: () -> Unit = {},
 )
 
 /**
@@ -95,6 +108,7 @@ fun StockItemScreen(state: StockItemUiState, actions: StockItemActions, modifier
             is StockItemUiState.Ready -> FormColumn {
                 Summary(state)
                 MovementButtons(state, actions)
+                Threshold(state, actions)
                 SectionHeader(stringResource(R.string.stock_history))
                 if (state.movements.isEmpty()) {
                     Text(
@@ -155,6 +169,40 @@ private fun MovementButtons(state: StockItemUiState.Ready, actions: StockItemAct
         enabled = state.quantity.signum() > 0,
     ) {
         Text(stringResource(R.string.stock_new_exit))
+    }
+}
+
+/** The reorder threshold: read by everyone, set by who may record a movement (UC-F10). */
+@Composable
+private fun Threshold(state: StockItemUiState.Ready, actions: StockItemActions) {
+    val unit = state.item.details.unit
+    SectionHeader(stringResource(R.string.stock_threshold_title))
+    if (state.toReorder) StatusBanner(StatusTone.PENDING, stringResource(R.string.stock_to_reorder))
+    if (!allowed(Permission.RECORD_STOCK) || state.item.archived) {
+        val threshold = state.threshold
+        Text(
+            text = if (threshold == null) {
+                stringResource(R.string.stock_threshold_none)
+            } else {
+                stringResource(R.string.stock_threshold_value, quantityText(threshold, unit))
+            },
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+    val error = stringResource(R.string.stock_threshold_invalid).takeIf { state.thresholdInvalid }
+    OutlinedTextField(
+        value = state.thresholdText,
+        onValueChange = actions.onThresholdChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(stringResource(R.string.stock_threshold_field)) },
+        supportingText = { Text(error ?: stringResource(R.string.stock_threshold_help, unit)) },
+        isError = error != null,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        singleLine = true,
+    )
+    OutlinedButton(onClick = actions.onSaveThreshold, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.stock_threshold_save))
     }
 }
 

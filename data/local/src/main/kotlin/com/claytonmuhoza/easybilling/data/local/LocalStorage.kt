@@ -19,7 +19,9 @@ import com.claytonmuhoza.easybilling.data.local.invoicing.RoomInvoiceListing
 import com.claytonmuhoza.easybilling.data.local.invoicing.RoomInvoiceRepository
 import com.claytonmuhoza.easybilling.data.local.invoicing.RoomSaleDraftRepository
 import com.claytonmuhoza.easybilling.data.local.transmission.RoomExchangeLog
+import com.claytonmuhoza.easybilling.data.local.stock.RoomInventoryRepository
 import com.claytonmuhoza.easybilling.data.local.stock.RoomStockRepository
+import com.claytonmuhoza.easybilling.data.local.stock.RoomStockSettingsRepository
 import com.claytonmuhoza.easybilling.data.local.transmission.RoomOutboxRepository
 import com.claytonmuhoza.easybilling.data.local.transmission.RoomReceiptArchive
 import com.claytonmuhoza.easybilling.domain.audit.AuditStore
@@ -39,7 +41,9 @@ import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
 import com.claytonmuhoza.easybilling.domain.transmission.ExchangeLog
+import com.claytonmuhoza.easybilling.domain.stock.InventoryRepository
 import com.claytonmuhoza.easybilling.domain.stock.StockRepository
+import com.claytonmuhoza.easybilling.domain.stock.StockSettingsRepository
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
 import com.claytonmuhoza.easybilling.domain.transmission.ReceiptArchive
 
@@ -85,6 +89,12 @@ class LocalStorage private constructor(internal val database: EasyBillingDatabas
 
     /** The stock movements and their status. */
     val stock: StockRepository = RoomStockRepository(database)
+
+    /** What was counted during the inventory in progress. */
+    val inventory: InventoryRepository = RoomInventoryRepository(database)
+
+    /** The reorder thresholds of the items. */
+    val stockSettings: StockSettingsRepository = RoomStockSettingsRepository(database)
 
     /** The acknowledgements of the OBR. */
     val receipts: ReceiptArchive = RoomReceiptArchive(database.receiptDao())

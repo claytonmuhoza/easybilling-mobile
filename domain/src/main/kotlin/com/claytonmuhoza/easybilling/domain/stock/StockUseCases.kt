@@ -8,6 +8,9 @@ import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.shared.Currency
+import com.claytonmuhoza.easybilling.domain.shared.Money
+import com.claytonmuhoza.easybilling.domain.shared.ObrRoundingPolicy
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
@@ -19,26 +22,65 @@ import java.math.BigDecimal
  *
  * @property item the item.
  * @property quantity its stock: the sum of its movements.
+ * @property threshold its reorder threshold, or null when it has none.
+ * @property unitCost its last purchase price, or null when none is known.
  */
-data class StockLine(val item: Item, val quantity: BigDecimal)
+data class StockLine(
+    val item: Item,
+    val quantity: BigDecimal,
+    val threshold: BigDecimal? = null,
+    val unitCost: Money? = null,
+) {
+    /** Whether the stock is at the reorder threshold or under it. */
+    val toReorder: Boolean get() = threshold != null && quantity <= threshold
+
+    /**
+     * What the stock of the item is worth at its last purchase price (D55); nothing for a stock
+     * of zero or less, and null when no purchase price is known.
+     */
+    val value: Money?
+        get() = unitCost?.let { cost ->
+            val counted = quantity.max(BigDecimal.ZERO)
+            Money.of(ObrRoundingPolicy.round(cost.amount * counted), cost.currency)
+        }
+}
 
 /**
  * Reads the stock of the items kept in stock (UC-F10).
  *
  * @param items the catalogue.
  * @param stock the movements.
+ * @param settings the reorder thresholds.
  */
-class ReadStock(private val items: ItemRepository, private val stock: StockRepository) {
+class ReadStock(
+    private val items: ItemRepository,
+    private val stock: StockRepository,
+    private val settings: StockSettingsRepository,
+) {
     /**
      * @param query a part of the code, of the designation or of the barcode; empty for every item.
      * @param limit the most items of the catalogue to look through.
+     * @param toReorderOnly true to keep only the items at their reorder threshold or under it.
      * @return the items kept in stock that match, with their stock, in the order of the catalogue.
      */
-    suspend operator fun invoke(query: String, limit: Int): List<StockLine> {
+    suspend operator fun invoke(query: String, limit: Int, toReorderOnly: Boolean = false): List<StockLine> {
         val quantities = stock.quantities()
+        val thresholds = settings.thresholds()
+        val costs = stock.lastEntryCosts()
         return items.search(query, archived = false, limit = limit)
             .filter { it.details.stockTracked }
-            .map { StockLine(it, quantities[it.id] ?: BigDecimal.ZERO) }
+            .map { StockLine(it, quantities[it.id] ?: BigDecimal.ZERO, thresholds[it.id], costs[it.id]) }
+            .filter { !toReorderOnly || it.toReorder }
+    }
+
+    /** @return the value of the whole stock and how many items are to reorder, whatever the search. */
+    suspend fun summary(): StockSummary {
+        val lines = this(query = "", limit = Int.MAX_VALUE)
+        return StockSummary(
+            value = lines.mapNotNull { it.value }.fold(Money.zero(Currency.BIF)) { total, value -> total + value },
+            unvalued = lines.count { it.quantity.signum() > 0 && it.unitCost == null },
+            toReorder = lines.count { it.toReorder },
+        )
     }
 }
 
