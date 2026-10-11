@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.claytonmuhoza.easybilling.domain.stock.ReadStock
 import com.claytonmuhoza.easybilling.domain.stock.StockLine
+import com.claytonmuhoza.easybilling.domain.stock.StockSummary
 import com.claytonmuhoza.easybilling.ui.storageCall
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -26,8 +27,15 @@ sealed interface StockListUiState {
      *
      * @property query what the user typed in the search field.
      * @property lines the items kept in stock that match, with their stock.
+     * @property summary the value of the whole stock and how many items are to reorder.
+     * @property toReorderOnly whether only the items to reorder are listed.
      */
-    data class Ready(val query: String, val lines: List<StockLine>) : StockListUiState
+    data class Ready(
+        val query: String,
+        val lines: List<StockLine>,
+        val summary: StockSummary = StockSummary.EMPTY,
+        val toReorderOnly: Boolean = false,
+    ) : StockListUiState
 }
 
 /** Lists the items kept in stock with their stock, and searches them (UC-F10). */
@@ -35,6 +43,7 @@ sealed interface StockListUiState {
 class StockListViewModel @Inject constructor(private val readStock: ReadStock) : ViewModel() {
 
     private var query = ""
+    private var toReorderOnly = false
     private var search: Job? = null
 
     private val mutableState = MutableStateFlow<StockListUiState>(StockListUiState.Loading)
@@ -53,12 +62,20 @@ class StockListViewModel @Inject constructor(private val readStock: ReadStock) :
         refresh()
     }
 
+    /** @param toReorderOnly whether to list only the items at their reorder threshold or under it. */
+    fun onToReorderOnlyChange(toReorderOnly: Boolean) {
+        this.toReorderOnly = toReorderOnly
+        refresh()
+    }
+
     private fun refresh() {
         search?.cancel()
         search = viewModelScope.launch {
             val asked = query
-            val result = storageCall { StockListUiState.Ready(asked, readStock(asked, LIMIT)) }
-                .getOrElse { StockListUiState.Failed }
+            val filtered = toReorderOnly
+            val result = storageCall {
+                StockListUiState.Ready(asked, readStock(asked, LIMIT, filtered), readStock.summary(), filtered)
+            }.getOrElse { StockListUiState.Failed }
             // A newer search may have been typed while this one ran: its text stays in the field.
             mutableState.value = if (result is StockListUiState.Ready) result.copy(query = query) else result
         }

@@ -399,7 +399,10 @@ private fun NavGraphBuilder.mainTabs(access: AccessState.Ready, navController: N
     ) {
         LoggedIn(access, navController, Permission.VIEW_STOCK) {
             MainTabs(selected = MainTab.STOCK, onSelect = openTab) {
-                StockListRoute(onOpenItem = { id -> navController.navigate(StockItemDestination(id)) })
+                StockListRoute(
+                    onOpenItem = { id -> navController.navigate(StockItemDestination(id)) },
+                    onOpenInventory = { navController.navigate(InventoryDestination) },
+                )
             }
         }
     }

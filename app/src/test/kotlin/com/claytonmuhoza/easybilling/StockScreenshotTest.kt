@@ -17,6 +17,9 @@ import com.claytonmuhoza.easybilling.domain.invoicing.PriceMode
 import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.Quantity
+import com.claytonmuhoza.easybilling.domain.stock.CountProblem
+import com.claytonmuhoza.easybilling.domain.stock.InventoryCount
+import com.claytonmuhoza.easybilling.domain.stock.InventoryLine
 import com.claytonmuhoza.easybilling.domain.stock.MovementId
 import com.claytonmuhoza.easybilling.domain.stock.MovementProblem
 import com.claytonmuhoza.easybilling.domain.stock.MovementStatus
@@ -25,6 +28,7 @@ import com.claytonmuhoza.easybilling.domain.stock.StockLine
 import com.claytonmuhoza.easybilling.domain.stock.StockMovement
 import com.claytonmuhoza.easybilling.domain.stock.StockMovementContent
 import com.claytonmuhoza.easybilling.domain.stock.StockProblem
+import com.claytonmuhoza.easybilling.domain.stock.StockSummary
 import com.claytonmuhoza.easybilling.domain.transmission.MovementToResolve
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxEntry
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
@@ -32,6 +36,11 @@ import com.claytonmuhoza.easybilling.domain.transmission.QueuedDocument
 import com.claytonmuhoza.easybilling.domain.transmission.TransmissionStatus
 import com.claytonmuhoza.easybilling.identity.ApprovalUiState
 import com.claytonmuhoza.easybilling.identity.Approver
+import com.claytonmuhoza.easybilling.stock.InventoryActions
+import com.claytonmuhoza.easybilling.stock.InventoryRefusal
+import com.claytonmuhoza.easybilling.stock.InventoryRow
+import com.claytonmuhoza.easybilling.stock.InventoryScreen
+import com.claytonmuhoza.easybilling.stock.InventoryUiState
 import com.claytonmuhoza.easybilling.stock.MovementRow
 import com.claytonmuhoza.easybilling.stock.StockItemActions
 import com.claytonmuhoza.easybilling.stock.StockItemScreen
@@ -325,6 +334,102 @@ class StockScreenshotTest(variant: ScreenshotVariant) : ScreenshotTest(variant) 
     fun transmissionStockReadOnly() = capture("transmission_stock_read_only") {
         CompositionLocalProvider(LocalPermissions provides setOf(Permission.VIEW_TRANSMISSION)) {
             TransmissionScreen(transmission(), TransmissionActions())
+        }
+    }
+
+    private fun inventoryRow(
+        item: Item,
+        expected: String,
+        counted: String? = null,
+        lastCost: String? = "800",
+        problems: Set<CountProblem> = emptySet(),
+    ): InventoryRow {
+        val count = counted?.toBigDecimalOrNull()?.let { InventoryCount(item.id, it) }
+        val cost = lastCost?.let { Money.of(it, Currency.BIF) }
+        return InventoryRow(InventoryLine(item, BigDecimal(expected), count, cost), counted.orEmpty(), "", problems)
+    }
+
+    private val inventoryRows = listOf(
+        inventoryRow(soap, "148", counted = "146"),
+        inventoryRow(lines[1].item, "12.5", counted = "14", lastCost = null),
+        inventoryRow(lines[2].item, "0", counted = "0"),
+        inventoryRow(item(4, "Riz parfumé 5 kg", unit = "sac"), "30"),
+    )
+
+    @Composable
+    private fun inventory(state: InventoryUiState) = InventoryScreen(state, InventoryActions())
+
+    @Test
+    fun inventoryCounting() = capture("inventory") {
+        inventory(InventoryUiState.Ready(rows = inventoryRows, note = "Comptage du soir"))
+    }
+
+    @Test
+    fun inventoryProblems() = capture("inventory_problems") {
+        val rows = listOf(inventoryRow(soap, "148", counted = "abc", problems = setOf(CountProblem.QUANTITY_INVALID)))
+        inventory(
+            InventoryUiState.Ready(rows = rows, needsApproval = true, refusal = InventoryRefusal.NOTHING_COUNTED),
+        )
+    }
+
+    @Test
+    fun inventoryClosed() = capture("inventory_closed") {
+        inventory(InventoryUiState.Ready(rows = listOf(inventoryRow(soap, "146")), closedWith = 2))
+    }
+
+    @Test
+    fun inventoryApproval() = capture("inventory_approval") {
+        val approval = ApprovalUiState(listOf(Approver(2, "Marc Ndayizeye")))
+        inventory(InventoryUiState.Ready(rows = inventoryRows, needsApproval = true, approval = approval))
+    }
+
+    @Test
+    fun inventoryNoMatch() = capture("inventory_no_match") {
+        inventory(InventoryUiState.Ready(query = "farine"))
+    }
+
+    @Test
+    fun inventoryLoading() = capture("inventory_loading", animated = true) {
+        inventory(InventoryUiState.Loading)
+    }
+
+    @Test
+    fun inventoryError() = capture("inventory_error") {
+        inventory(InventoryUiState.Failed)
+    }
+
+    @Test
+    fun stockListAlerts() = capture("stock_list_alerts") {
+        val valued = listOf(
+            lines[0].copy(threshold = BigDecimal("20"), unitCost = Money.of("812.5", Currency.BIF)),
+            lines[1].copy(threshold = BigDecimal("15"), unitCost = Money.of("18500", Currency.BIF)),
+            lines[2].copy(threshold = BigDecimal("10")),
+        )
+        val summary = StockSummary(Money.of("351500", Currency.BIF), unvalued = 1, toReorder = 2)
+        list(StockListUiState.Ready(query = "", lines = valued, summary = summary))
+    }
+
+    @Test
+    fun stockListToReorderOnly() = capture("stock_list_to_reorder_only") {
+        val summary = StockSummary(Money.of("351500", Currency.BIF), unvalued = 0, toReorder = 0)
+        list(StockListUiState.Ready(query = "", lines = emptyList(), summary = summary, toReorderOnly = true))
+    }
+
+    @Test
+    fun stockItemToReorder() = capture("stock_item_to_reorder") {
+        detail(StockItemUiState.Ready(soap, BigDecimal("18"), history.takeLast(1), threshold = BigDecimal("20")))
+    }
+
+    @Test
+    fun stockItemThresholdInvalid() = capture("stock_item_threshold_invalid") {
+        val state = StockItemUiState.Ready(soap, BigDecimal("148"), emptyList(), thresholdText = "-5")
+        detail(state.copy(thresholdInvalid = true))
+    }
+
+    @Test
+    fun stockItemThresholdReadOnly() = capture("stock_item_threshold_read_only") {
+        CompositionLocalProvider(LocalPermissions provides setOf(Permission.VIEW_STOCK)) {
+            detail(StockItemUiState.Ready(soap, BigDecimal("18"), emptyList(), threshold = BigDecimal("20")))
         }
     }
 

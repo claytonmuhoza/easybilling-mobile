@@ -41,12 +41,16 @@ import com.claytonmuhoza.easybilling.domain.identity.User
 import com.claytonmuhoza.easybilling.domain.identity.UserForm
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.PriceMode
+import com.claytonmuhoza.easybilling.domain.shared.Currency
+import com.claytonmuhoza.easybilling.domain.shared.Money
+import com.claytonmuhoza.easybilling.domain.stock.InventoryRepository
 import com.claytonmuhoza.easybilling.domain.stock.MovementStatus
 import com.claytonmuhoza.easybilling.domain.stock.MovementType
 import com.claytonmuhoza.easybilling.domain.stock.RecordStockMovement
 import com.claytonmuhoza.easybilling.domain.stock.StockMovement
 import com.claytonmuhoza.easybilling.domain.stock.StockMovementForm
 import com.claytonmuhoza.easybilling.domain.stock.StockRepository
+import com.claytonmuhoza.easybilling.domain.stock.StockSettingsRepository
 import com.claytonmuhoza.easybilling.testing.TestCertificates
 import com.claytonmuhoza.easybilling.testing.TestClock
 import com.claytonmuhoza.easybilling.testing.enterPin
@@ -126,6 +130,12 @@ class StockFlowTest {
 
     @Inject
     lateinit var invoices: InvoiceRepository
+
+    @Inject
+    lateinit var inventory: InventoryRepository
+
+    @Inject
+    lateinit var settings: StockSettingsRepository
 
     @Inject
     lateinit var record: RecordStockMovement
@@ -417,6 +427,89 @@ class StockFlowTest {
         composeRule.onNodeWithText("Validate the sale").assertIsNotEnabled()
         assertNull(runBlocking { invoices.findByNumber("FN-00001/2026") })
         assertEquals(0, BigDecimal("1").compareTo(stockOfSoap()))
+    }
+
+    /** Opens the inventory from the "Stock" tab. */
+    private fun openInventory() {
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        composeRule.waitUntil(TIMEOUT_MILLIS) { composeRule.onAllNodesWithTextCount("Stock") > 0 }
+        tab("Stock").performClick()
+        composeRule.waitForText("Savon de Marseille")
+        composeRule.onNodeWithText("Inventory").performClick()
+        composeRule.waitForText("Close the inventory")
+    }
+
+    @Test
+    fun `an inventory brings the stock to what was counted and declares the adjustment`() {
+        entered("10")
+        openInventory()
+        shown("ART-0001 · Stock: 10 piece")
+
+        composeRule.typeInForm("Counted quantity", "8")
+        shown("Gap: −2 piece")
+        // What is counted is kept, and moves nothing yet.
+        assertEquals(listOf(BigDecimal("8")), runBlocking { inventory.counts() }.map { it.counted })
+        assertEquals(0, BigDecimal("10").compareTo(stockOfSoap()))
+        composeRule.typeInForm("Note", "Comptage du soir")
+        composeRule.pressInForm("Close the inventory")
+
+        composeRule.waitForText("Inventory closed: 1 adjustment recorded.")
+        val adjustment = movements().first()
+        assertEquals(MovementType.SAJ, adjustment.content.type)
+        assertEquals(BigDecimal("2"), adjustment.content.quantity.value)
+        assertEquals(0, BigDecimal("8").compareTo(stockOfSoap()))
+        assertEquals(emptyList(), runBlocking { inventory.counts() })
+        waitForStatus(adjustment, MovementStatus.Declared)
+        val sent = simulator.stockMovements.last().mapValues { (it.value as JsonPrimitive).content }
+        assertEquals("SAJ", sent["item_movement_type"])
+        assertEquals("1180", sent["item_cost_price"])
+        assertEquals(true, sent.getValue("item_movement_description").startsWith("000002 Inventaire du "))
+        assertEquals(true, sent.getValue("item_movement_description").endsWith(" Comptage du soir"))
+    }
+
+    @Test
+    fun `a storekeeper closes the inventory with the PIN of a manager`() {
+        entered("10")
+        val marc = account("Marc", Role.MANAGER, pin = "333333")
+        val sam = account("Sam", Role.STOREKEEPER, pin = "444444")
+        runBlocking { sessions.open(sam) }
+        openInventory()
+
+        composeRule.typeInForm("Counted quantity", "12")
+        shown("Gap: +2 piece")
+        shown("Empty: the last purchase price, 800 BIF")
+        shown("A manager validates the closing of the inventory.")
+        composeRule.pressInForm("Close the inventory")
+        composeRule.waitForText("Approval of a manager")
+        assertEquals(1, movements().size)
+        composeRule.waitForText("Marc").performClick()
+        composeRule.enterPin("333333")
+        composeRule.pressKey("Approve")
+
+        composeRule.waitForText("Inventory closed: 1 adjustment recorded.")
+        val adjustment = movements().first().content
+        assertEquals(MovementType.EAJ, adjustment.type)
+        assertEquals(Money.of("800", Currency.BIF), adjustment.unitCost)
+        assertEquals(sam.id, adjustment.recordedBy)
+        assertEquals(marc.id, adjustment.approvedBy)
+        assertEquals(0, BigDecimal("12").compareTo(stockOfSoap()))
+    }
+
+    @Test
+    fun `an item at its reorder threshold is told to reorder, and the stock tab gives its value`() {
+        entered("5")
+        openSoap()
+
+        composeRule.typeInForm("Reorder threshold", "5")
+        composeRule.pressInForm("Save the threshold")
+        shown("To reorder")
+        assertEquals(mapOf(soap.id to BigDecimal("5")), runBlocking { settings.thresholds() })
+        composeRule.onNodeWithContentDescription("Back").performClick()
+
+        composeRule.waitForText("Only the items to reorder (1)")
+        // Five soaps bought at 800.
+        composeRule.waitForText("4,000 BIF").assertIsDisplayed()
+        composeRule.waitForText("Value: 4,000 BIF").assertIsDisplayed()
     }
 
     private companion object {
