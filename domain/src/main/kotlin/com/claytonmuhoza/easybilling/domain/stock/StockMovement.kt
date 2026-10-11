@@ -273,6 +273,12 @@ interface StockRepository {
     suspend fun movementsOf(itemId: ItemId, limit: Int): List<StockMovement>
 
     /**
+     * @return the last unit purchase price of each item: the one of its most recent entry EN or
+     * EI that counts. An item that never entered the stock that way has none.
+     */
+    suspend fun lastEntryCosts(): Map<ItemId, Money>
+
+    /**
      * @param invoiceId an invoice or a credit note.
      * @return the movements written with it, the oldest first.
      */

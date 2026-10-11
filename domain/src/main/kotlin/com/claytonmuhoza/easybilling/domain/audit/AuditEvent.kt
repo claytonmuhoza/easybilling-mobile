@@ -329,6 +329,30 @@ sealed interface AuditEvent {
     }
 
     /**
+     * The user closed an inventory: [adjustments] items were adjusted, validated by [approver] when
+     * not null.
+     */
+    data class InventoryClosed(
+        override val actor: UserId,
+        val adjustments: Int,
+        val approver: UserId?,
+    ) : AuditEvent {
+        override val action get() = "INVENTORY_CLOSED"
+        override val details
+            get() = "adjustments=$adjustments" + approver?.let { ";approver=${it.value}" }.orEmpty()
+    }
+
+    /** The user set the reorder threshold of [item] to [threshold], or took it away when null. */
+    data class ReorderThresholdSet(
+        override val actor: UserId,
+        val item: ItemId,
+        val threshold: String?,
+    ) : AuditEvent {
+        override val action get() = "REORDER_THRESHOLD_SET"
+        override val details get() = "item=${item.value};threshold=${threshold ?: "none"}"
+    }
+
+    /**
      * A manager decided of the refused or uncertain stock movement [movement]: sent again when
      * [resent], held as declared otherwise.
      */

@@ -31,7 +31,10 @@ import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceCancellationDao
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceCancellationEntity
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceDao
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceEntity
+import com.claytonmuhoza.easybilling.data.local.stock.InventoryCountEntity
+import com.claytonmuhoza.easybilling.data.local.stock.InventoryDao
 import com.claytonmuhoza.easybilling.data.local.stock.StockMovementDao
+import com.claytonmuhoza.easybilling.data.local.stock.StockThresholdEntity
 import com.claytonmuhoza.easybilling.data.local.stock.StockMovementEntity
 import com.claytonmuhoza.easybilling.data.local.stock.StockMovementStatusEntity
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceLineEntity
@@ -66,7 +69,8 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
  * of the discount of a line and cap of the discount (step 14b); 15 cancellations of the invoices,
  * replaced invoice of an invoice and of a sale (step 15a); 16 credited invoice and reason of a credit
  * note (step 15b); 17 stock movements with their status, and what an entry of the send queue is
- * about (step 16a); 18 invoice a stock movement was written with (step 16b).
+ * about (step 16a); 18 invoice a stock movement was written with (step 16b);
+ * 19 inventory in progress and reorder thresholds (step 16c).
  */
 @Database(
     entities = [
@@ -95,8 +99,10 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
         InvoiceCancellationEntity::class,
         StockMovementEntity::class,
         StockMovementStatusEntity::class,
+        InventoryCountEntity::class,
+        StockThresholdEntity::class,
     ],
-    version = 18,
+    version = 19,
     exportSchema = false,
 )
 // One accessor per DAO: the list grows with the schema.
@@ -141,6 +147,8 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
     abstract fun invoiceCancellationDao(): InvoiceCancellationDao
 
     abstract fun stockMovementDao(): StockMovementDao
+
+    abstract fun inventoryDao(): InventoryDao
 }
 
 /**

@@ -31,6 +31,7 @@ import com.claytonmuhoza.easybilling.domain.customer.Customer
 import com.claytonmuhoza.easybilling.domain.customer.CustomerId
 import com.claytonmuhoza.easybilling.domain.identity.FixedPermissionPolicy
 import com.claytonmuhoza.easybilling.domain.identity.AccessControl
+import com.claytonmuhoza.easybilling.domain.identity.ApprovalAuthority
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.invoicing.CancellationRules
 import com.claytonmuhoza.easybilling.domain.invoicing.DiscountLimits
@@ -60,10 +61,14 @@ import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.Quantity
 import com.claytonmuhoza.easybilling.domain.shared.SecretStore
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
+import com.claytonmuhoza.easybilling.domain.stock.CloseInventory
+import com.claytonmuhoza.easybilling.domain.stock.InventoryCount
 import com.claytonmuhoza.easybilling.domain.stock.InvoiceStock
 import com.claytonmuhoza.easybilling.domain.stock.MovementType
 import com.claytonmuhoza.easybilling.domain.stock.StockMovementContent
 import com.claytonmuhoza.easybilling.domain.stock.StockRepository
+import com.claytonmuhoza.easybilling.domain.stock.StockStorage
+import com.claytonmuhoza.easybilling.domain.stock.UnitSalePrice
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxEntry
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
@@ -423,6 +428,66 @@ class SaleStorageTest {
         val tooMuch = edit().setLine(oil.id, SaleLineCheck.Valid(Quantity.of("4"), null, emptyMap()))
         assertIs<IssueSale.Result.Invalid>(issue()(tooMuch.id, alice))
         assertEquals(1, storage.invoices.count())
+    }
+
+    /** The closing of an inventory on the real storage, which "crashes" once everything is written. */
+    private fun closeInventory(): CloseInventory {
+        val audit = ChainedAuditLog(storage.auditStore, time, storage.transactions)
+        val auditLog = object : AuditLog by audit {
+            override suspend fun record(event: AuditEvent) =
+                audit.record(event).also { if (event is AuditEvent.InventoryClosed) crashIf("inventory") }
+        }
+        val invoiceStock = InvoiceStock(storage.stock, storage.numbering, storage.outbox, auditLog)
+        val priceSale =
+            PriceSale(storage.items, storage.taxes, storage.customers, storage.taxProfiles, time, invoiceStock)
+        return CloseInventory(
+            ApprovalAuthority(AccessControl { _, _ -> }, storage.users, FixedPermissionPolicy),
+            StockStorage(
+                storage.items,
+                storage.stock,
+                storage.numbering,
+                storage.ebmsSettings,
+                storage.outbox,
+                auditLog,
+            ),
+            storage.inventory,
+            UnitSalePrice(priceSale, time),
+            storage.transactions,
+            time,
+        )
+    }
+
+    @Test
+    fun `closing an inventory adjusts every counted item, or none`() = runTest {
+        val kept = soap.details.copy(stockTracked = true)
+        val oil = storage.items.create("ART-0003", kept.copy(designation = "Huile de palme"))
+        val rice = storage.items.create("ART-0004", kept.copy(designation = "Riz parfumé"))
+        storage.inventory.save(InventoryCount(oil.id, BigDecimal("3"), Money.of("800", Currency.BIF)))
+        storage.inventory.save(InventoryCount(rice.id, BigDecimal("2.5"), Money.of("900", Currency.BIF)))
+
+        crashAfter = "inventory"
+        assertFailsWith<IllegalStateException> { closeInventory()("", alice) }
+
+        // The application restarts on the same file: the inventory is still in progress.
+        storage.close()
+        storage = LocalStorage.unencryptedFile(context, name)
+        assertEquals(0L, storage.stock.count())
+        assertEquals(2, storage.inventory.counts().size)
+        assertEquals(emptyList(), storage.outbox.pending())
+        assertEquals(emptyList(), storage.auditStore.readAll())
+
+        crashAfter = null
+        val closed = assertIs<CloseInventory.Result.Closed>(closeInventory()("", alice))
+
+        assertEquals(listOf(MovementType.EAJ, MovementType.EAJ), closed.adjustments.map { it.content.type })
+        assertEquals(0, BigDecimal("3").compareTo(storage.stock.quantityOf(oil.id)))
+        assertEquals(0, BigDecimal("2.5").compareTo(storage.stock.quantityOf(rice.id)))
+        assertEquals(emptyList(), storage.inventory.counts())
+        assertEquals(
+            closed.adjustments.map { OutboxOperation.SendStockMovement(it.id) },
+            storage.outbox.pending().map { it.operation },
+        )
+        assertEquals("INVENTORY_CLOSED", storage.auditStore.readAll().last().action)
     }
 
     @Test

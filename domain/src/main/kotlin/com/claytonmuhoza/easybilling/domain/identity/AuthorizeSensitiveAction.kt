@@ -50,6 +50,15 @@ sealed interface SensitiveAction {
     data class StockExit(val itemCode: String, val type: String, val quantity: String) : SensitiveAction {
         override val details get() = "action=STOCK_EXIT;item=$itemCode;type=$type;quantity=$quantity"
     }
+
+    /**
+     * The closing of an inventory, which adjusts the stock (UC-F08).
+     *
+     * @property counted how many items were counted.
+     */
+    data class InventoryClosing(val counted: Int) : SensitiveAction {
+        override val details get() = "action=INVENTORY_CLOSING;counted=$counted"
+    }
 }
 
 /**
