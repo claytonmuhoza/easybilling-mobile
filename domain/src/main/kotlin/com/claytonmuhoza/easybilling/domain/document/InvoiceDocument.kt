@@ -60,7 +60,8 @@ enum class DocumentNotice(val text: String) {
  * @property notice what to say of an invoice that is not registered, or null.
  * @property seller the seller: the tax profile the invoice is sent with.
  * @property customer the customer.
- * @property payment how the invoice is paid, in which currency, and the cashier who issued it.
+ * @property payment how the invoice is paid, in which currency, and the cashier who issued it; for a
+ * credit note, the invoice it credits and why come first.
  * @property columns the names of the columns of [lines].
  * @property lines the lines.
  * @property totals the totals, the amount to pay last.
@@ -149,13 +150,15 @@ data class InvoiceDocument(
                     )
                 },
                 payment = listOfNotNull(
+                    content.credit?.let { DocumentField("invoice_ref", "Facture d'origine", it.invoiceRef) },
+                    content.credit?.let { DocumentField("cn_motif", "Motif", it.reason.motif) },
                     DocumentField("payment_type", "Paiement", PAYMENTS.getValue(content.paymentType)),
                     DocumentField("invoice_currency", "Devise", content.currency.name),
                     cashier?.let { DocumentField(null, "Caissier", it) },
                 ),
                 columns = COLUMNS.map { it.second },
                 lines = content.lines.map { line(it) },
-                totals = totals(content.totals),
+                totals = totals(content.totals, if (content.credit == null) TOTAL_TO_PAY else TOTAL_CREDITED),
                 obr = receipt?.let {
                     listOf(
                         DocumentField(null, "N° d'enregistrement OBR", it.registeredNumber),
@@ -235,8 +238,14 @@ private fun sellerFields(seller: TaxProfile): List<DocumentField> {
     )
 }
 
-/** The totals: the taxes that are zero on the whole invoice are left out, the amount to pay is last. */
-private fun totals(totals: InvoiceTotals): List<DocumentField> {
+private const val TOTAL_TO_PAY = "Total à payer"
+private const val TOTAL_CREDITED = "Total de l'avoir"
+
+/**
+ * The totals: the taxes that are zero on the whole invoice are left out, the amount to pay is last,
+ * under [totalLabel].
+ */
+private fun totals(totals: InvoiceTotals, totalLabel: String): List<DocumentField> {
     fun optional(label: String, money: Money) =
         money.takeIf { it.amount.signum() != 0 }?.let { DocumentField(null, label, DocumentText.amount(it)) }
     return listOfNotNull(
@@ -246,7 +255,7 @@ private fun totals(totals: InvoiceTotals): List<DocumentField> {
         DocumentField(null, "Total HTVA", DocumentText.amount(totals.priceWithoutVat)),
         DocumentField(null, "TVA", DocumentText.amount(totals.vat)),
         optional("Prélèvement forfaitaire (PFL)", totals.flatRateWithholding),
-        DocumentField(null, "Total à payer", DocumentText.amount(totals.total)),
+        DocumentField(null, totalLabel, DocumentText.amount(totals.total)),
     )
 }
 

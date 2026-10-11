@@ -7,9 +7,14 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
 import com.claytonmuhoza.easybilling.domain.configuration.activeLoginTarget
 import com.claytonmuhoza.easybilling.domain.invoicing.CancelInvoice
 import com.claytonmuhoza.easybilling.domain.invoicing.CancellationState
+import com.claytonmuhoza.easybilling.domain.invoicing.CreditLineForm
+import com.claytonmuhoza.easybilling.domain.invoicing.CreditReasonType
+import com.claytonmuhoza.easybilling.domain.invoicing.CreditRequest
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatus
+import com.claytonmuhoza.easybilling.domain.invoicing.IssueCreditNote
 import com.claytonmuhoza.easybilling.domain.invoicing.IssueSale
+import com.claytonmuhoza.easybilling.domain.invoicing.countedCreditNotes
 import com.claytonmuhoza.easybilling.domain.testing.DirectTransactionRunner
 import com.claytonmuhoza.easybilling.domain.testing.FakeObrGateway
 import com.claytonmuhoza.easybilling.domain.testing.InMemoryReceiptArchive
@@ -454,5 +459,61 @@ class DispatchOutboxTest {
             CancellationState.Refused("La facture referencée a été déjà annulée."),
             fixture.cancellations.find(invoice.id)?.state,
         )
+    }
+
+    /** Issues a credit note of the single line of [invoice], a second later. */
+    private suspend fun credited(invoice: Invoice): Invoice {
+        fixture.time.advance(Duration.ofSeconds(1))
+        val line = invoice.content.lines.single()
+        val request = CreditRequest(
+            invoice.id,
+            listOf(CreditLineForm(line.itemId, line.quantity.toPlainString(), "1000")),
+            CreditReasonType.GOODS_RETURN,
+            detail = "",
+        )
+        return assertIs<IssueCreditNote.Result.Issued>(fixture.issueCreditNote(request, fixture.alice)).invoice
+    }
+
+    @Test
+    fun `a credit note leaves after the invoice it credits`() = runTest {
+        val invoice = issued().single()
+        val note = credited(invoice)
+
+        val report = dispatch()
+
+        assertEquals(DispatchReport(registered = 2, remaining = 0), report)
+        assertEquals(listOf("FN-00001/2026", "FA-00001/2026"), sent())
+        assertEquals(InvoiceStatus.Registered, statusOf(note))
+        assertEquals(gateway.receiptOf(note), receipts.find(note.id))
+    }
+
+    @Test
+    fun `a credit note waits behind its invoice while that one cannot be delivered`() = runTest {
+        val invoice = issued().single()
+        val note = credited(invoice)
+        gateway.forcedSends += SendOutcome.NotDelivered("UNREACHABLE")
+
+        dispatch()
+
+        assertEquals(listOf("FN-00001/2026"), sent())
+        assertEquals(InvoiceStatus.Pending, statusOf(invoice))
+        assertEquals(InvoiceStatus.Pending, statusOf(note))
+        assertEquals(2, fixture.outbox.pending().size)
+    }
+
+    @Test
+    fun `the credit note of an invoice the OBR rejects is not sent and says why`() = runTest {
+        val invoice = issued().single()
+        val note = credited(invoice)
+        gateway.forcedSends += SendOutcome.Rejected("NIF invalide")
+
+        val report = dispatch()
+
+        assertEquals(DispatchReport(rejected = 2, remaining = 0), report)
+        assertEquals(listOf("FN-00001/2026"), sent())
+        assertEquals(InvoiceStatus.Rejected(LocalRefusals.CREDITED_INVOICE_NOT_REGISTERED), statusOf(note))
+        assertEquals(AuditEvent.InvoiceRejected(note.id), fixture.audit.events.last())
+        // It no longer counts: the invoice has nothing credited.
+        assertEquals(emptyList(), fixture.invoices.countedCreditNotes(invoice.content.number))
     }
 }

@@ -8,7 +8,6 @@ import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.configuration.BillingReadiness
 import com.claytonmuhoza.easybilling.domain.configuration.CheckBillingReadiness
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsCredentialsVault
-import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.identity.UserId
@@ -77,6 +76,14 @@ class IssueSale(
     private val transactions: TransactionRunner,
     private val time: TimeProvider,
 ) {
+    private val stamper = DocumentStamper(
+        configuration.profiles,
+        configuration.ebmsSettings,
+        configuration.vault,
+        configuration.readiness,
+        allocateNumber,
+    )
+
     /** Outcome of an issue. */
     sealed interface Result {
         /** [invoice] is issued, waiting to be sent to the OBR. */
@@ -136,14 +143,11 @@ class IssueSale(
 
         // The OBR reads the date to the second.
         val issuedAt = time.now().truncatedTo(ChronoUnit.SECONDS)
-        val number = number(issuedAt)
-        if (number.length > InvoiceIdentifier.roomForNumber(seller.tin, seller.systemId)) {
-            throw Aborted(Result.IdentifierTooLong)
-        }
+        val stamp = stamp(seller, issuedAt)
         val content = InvoiceContent(
             type = DocumentType.FN,
-            number = number,
-            identifier = InvoiceIdentifier.of(seller.tin, seller.systemId, issuedAt, number),
+            number = stamp.number,
+            identifier = stamp.identifier,
             issuedAt = issuedAt,
             profileVersion = seller.profileVersion,
             environment = seller.environment,
@@ -160,7 +164,7 @@ class IssueSale(
         draft.replacement?.let { recordReplacement(it, invoice, actor, issuedAt) }
         storage.outbox.enqueue(OutboxOperation.SendInvoice(invoice.id), issuedAt)
         storage.drafts.delete(draft.id)
-        storage.auditLog.record(AuditEvent.InvoiceIssued(actor, invoice.id, number))
+        storage.auditLog.record(AuditEvent.InvoiceIssued(actor, invoice.id, stamp.number))
         return Result.Issued(invoice)
     }
 
@@ -196,29 +200,16 @@ class IssueSale(
         )
     }
 
-    /** What the invoice takes from the configuration. */
-    private class Seller(
-        val tin: String,
-        val profileVersion: Int,
-        val environment: EbmsEnvironment,
-        val systemId: String,
-    )
-
-    private suspend fun seller(): Seller {
-        val readiness = configuration.readiness()
-        val environment = configuration.ebmsSettings.read().activeEnvironment
-        val systemId = configuration.vault.read(environment)?.systemId
-        val profile = configuration.profiles.current()
-        if (!readiness.ready || profile == null || systemId == null) throw Aborted(Result.NotReady(readiness))
-        return Seller(profile.profile.tin, profile.number, environment, systemId)
+    private suspend fun seller(): DocumentStamper.Seller = when (val result = stamper.seller()) {
+        is DocumentStamper.SellerResult.Ready -> result.seller
+        is DocumentStamper.SellerResult.NotReady -> throw Aborted(Result.NotReady(result.readiness))
     }
 
-    private suspend fun number(issuedAt: Instant): String =
-        when (val allocation = allocateNumber(DocumentType.FN, issuedAt)) {
-            is AllocateInvoiceNumber.Result.Allocated -> allocation.number
-            AllocateInvoiceNumber.Result.Exhausted -> throw Aborted(Result.NumbersExhausted)
-            // The readiness already asked for a numbering.
-            AllocateInvoiceNumber.Result.NotConfigured -> error("No numbering although the configuration is ready")
+    private suspend fun stamp(seller: DocumentStamper.Seller, issuedAt: Instant): DocumentStamper.Stamp.Done =
+        when (val stamp = stamper.stamp(DocumentType.FN, seller, issuedAt)) {
+            is DocumentStamper.Stamp.Done -> stamp
+            DocumentStamper.Stamp.NumbersExhausted -> throw Aborted(Result.NumbersExhausted)
+            DocumentStamper.Stamp.IdentifierTooLong -> throw Aborted(Result.IdentifierTooLong)
         }
 
     private fun PricedLine.toInvoiceLine(sale: PricedSale) = InvoiceLine(

@@ -142,8 +142,10 @@ internal class ObrServices(var username: String, var password: String) {
         val replaced = invoices.entries.firstOrNull { it.value.text("invoice_number") == replacedNumber }?.key
         val complete = MANDATORY_INVOICE_FIELDS.all { body.text(it).isNotEmpty() } &&
             (body["invoice_items"] as? JsonArray).orEmpty().isNotEmpty()
+        val creditRefusal = creditNoteRefusal(body)
         return when {
             !complete -> refusal(ObrSimulator.MESSAGE_MISSING_FIELDS)
+            creditRefusal != null -> refusal(creditRefusal)
             invoices.values.any { it.text("invoice_number") == number } -> refusal(
                 ObrSimulator.MESSAGE_DUPLICATE_NUMBER,
                 CONFLICT,
@@ -240,6 +242,31 @@ internal fun jsonResponse(code: Int, body: JsonObject) = MockResponse.Builder()
     .setHeader("Content-Type", "application/json")
     .body(body.toString())
     .build()
+
+/**
+ * What the server checks of a credit note (`invoice_type` FA), as it answered on 6 October 2026: it
+ * names a normal invoice the server has and did not cancel. It asks neither for `cn_motif` nor that
+ * the credit notes stay within the total of the invoice.
+ *
+ * @return the refusal of [body], or null when it is not a credit note or when it is accepted.
+ */
+private fun ObrServices.creditNoteRefusal(body: JsonObject): String? {
+    if (body.text("invoice_type") != CREDIT_NOTE) return null
+    val reference = body.text("invoice_ref")
+    val credited = invoices.entries.firstOrNull { it.value.text("invoice_number") == reference }
+    return when {
+        reference.isEmpty() -> ObrSimulator.MESSAGE_MISSING_INVOICE_REF
+        credited == null -> ObrSimulator.MESSAGE_CREDIT_UNKNOWN_INVOICE
+        credited.value.text("invoice_type") !in NORMAL_INVOICE -> ObrSimulator.MESSAGE_CREDIT_NOT_AN_INVOICE
+        credited.key in cancelled -> ObrSimulator.MESSAGE_CREDIT_CANCELLED_INVOICE
+        else -> null
+    }
+}
+
+private const val CREDIT_NOTE = "FA"
+
+/** `invoice_type` of a normal invoice: FN, or nothing since FN is the default. */
+private val NORMAL_INVOICE = setOf("FN", "")
 
 /**
  * Cancels an invoice. The server answers a success again for an invoice already cancelled, and

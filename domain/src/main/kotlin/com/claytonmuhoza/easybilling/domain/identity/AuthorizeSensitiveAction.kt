@@ -30,6 +30,15 @@ sealed interface SensitiveAction {
     data class InvoiceCancellation(val invoiceNumber: String, val replace: Boolean) : SensitiveAction {
         override val details get() = "action=INVOICE_CANCELLATION;invoice=$invoiceNumber;replace=$replace"
     }
+
+    /**
+     * A credit note on an invoice (UC-E03).
+     *
+     * @property invoiceNumber the number of the invoice that is credited.
+     */
+    data class CreditNote(val invoiceNumber: String) : SensitiveAction {
+        override val details get() = "action=CREDIT_NOTE;invoice=$invoiceNumber"
+    }
 }
 
 /**

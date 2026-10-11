@@ -54,10 +54,11 @@ internal object InvoiceJson {
         put("customer_TIN", content.customer.tin.orEmpty())
         put("customer_address", content.customer.address)
         put("vat_customer_payer", flag(content.customer.vatPayer))
-        // A replacement names the invoice it cancels (UC-E02); the other two are for the credit notes.
+        // A replacement names the invoice it cancels (UC-E02); a credit note the one it credits, and
+        // why (UC-E03).
         put("cancelled_invoice_ref", content.cancelledInvoiceRef.orEmpty())
-        put("invoice_ref", "")
-        put("cn_motif", "")
+        put("invoice_ref", content.credit?.invoiceRef.orEmpty())
+        put("cn_motif", content.credit?.reason?.motif.orEmpty())
         put("invoice_identifier", content.identifier)
         putJsonArray("invoice_items") { content.lines.forEach { add(line(it)) } }
     }

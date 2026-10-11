@@ -7,6 +7,9 @@ import com.claytonmuhoza.easybilling.domain.catalog.ItemId
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.customer.CustomerId
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.invoicing.CreditNote
+import com.claytonmuhoza.easybilling.domain.invoicing.CreditReason
+import com.claytonmuhoza.easybilling.domain.invoicing.CreditReasonType
 import com.claytonmuhoza.easybilling.domain.invoicing.DocumentType
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceContent
@@ -48,6 +51,7 @@ class InvoiceTrackingStorageTest {
     private var storage = LocalStorage.unencryptedFile(context, name)
     private val morning = Instant.parse("2026-10-03T08:00:00Z")
     private var issued = 0
+    private var credited = 0
 
     @After
     fun cleanUp() {
@@ -104,6 +108,21 @@ class InvoiceTrackingStorageTest {
                 currency = Currency.BIF,
                 lines = listOf(line(lineTotal), line(lineTotal)),
                 issuedBy = UserId(1),
+            ),
+        )
+    }
+
+    /** Stores a credit note of one line of [invoice], issued [minutes] after the morning. */
+    private suspend fun creditNote(invoice: Invoice, minutes: Long, reason: CreditReason): Invoice {
+        val number = "FA-%05d/2026".format(++credited)
+        return storage.invoices.create(
+            invoice.content.copy(
+                type = DocumentType.FA,
+                number = number,
+                identifier = "4000000001/ws400000000100001/20261003100000/$number",
+                issuedAt = morning.plusSeconds(minutes * SECONDS_PER_MINUTE),
+                lines = invoice.content.lines.take(1),
+                credit = CreditNote(invoice.content.number, reason),
             ),
         )
     }
@@ -200,6 +219,37 @@ class InvoiceTrackingStorageTest {
             storage.invoiceListing.countByStatus(InvoiceFilter(since = second.content.issuedAt)),
         )
         assertEquals(emptyMap(), storage.invoiceListing.countByStatus(InvoiceFilter(query = "introuvable")))
+    }
+
+    @Test
+    fun `a credit note keeps its invoice and its reason`() = runTest {
+        val invoice = invoice()
+        val other = invoice(minutes = 1)
+        val reason = CreditReason(CreditReasonType.GOODS_RETURN, "carton abîmé")
+        val first = creditNote(invoice, minutes = 2, reason)
+        val second = creditNote(invoice, minutes = 3, CreditReason(CreditReasonType.REBATE))
+        creditNote(other, minutes = 4, CreditReason(CreditReasonType.ERROR))
+
+        assertEquals(first, storage.invoices.find(first.id))
+        assertEquals(CreditNote("FN-00001/2026", reason), storage.invoices.find(first.id)?.content?.credit)
+        assertEquals("", storage.invoices.find(second.id)?.content?.credit?.reason?.detail)
+        assertEquals(listOf(first, second), storage.invoices.creditNotesOf("FN-00001/2026"))
+        assertEquals(emptyList(), storage.invoices.creditNotesOf("FN-00009/2026"))
+        assertEquals(null, storage.invoices.find(invoice.id)?.content?.credit)
+    }
+
+    @Test
+    fun `the invoices are filtered by type`() = runTest {
+        val invoice = invoice()
+        creditNote(invoice, minutes = 1, CreditReason(CreditReasonType.ERROR))
+
+        assertEquals(listOf("FA-00001/2026", "FN-00001/2026"), numbers())
+        assertEquals(listOf("FA-00001/2026"), numbers(InvoiceFilter(type = DocumentType.FA)))
+        assertEquals(listOf("FN-00001/2026"), numbers(InvoiceFilter(type = DocumentType.FN)))
+        assertEquals(
+            mapOf(InvoiceStatusKind.PENDING to 1),
+            storage.invoiceListing.countByStatus(InvoiceFilter(type = DocumentType.FA)),
+        )
     }
 
     @Test

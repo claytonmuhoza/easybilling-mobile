@@ -208,5 +208,22 @@ class ObrSimulator(
         /** `addInvoice_confirm/` with a `cancelled_invoice_ref` already cancelled (server, § 7.28). */
         const val MESSAGE_REPLACED_ALREADY_CANCELLED =
             "La facture referencée dans le champ reference de la facture annulée a été déjà annulée."
+
+        /** A credit note (FA) without `invoice_ref` (server, § 7.28). */
+        const val MESSAGE_MISSING_INVOICE_REF = "Champ(s) manquant(s): invoice_ref"
+
+        /**
+         * A credit note whose `invoice_ref` the server does not know. Only this beginning of the
+         * message of the server was written down (§ 7.28): the rest is not made up.
+         */
+        const val MESSAGE_CREDIT_UNKNOWN_INVOICE =
+            "Aucune facture normale (FN) ne correspond au numero de facture fourni"
+
+        /** A credit note on a credit note. Only this end of the message was written down (§ 7.28). */
+        const val MESSAGE_CREDIT_NOT_AN_INVOICE = "doit etre d'une facture normale (FN)"
+
+        /** A credit note on a cancelled invoice. Only this end of the message was written down (§ 7.28). */
+        const val MESSAGE_CREDIT_CANCELLED_INVOICE =
+            "a ete annulee. Veuillez fournir un numero de facture non annulee"
     }
 }

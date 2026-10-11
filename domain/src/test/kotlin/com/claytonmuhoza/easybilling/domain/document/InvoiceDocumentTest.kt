@@ -6,9 +6,13 @@ import com.claytonmuhoza.easybilling.domain.customer.Customer
 import com.claytonmuhoza.easybilling.domain.customer.VerifiedTin
 import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException
+import com.claytonmuhoza.easybilling.domain.invoicing.CreditLineForm
+import com.claytonmuhoza.easybilling.domain.invoicing.CreditReasonType
+import com.claytonmuhoza.easybilling.domain.invoicing.CreditRequest
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatus
+import com.claytonmuhoza.easybilling.domain.invoicing.IssueCreditNote
 import com.claytonmuhoza.easybilling.domain.invoicing.IssueSale
 import com.claytonmuhoza.easybilling.domain.invoicing.PaymentType
 import com.claytonmuhoza.easybilling.domain.testing.FakeAccessControl
@@ -226,5 +230,32 @@ class InvoiceDocumentTest {
 
         assertEquals(listOf(fixture.alice to Permission.SELL), access.required)
         assertEquals(events, fixture.audit.events.size)
+    }
+
+    @Test
+    fun `a credit note is titled as one, names the invoice it credits and says why`() = runTest {
+        val invoice = issued()
+        val line = invoice.content.lines.single()
+        val request = CreditRequest(
+            invoice.id,
+            listOf(CreditLineForm(line.itemId, "1", "1000")),
+            CreditReasonType.GOODS_RETURN,
+            "carton abîmé",
+        )
+        val note = assertIs<IssueCreditNote.Result.Issued>(fixture.issueCreditNote(request, fixture.alice)).invoice
+
+        val document = documentOf(note)
+
+        assertEquals("FACTURE D'AVOIR", document.title)
+        assertEquals("FA-00001/2026", document.number.value)
+        assertEquals("FN-00001/2026", document.value("invoice_ref"))
+        assertEquals("Retour marchandises : carton abîmé", document.value("cn_motif"))
+        assertEquals("Total de l'avoir", document.totals.last().label)
+        assertEquals("1 180 BIF", document.totals.last().value)
+        // An invoice says neither.
+        val original = documentOf(invoice)
+        assertNull(original.value("invoice_ref"))
+        assertNull(original.value("cn_motif"))
+        assertEquals("Total à payer", original.totals.last().label)
     }
 }
