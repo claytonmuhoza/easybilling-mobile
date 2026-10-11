@@ -243,6 +243,47 @@ sealed interface AuditEvent {
         override val details get() = "invoice=${invoice.value}"
     }
 
+    /** The user asked for the cancellation of [invoice], approved by [approver] when not null. */
+    data class InvoiceCancellationRequested(
+        override val actor: UserId,
+        val invoice: InvoiceId,
+        val approver: UserId?,
+    ) : AuditEvent {
+        override val action get() = "INVOICE_CANCELLATION_REQUESTED"
+        override val details get() = "invoice=${invoice.value}" + approver?.let { ";approver=${it.value}" }.orEmpty()
+    }
+
+    /** The user started a sale that replaces [invoice], approved by [approver] when not null. */
+    data class InvoiceReplacementStarted(
+        override val actor: UserId,
+        val invoice: InvoiceId,
+        val approver: UserId?,
+    ) : AuditEvent {
+        override val action get() = "INVOICE_REPLACEMENT_STARTED"
+        override val details get() = "invoice=${invoice.value}" + approver?.let { ";approver=${it.value}" }.orEmpty()
+    }
+
+    /** The OBR cancelled [invoice], by `cancelInvoice/` or by accepting the invoice that replaces it. */
+    data class InvoiceCancelled(val invoice: InvoiceId) : AuditEvent {
+        override val actor: UserId? get() = null
+        override val action get() = "INVOICE_CANCELLED"
+        override val details get() = "invoice=${invoice.value}"
+    }
+
+    /** The OBR refused to cancel [invoice], with its [message]. */
+    data class InvoiceCancellationRefused(val invoice: InvoiceId, val message: String) : AuditEvent {
+        override val actor: UserId? get() = null
+        override val action get() = "INVOICE_CANCELLATION_REFUSED"
+        override val details get() = "invoice=${invoice.value}"
+    }
+
+    /** The OBR rejected [invoice] before its cancellation left: the cancellation was dropped. */
+    data class InvoiceCancellationAbandoned(val invoice: InvoiceId) : AuditEvent {
+        override val actor: UserId? get() = null
+        override val action get() = "INVOICE_CANCELLATION_ABANDONED"
+        override val details get() = "invoice=${invoice.value}"
+    }
+
     /** The refused invoice [invoice] was put back in the send queue with the tax profile [profileVersion]. */
     data class InvoiceResent(override val actor: UserId, val invoice: InvoiceId, val profileVersion: Int) : AuditEvent {
         override val action get() = "INVOICE_RESENT"

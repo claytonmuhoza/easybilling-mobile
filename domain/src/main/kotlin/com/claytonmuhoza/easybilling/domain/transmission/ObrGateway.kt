@@ -75,6 +75,24 @@ sealed interface LookupOutcome {
     data class Unavailable(val reason: String) : LookupOutcome
 }
 
+/** What asking the OBR to cancel an invoice gave (`cancelInvoice/`). */
+sealed interface CancelOutcome {
+    /** The OBR cancelled the invoice. It answers so again for an invoice already cancelled (§ 7.28). */
+    data object Cancelled : CancelOutcome
+
+    /** The OBR refused, with its [message] (`msg`). */
+    data class Rejected(val message: String) : CancelOutcome
+
+    /** The OBR refused the token: a new one is needed. */
+    data object TokenRefused : CancelOutcome
+
+    /** The request certainly did not reach the OBR, or its server failed: it can be sent again. */
+    data class NotDelivered(val reason: String) : CancelOutcome
+
+    /** The request left and no answer came. Sending it again is safe: the OBR answers a success again. */
+    data class Uncertain(val reason: String) : CancelOutcome
+}
+
 /** The fiscal services of the EBMS. The domain knows nothing of HTTP nor of JSON. */
 interface ObrGateway {
     /**
@@ -97,6 +115,17 @@ interface ObrGateway {
      * @return the invoice as the OBR has it, or why there is none.
      */
     suspend fun getInvoice(target: LoginTarget, token: String, identifier: String): LookupOutcome
+
+    /**
+     * Cancels an invoice (`cancelInvoice/`).
+     *
+     * @param target the server to call.
+     * @param token a token given by `login/`.
+     * @param identifier the `invoice_identifier`.
+     * @param reason the `cn_motif`.
+     * @return what the OBR answered.
+     */
+    suspend fun cancelInvoice(target: LoginTarget, token: String, identifier: String, reason: String): CancelOutcome
 }
 
 /** Storage of the acknowledgements of the OBR. It only ever adds: an acknowledgement is a proof. */

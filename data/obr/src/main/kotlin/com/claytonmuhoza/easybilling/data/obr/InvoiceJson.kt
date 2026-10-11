@@ -54,8 +54,8 @@ internal object InvoiceJson {
         put("customer_TIN", content.customer.tin.orEmpty())
         put("customer_address", content.customer.address)
         put("vat_customer_payer", flag(content.customer.vatPayer))
-        // A sale cancels nothing and refers to no other invoice: these fields are for the later steps.
-        put("cancelled_invoice_ref", "")
+        // A replacement names the invoice it cancels (UC-E02); the other two are for the credit notes.
+        put("cancelled_invoice_ref", content.cancelledInvoiceRef.orEmpty())
         put("invoice_ref", "")
         put("cn_motif", "")
         put("invoice_identifier", content.identifier)

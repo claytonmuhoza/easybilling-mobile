@@ -78,6 +78,8 @@ data class InvoiceCustomer(
  * @property currency `invoice_currency`.
  * @property lines the lines, in order.
  * @property issuedBy the user who issued the invoice.
+ * @property cancelledInvoiceRef `cancelled_invoice_ref`: the number of the invoice this one
+ * replaces, which it cancels at the OBR (UC-E02), or null.
  */
 data class InvoiceContent(
     val type: DocumentType,
@@ -91,6 +93,7 @@ data class InvoiceContent(
     val currency: Currency,
     val lines: List<InvoiceLine>,
     val issuedBy: UserId,
+    val cancelledInvoiceRef: String? = null,
 ) {
     /** The totals of the invoice: the sums of the amounts of its lines. */
     val totals: InvoiceTotals get() = InvoiceTotals.of(lines.map { it.amounts }, currency)

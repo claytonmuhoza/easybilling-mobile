@@ -20,6 +20,16 @@ sealed interface SensitiveAction {
         override val details get() =
             "action=LINE_DISCOUNT;item=$itemCode;rate=${rate.stripTrailingZeros().toPlainString()}"
     }
+
+    /**
+     * The cancellation of an invoice, or its replacement (UC-E01, E02).
+     *
+     * @property invoiceNumber the number of the invoice.
+     * @property replace true when the invoice is replaced, false when it is only cancelled.
+     */
+    data class InvoiceCancellation(val invoiceNumber: String, val replace: Boolean) : SensitiveAction {
+        override val details get() = "action=INVOICE_CANCELLATION;invoice=$invoiceNumber;replace=$replace"
+    }
 }
 
 /**

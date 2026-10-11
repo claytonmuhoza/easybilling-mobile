@@ -113,9 +113,10 @@ class RedoSale(
 
     /**
      * @param id the invoice whose sale is started over.
+     * @param replacement what the new sale replaces once issued, or null for a new sale alone.
      * @return what was started.
      */
-    suspend operator fun invoke(id: InvoiceId): Result = transactions.run {
+    suspend operator fun invoke(id: InvoiceId, replacement: Replacement? = null): Result = transactions.run {
         val content = invoices.find(id)?.content ?: return@run Result.NotFound
         val lines = content.lines.filter { items.find(it.itemId)?.archived == false }
         val customer = customers.find(content.customer.id)?.takeIf { !it.archived && !it.counter }
@@ -132,6 +133,7 @@ class RedoSale(
                 customerId = customer?.id,
                 paymentType = content.paymentType,
                 lines = lines.map { DraftLine(it.itemId, it.quantity, it.discount) },
+                replacement = replacement,
             ),
         )
         Result.Started(skippedLines = content.lines.size - lines.size)

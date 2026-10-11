@@ -11,6 +11,9 @@ enum class Permission {
     /** Send a refused invoice again and decide what happens to an uncertain one. */
     RESOLVE_INVOICES,
 
+    /** Cancel an invoice, replace it or credit it (UC-E01 to E03). */
+    CORRECT_INVOICES,
+
     /** See the items. */
     VIEW_ITEMS,
 

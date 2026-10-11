@@ -18,7 +18,9 @@ import com.claytonmuhoza.easybilling.domain.invoicing.Discount
 import com.claytonmuhoza.easybilling.domain.invoicing.DiscountKind
 import com.claytonmuhoza.easybilling.domain.invoicing.DraftId
 import com.claytonmuhoza.easybilling.domain.invoicing.DraftLine
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.invoicing.PaymentType
+import com.claytonmuhoza.easybilling.domain.invoicing.Replacement
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraft
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.Currency
@@ -27,7 +29,10 @@ import com.claytonmuhoza.easybilling.domain.shared.Quantity
 import java.math.BigDecimal
 import java.time.Instant
 
-/** Row of the `sale_drafts` table: a sale that is not issued. [updatedAt] is in milliseconds. */
+/**
+ * Row of the `sale_drafts` table: a sale that is not issued. [updatedAt] is in milliseconds. The
+ * three replacement columns are null unless the sale replaces the invoice [replacedInvoiceId].
+ */
 @Entity(tableName = "sale_drafts")
 internal data class SaleDraftEntity(
     @PrimaryKey(autoGenerate = true) val id: Long,
@@ -35,6 +40,9 @@ internal data class SaleDraftEntity(
     val paymentType: String,
     val held: Boolean,
     val updatedAt: Long,
+    val replacedInvoiceId: Long?,
+    val replacementReason: String?,
+    val replacementApprovedBy: Long?,
 )
 
 /**
@@ -125,8 +133,16 @@ internal class RoomSaleDraftRepository(private val database: EasyBillingDatabase
 
     override suspend fun delete(id: DraftId) = dao.delete(id.value)
 
-    private fun SaleDraft.toEntity() =
-        SaleDraftEntity(id.value, customerId?.value, paymentType.name, held, updatedAt.toEpochMilli())
+    private fun SaleDraft.toEntity() = SaleDraftEntity(
+        id = id.value,
+        customerId = customerId?.value,
+        paymentType = paymentType.name,
+        held = held,
+        updatedAt = updatedAt.toEpochMilli(),
+        replacedInvoiceId = replacement?.invoiceId?.value,
+        replacementReason = replacement?.reason,
+        replacementApprovedBy = replacement?.approvedBy?.value,
+    )
 
     private suspend fun SaleDraftEntity.toDomain() = SaleDraft(
         id = DraftId(id),
@@ -135,6 +151,9 @@ internal class RoomSaleDraftRepository(private val database: EasyBillingDatabase
         lines = dao.lines(id).map { it.toDomain() },
         held = held,
         updatedAt = Instant.ofEpochMilli(updatedAt),
+        replacement = replacedInvoiceId?.let { invoiceId ->
+            Replacement(InvoiceId(invoiceId), replacementReason.orEmpty(), replacementApprovedBy?.let { UserId(it) })
+        },
     )
 
     private fun DraftLine.toEntity(draftId: DraftId, position: Int) = SaleDraftLineEntity(

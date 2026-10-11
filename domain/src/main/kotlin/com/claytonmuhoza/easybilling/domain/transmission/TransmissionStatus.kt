@@ -114,7 +114,7 @@ class ReadTransmissionStatus(
         val startOfDay = now.atZone(BusinessCalendar.ZONE).toLocalDate().atStartOfDay(BusinessCalendar.ZONE).toInstant()
         return TransmissionStatus(
             queue = outbox.pending().map { entry ->
-                QueuedDocument(entry, invoices.find((entry.operation as OutboxOperation.SendInvoice).invoice))
+                QueuedDocument(entry, invoices.find(entry.operation.invoice))
             },
             rejected = invoices.rejected(),
             sentToday = invoices.countRegisteredSince(startOfDay),

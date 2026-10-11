@@ -32,6 +32,7 @@ import com.claytonmuhoza.easybilling.domain.customer.CustomerId
 import com.claytonmuhoza.easybilling.domain.identity.FixedPermissionPolicy
 import com.claytonmuhoza.easybilling.domain.identity.AccessControl
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.invoicing.CancellationRules
 import com.claytonmuhoza.easybilling.domain.invoicing.DiscountLimits
 import com.claytonmuhoza.easybilling.domain.invoicing.AllocateInvoiceNumber
 import com.claytonmuhoza.easybilling.domain.invoicing.Discount
@@ -51,6 +52,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.PaymentType
 import com.claytonmuhoza.easybilling.domain.invoicing.PriceMode
 import com.claytonmuhoza.easybilling.domain.invoicing.PriceSale
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraft
+import com.claytonmuhoza.easybilling.domain.invoicing.Replacement
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleLineCheck
 import com.claytonmuhoza.easybilling.domain.shared.Currency
@@ -182,8 +184,9 @@ class SaleStorageTest {
                 vault,
                 readiness,
                 DiscountLimits(storage.users, storage.discountSettings, FixedPermissionPolicy),
+                CancellationRules(storage.invoices, storage.cancellations, storage.saleDrafts),
             ),
-            IssueStorage(drafts, invoices, outbox, auditLog),
+            IssueStorage(drafts, invoices, outbox, auditLog, storage.cancellations),
             PriceSale(storage.items, storage.taxes, storage.customers, storage.taxProfiles, time),
             AllocateInvoiceNumber(storage.numbering, time, storage.transactions),
             storage.transactions,
@@ -231,6 +234,7 @@ class SaleStorageTest {
                 DraftLine(ItemId(99), Quantity.of("3")),
             ),
             updatedAt = Instant.parse("2026-10-03T09:00:00.123Z"),
+            replacement = Replacement(InvoiceId(3), "Mauvais client", approvedBy = UserId(2)),
         )
 
         storage.saleDrafts.save(draft)

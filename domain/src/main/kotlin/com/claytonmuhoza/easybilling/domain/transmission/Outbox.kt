@@ -6,8 +6,14 @@ import java.time.Instant
 
 /** Something to send to the OBR. It is stored before anything is sent (`docs/architecture.md` § 7.6). */
 sealed interface OutboxOperation {
+    /** The invoice the operation sends or cancels. */
+    val invoice: InvoiceId
+
     /** Sends the invoice [invoice] (`addInvoice_confirm/`). */
-    data class SendInvoice(val invoice: InvoiceId) : OutboxOperation
+    data class SendInvoice(override val invoice: InvoiceId) : OutboxOperation
+
+    /** Cancels the invoice [invoice] at the OBR (`cancelInvoice/`), with the reason recorded for it. */
+    data class CancelInvoice(override val invoice: InvoiceId) : OutboxOperation
 }
 
 /**

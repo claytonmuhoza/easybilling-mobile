@@ -27,6 +27,8 @@ import com.claytonmuhoza.easybilling.data.local.customer.CustomerDao
 import com.claytonmuhoza.easybilling.data.local.customer.CustomerEntity
 import com.claytonmuhoza.easybilling.data.local.identity.UserDao
 import com.claytonmuhoza.easybilling.data.local.identity.UserEntity
+import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceCancellationDao
+import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceCancellationEntity
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceDao
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceEntity
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceLineEntity
@@ -58,7 +60,8 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
  * acknowledgements of the OBR (step 10); 10 total and search text of the invoices, and seller of the
  * invoices sent again (step 12); 11 settings of the documents (step 13); 12 settings of the printer
  * (step 13); 13 several roles per user, disabled accounts and temporary PINs (step 14a); 14 approval
- * of the discount of a line and cap of the discount (step 14b).
+ * of the discount of a line and cap of the discount (step 14b); 15 cancellations of the invoices,
+ * replaced invoice of an invoice and of a sale (step 15a).
  */
 @Database(
     entities = [
@@ -84,8 +87,9 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
         DocumentSettingsEntity::class,
         PrinterSettingsEntity::class,
         DiscountSettingsEntity::class,
+        InvoiceCancellationEntity::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = false,
 )
 // One accessor per DAO: the list grows with the schema.
@@ -126,6 +130,8 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
     abstract fun printerSettingsDao(): PrinterSettingsDao
 
     abstract fun discountSettingsDao(): DiscountSettingsDao
+
+    abstract fun invoiceCancellationDao(): InvoiceCancellationDao
 }
 
 /**

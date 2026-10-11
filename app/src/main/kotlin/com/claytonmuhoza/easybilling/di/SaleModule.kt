@@ -10,7 +10,9 @@ import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRepository
 import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
 import com.claytonmuhoza.easybilling.domain.identity.AccessControl
+import com.claytonmuhoza.easybilling.domain.invoicing.CancellationRules
 import com.claytonmuhoza.easybilling.domain.invoicing.DiscountLimits
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellationRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.AllocateInvoiceNumber
 import com.claytonmuhoza.easybilling.domain.invoicing.EditSale
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
@@ -67,7 +69,9 @@ object SaleModule {
         vault: EbmsCredentialsVault,
         readiness: CheckBillingReadiness,
         discountLimits: DiscountLimits,
-    ): IssueConfiguration = IssueConfiguration(profiles, ebmsSettings, vault, readiness, discountLimits)
+        cancellationRules: CancellationRules,
+    ): IssueConfiguration =
+        IssueConfiguration(profiles, ebmsSettings, vault, readiness, discountLimits, cancellationRules)
 
     /** @return where the issue of a sale writes. */
     @Provides
@@ -76,7 +80,8 @@ object SaleModule {
         invoices: InvoiceRepository,
         outbox: OutboxRepository,
         auditLog: AuditLog,
-    ): IssueStorage = IssueStorage(drafts, invoices, outbox, auditLog)
+        cancellations: InvoiceCancellationRepository,
+    ): IssueStorage = IssueStorage(drafts, invoices, outbox, auditLog, cancellations)
 
     /** @return the use case issuing a sale as an invoice. */
     @Provides

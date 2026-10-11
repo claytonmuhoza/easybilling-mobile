@@ -14,6 +14,7 @@ import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxProfileRepo
 import com.claytonmuhoza.easybilling.data.local.configuration.RoomTaxRepository
 import com.claytonmuhoza.easybilling.data.local.customer.RoomCustomerRepository
 import com.claytonmuhoza.easybilling.data.local.identity.RoomUserRepository
+import com.claytonmuhoza.easybilling.data.local.invoicing.RoomInvoiceCancellationRepository
 import com.claytonmuhoza.easybilling.data.local.invoicing.RoomInvoiceListing
 import com.claytonmuhoza.easybilling.data.local.invoicing.RoomInvoiceRepository
 import com.claytonmuhoza.easybilling.data.local.invoicing.RoomSaleDraftRepository
@@ -30,6 +31,7 @@ import com.claytonmuhoza.easybilling.domain.customer.CustomerRepository
 import com.claytonmuhoza.easybilling.domain.document.DocumentSettingsRepository
 import com.claytonmuhoza.easybilling.domain.document.PrinterSettingsRepository
 import com.claytonmuhoza.easybilling.domain.identity.UserRepository
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellationRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.DiscountSettingsRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceListing
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
@@ -68,6 +70,10 @@ class LocalStorage private constructor(internal val database: EasyBillingDatabas
 
     /** The issued invoices. */
     val invoices: InvoiceRepository = RoomInvoiceRepository(database)
+
+    /** The cancellations of the invoices, the last one asked for each. */
+    val cancellations: InvoiceCancellationRepository =
+        RoomInvoiceCancellationRepository(database.invoiceCancellationDao())
 
     /** The issued invoices as the list shows them. */
     val invoiceListing: InvoiceListing = RoomInvoiceListing(database)

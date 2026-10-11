@@ -5,6 +5,8 @@ import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.configuration.EnvironmentRefusal
 import com.claytonmuhoza.easybilling.domain.configuration.TaxRegistrations
 import com.claytonmuhoza.easybilling.domain.configuration.activeLoginTarget
+import com.claytonmuhoza.easybilling.domain.invoicing.CancelInvoice
+import com.claytonmuhoza.easybilling.domain.invoicing.CancellationState
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatus
 import com.claytonmuhoza.easybilling.domain.invoicing.IssueSale
@@ -41,6 +43,7 @@ class DispatchOutboxTest {
             fixture.invoices,
             receipts,
             fixture.profiles,
+            fixture.cancellations,
             fixture.audit,
             DirectTransactionRunner,
         ),
@@ -328,5 +331,128 @@ class DispatchOutboxTest {
         assertNull(lock.refusal(EbmsEnvironment.TEST, EbmsEnvironment.PRODUCTION))
         assertNull(lock.refusal(EbmsEnvironment.PRODUCTION, EbmsEnvironment.TEST))
         assertNull(lock.refusal(EbmsEnvironment.TEST, EbmsEnvironment.TEST))
+    }
+
+    /** Issues an invoice, then asks for its cancellation. */
+    private suspend fun cancelling(): Invoice = issued().single().also {
+        assertEquals(CancelInvoice.Result.Requested, fixture.cancelInvoice(it.id, "Erreur de saisie", fixture.alice))
+    }
+
+    private fun cancels() = gateway.calls.filter { it.first == "cancelInvoice" }.map { it.third }
+
+    @Test
+    fun `a cancellation leaves after its invoice, and the invoice becomes cancelled`() = runTest {
+        val invoice = cancelling()
+        fixture.audit.events.clear()
+
+        val report = dispatch()
+
+        assertEquals(DispatchReport(registered = 1, rejected = 0, remaining = 0, cancelled = 1), report)
+        assertEquals(listOf("addInvoice", "cancelInvoice"), gateway.calls.map { it.first })
+        assertEquals(listOf(invoice.content.identifier), cancels())
+        assertEquals(listOf("Erreur de saisie"), gateway.cancelReasons)
+        assertEquals(InvoiceStatus.Cancelled, statusOf(invoice))
+        assertEquals(CancellationState.Done, fixture.cancellations.find(invoice.id)?.state)
+        assertEquals(AuditEvent.InvoiceCancelled(invoice.id), fixture.audit.events.last())
+    }
+
+    @Test
+    fun `a cancellation the OBR refuses keeps the invoice registered and says why`() = runTest {
+        val invoice = cancelling()
+        gateway.forcedCancels += CancelOutcome.Rejected("Identifiant de la facture inconnu")
+
+        val report = dispatch()
+
+        assertEquals(0, report.remaining)
+        assertEquals(InvoiceStatus.Registered, statusOf(invoice))
+        assertEquals(
+            CancellationState.Refused("Identifiant de la facture inconnu"),
+            fixture.cancellations.find(invoice.id)?.state,
+        )
+        assertEquals(
+            AuditEvent.InvoiceCancellationRefused(invoice.id, "Identifiant de la facture inconnu"),
+            fixture.audit.events.last(),
+        )
+        // A refused cancellation may be asked for again.
+        assertEquals(CancelInvoice.Result.Requested, fixture.cancelInvoice(invoice.id, "Erreur", fixture.alice))
+    }
+
+    @Test
+    fun `the cancellation of an invoice the OBR rejects is abandoned without a call`() = runTest {
+        val invoice = cancelling()
+        gateway.forcedSends += SendOutcome.Rejected("Le NIF du contribuable est invalide.")
+
+        dispatch()
+
+        assertIs<InvoiceStatus.Rejected>(statusOf(invoice))
+        assertEquals(emptyList(), cancels())
+        assertEquals(emptyList(), fixture.outbox.pending())
+        assertEquals(CancellationState.Abandoned, fixture.cancellations.find(invoice.id)?.state)
+        assertEquals(AuditEvent.InvoiceCancellationAbandoned(invoice.id), fixture.audit.events.last())
+    }
+
+    @Test
+    fun `a cancellation that cannot be delivered waits in the queue and is sent at a later pass`() = runTest {
+        val invoice = cancelling()
+        gateway.forcedCancels += CancelOutcome.NotDelivered("TIMEOUT")
+
+        assertEquals(1, dispatch().remaining)
+        assertEquals(InvoiceStatus.Registered, statusOf(invoice))
+        assertEquals(CancellationState.Requested, fixture.cancellations.find(invoice.id)?.state)
+
+        fixture.time.advance(Duration.ofMinutes(1))
+        assertEquals(0, dispatch().remaining)
+        assertEquals(InvoiceStatus.Cancelled, statusOf(invoice))
+    }
+
+    @Test
+    fun `an answer lost after a cancellation is settled by sending it again`() = runTest {
+        val invoice = cancelling()
+        gateway.forcedCancels += CancelOutcome.Uncertain("READ_TIMEOUT")
+        dispatch()
+
+        fixture.time.advance(Duration.ofMinutes(1))
+        dispatch()
+
+        // The OBR answers a second cancellation with a success: sending it again is safe.
+        assertEquals(listOf(invoice.content.identifier, invoice.content.identifier), cancels())
+        assertEquals(InvoiceStatus.Cancelled, statusOf(invoice))
+    }
+
+    @Test
+    fun `the replacement cancels the invoice it replaces once the OBR accepts it`() = runTest {
+        val invoice = issued().single()
+        dispatch()
+        fixture.replaceInvoice(invoice.id, "Mauvais client", fixture.alice)
+        fixture.time.advance(Duration.ofSeconds(1))
+        val replacement = assertIs<IssueSale.Result.Issued>(
+            fixture.issueSale(fixture.editSale.current().id, fixture.alice),
+        ).invoice
+
+        dispatch()
+
+        assertEquals(emptyList(), cancels())
+        assertEquals(InvoiceStatus.Registered, statusOf(replacement))
+        assertEquals(InvoiceStatus.Cancelled, statusOf(invoice))
+        assertEquals(CancellationState.Done, fixture.cancellations.find(invoice.id)?.state)
+        assertEquals(AuditEvent.InvoiceCancelled(invoice.id), fixture.audit.events.last())
+    }
+
+    @Test
+    fun `a replacement the OBR rejects leaves the invoice it replaces as it was`() = runTest {
+        val invoice = issued().single()
+        dispatch()
+        fixture.replaceInvoice(invoice.id, "Mauvais client", fixture.alice)
+        fixture.time.advance(Duration.ofSeconds(1))
+        fixture.issueSale(fixture.editSale.current().id, fixture.alice)
+        gateway.forcedSends += SendOutcome.Rejected("La facture referencée a été déjà annulée.")
+
+        dispatch()
+
+        assertEquals(InvoiceStatus.Registered, statusOf(invoice))
+        assertEquals(
+            CancellationState.Refused("La facture referencée a été déjà annulée."),
+            fixture.cancellations.find(invoice.id)?.state,
+        )
     }
 }

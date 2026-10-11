@@ -8,6 +8,7 @@ import com.claytonmuhoza.easybilling.domain.configuration.EbmsSettingsRepository
 import com.claytonmuhoza.easybilling.domain.configuration.EnvironmentLock
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfileRepository
 import com.claytonmuhoza.easybilling.domain.configuration.activeLoginTarget
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellationRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
@@ -52,9 +53,10 @@ object TransmissionModule {
         invoices: InvoiceRepository,
         receipts: ReceiptArchive,
         profiles: TaxProfileRepository,
+        cancellations: InvoiceCancellationRepository,
         auditLog: AuditLog,
         transactions: TransactionRunner,
-    ): DispatchStorage = DispatchStorage(outbox, invoices, receipts, profiles, auditLog, transactions)
+    ): DispatchStorage = DispatchStorage(outbox, invoices, receipts, profiles, cancellations, auditLog, transactions)
 
     /** @return how the send queue reaches the OBR, on the active environment. */
     @Provides
