@@ -12,6 +12,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellationReposit
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
+import com.claytonmuhoza.easybilling.domain.stock.StockRepository
 import com.claytonmuhoza.easybilling.domain.transmission.DispatchConnection
 import com.claytonmuhoza.easybilling.domain.transmission.DispatchOutbox
 import com.claytonmuhoza.easybilling.domain.transmission.DispatchStorage
@@ -54,9 +55,11 @@ object TransmissionModule {
         receipts: ReceiptArchive,
         profiles: TaxProfileRepository,
         cancellations: InvoiceCancellationRepository,
+        stock: StockRepository,
         auditLog: AuditLog,
         transactions: TransactionRunner,
-    ): DispatchStorage = DispatchStorage(outbox, invoices, receipts, profiles, cancellations, auditLog, transactions)
+    ): DispatchStorage =
+        DispatchStorage(outbox, invoices, receipts, profiles, cancellations, stock, auditLog, transactions)
 
     /** @return how the send queue reaches the OBR, on the active environment. */
     @Provides
@@ -72,8 +75,9 @@ object TransmissionModule {
     fun readTransmissionStatus(
         outbox: OutboxRepository,
         invoices: InvoiceRepository,
+        stock: StockRepository,
         time: TimeProvider,
-    ): ReadTransmissionStatus = ReadTransmissionStatus(outbox, invoices, time)
+    ): ReadTransmissionStatus = ReadTransmissionStatus(outbox, invoices, stock, time)
 
     /** @return the send queue; a single one, so only one pass runs at a time. */
     @Provides

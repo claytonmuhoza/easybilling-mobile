@@ -3,6 +3,7 @@ package com.claytonmuhoza.easybilling.domain.invoicing
 import com.claytonmuhoza.easybilling.domain.audit.AuditEvent
 import com.claytonmuhoza.easybilling.domain.audit.AuditLog
 import com.claytonmuhoza.easybilling.domain.identity.AccessControl
+import com.claytonmuhoza.easybilling.domain.identity.ApprovalAuthority
 import com.claytonmuhoza.easybilling.domain.identity.Permission
 import com.claytonmuhoza.easybilling.domain.identity.PermissionDeniedException
 import com.claytonmuhoza.easybilling.domain.identity.PermissionPolicy
@@ -172,27 +173,16 @@ class CancellationRules(
  * Who corrects an invoice: a user allowed to, or any user who sees the invoices with the approval
  * of another user allowed to approve a sensitive action, given with their PIN (UC-H04).
  */
-class CorrectionAuthority(
-    private val access: AccessControl,
-    private val users: UserRepository,
-    private val policy: PermissionPolicy,
-) {
+class CorrectionAuthority(access: AccessControl, users: UserRepository, policy: PermissionPolicy) {
+    private val authority = ApprovalAuthority(access, users, policy)
+
     /**
      * @param actor the user who asks for the correction.
      * @param approver the user who approved it, or null when [actor] corrects alone.
      * @throws PermissionDeniedException if neither [actor] nor [approver] may correct it.
      */
-    suspend fun require(actor: UserId, approver: UserId?) {
-        if (approver == null) {
-            access.require(actor, Permission.CORRECT_INVOICES)
-            return
-        }
-        access.require(actor, Permission.VIEW_INVOICES)
-        val user = users.find(approver)
-        val approves = user != null && user.id != actor && user.active &&
-            policy.allows(user.roles, Permission.AUTHORIZE_SENSITIVE_ACTION)
-        if (!approves) throw PermissionDeniedException(approver, Permission.AUTHORIZE_SENSITIVE_ACTION)
-    }
+    suspend fun require(actor: UserId, approver: UserId?) =
+        authority.require(actor, approver, alone = Permission.CORRECT_INVOICES, withApproval = Permission.VIEW_INVOICES)
 }
 
 /**

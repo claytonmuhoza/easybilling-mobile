@@ -16,7 +16,7 @@ import kotlin.test.assertNull
 class TransmissionStatusTest {
 
     private val fixture = SaleFixture()
-    private val read = ReadTransmissionStatus(fixture.outbox, fixture.invoices, fixture.time)
+    private val read = ReadTransmissionStatus(fixture.outbox, fixture.invoices, fixture.stock, fixture.time)
 
     private suspend fun issued(): Invoice {
         if (fixture.profiles.current() == null) fixture.ready()

@@ -58,9 +58,11 @@ import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraft
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
+import com.claytonmuhoza.easybilling.domain.stock.StockMovement
 import com.claytonmuhoza.easybilling.domain.transmission.CancelOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.LoginTarget
 import com.claytonmuhoza.easybilling.domain.transmission.LookupOutcome
+import com.claytonmuhoza.easybilling.domain.transmission.MovementOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.ObrGateway
 import com.claytonmuhoza.easybilling.domain.transmission.ObrInvoiceCopy
 import com.claytonmuhoza.easybilling.domain.transmission.ObrMessages
@@ -282,6 +284,21 @@ class FakeObrGateway : ObrGateway {
         }
     }
 
+    /** Outcomes given to the next stock movements instead of the normal one, oldest first. */
+    val forcedMovements = mutableListOf<MovementOutcome>()
+
+    /** The stock movements the OBR accepted, in order. */
+    val movements = mutableListOf<StockMovement>()
+
+    override suspend fun addStockMovement(
+        target: LoginTarget,
+        token: String,
+        movement: StockMovement,
+    ): MovementOutcome {
+        calls += Triple("addStockMovement", token, movement.content.reference)
+        return forcedMovements.removeFirstOrNull() ?: MovementOutcome.Accepted.also { movements += movement }
+    }
+
     /** Makes the OBR have [invoice] as it was issued, without a call. */
     fun accept(invoice: Invoice) {
         known += invoice.content.identifier
@@ -343,6 +360,7 @@ class SaleFixture {
     val invoices = InMemoryInvoiceRepository()
     val outbox = InMemoryOutboxRepository()
     val audit = RecordingAuditLog()
+    val stock = InMemoryStockRepository()
 
     val priceSale = PriceSale(items, taxes, customers, profiles, time)
     val editSale = EditSale(drafts, time, DirectTransactionRunner)

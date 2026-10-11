@@ -39,6 +39,17 @@ sealed interface SensitiveAction {
     data class CreditNote(val invoiceNumber: String) : SensitiveAction {
         override val details get() = "action=CREDIT_NOTE;invoice=$invoiceNumber"
     }
+
+    /**
+     * An exit of stock that is not a sale (UC-F07).
+     *
+     * @property itemCode the code of the item that leaves the stock.
+     * @property type the code of the type of the exit.
+     * @property quantity the quantity, as typed.
+     */
+    data class StockExit(val itemCode: String, val type: String, val quantity: String) : SensitiveAction {
+        override val details get() = "action=STOCK_EXIT;item=$itemCode;type=$type;quantity=$quantity"
+    }
 }
 
 /**

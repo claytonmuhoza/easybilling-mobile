@@ -5,11 +5,14 @@ import com.claytonmuhoza.easybilling.domain.identity.Permission.CONFIGURE_BILLIN
 import com.claytonmuhoza.easybilling.domain.identity.Permission.CONFIGURE_PRINTING
 import com.claytonmuhoza.easybilling.domain.identity.Permission.EDIT_ITEMS
 import com.claytonmuhoza.easybilling.domain.identity.Permission.MANAGE_CUSTOMERS
+import com.claytonmuhoza.easybilling.domain.identity.Permission.MANAGE_STOCK
 import com.claytonmuhoza.easybilling.domain.identity.Permission.MANAGE_USERS
+import com.claytonmuhoza.easybilling.domain.identity.Permission.RECORD_STOCK
 import com.claytonmuhoza.easybilling.domain.identity.Permission.RESOLVE_INVOICES
 import com.claytonmuhoza.easybilling.domain.identity.Permission.SELL
 import com.claytonmuhoza.easybilling.domain.identity.Permission.VIEW_INVOICES
 import com.claytonmuhoza.easybilling.domain.identity.Permission.VIEW_ITEMS
+import com.claytonmuhoza.easybilling.domain.identity.Permission.VIEW_STOCK
 import com.claytonmuhoza.easybilling.domain.identity.Permission.VIEW_TRANSMISSION
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,16 +40,16 @@ class PermissionPolicyTest {
     }
 
     @Test
-    fun `the cashier sells, sees the invoices, the items and the transmission, and manages the customers`() {
+    fun `the cashier sells, sees the invoices, the items, the stock and the transmission, and manages the customers`() {
         assertEquals(
-            setOf(SELL, VIEW_INVOICES, VIEW_ITEMS, MANAGE_CUSTOMERS, VIEW_TRANSMISSION),
+            setOf(SELL, VIEW_INVOICES, VIEW_ITEMS, VIEW_STOCK, MANAGE_CUSTOMERS, VIEW_TRANSMISSION),
             granted(Role.CASHIER),
         )
     }
 
     @Test
-    fun `the storekeeper only sees and edits the items`() {
-        assertEquals(setOf(VIEW_ITEMS, EDIT_ITEMS), granted(Role.STOREKEEPER))
+    fun `the storekeeper sees and edits the items, sees the stock and records its movements`() {
+        assertEquals(setOf(VIEW_ITEMS, EDIT_ITEMS, VIEW_STOCK, RECORD_STOCK), granted(Role.STOREKEEPER))
     }
 
     @Test
@@ -61,7 +64,7 @@ class PermissionPolicyTest {
     fun `a cashier who is also a storekeeper still cannot do what neither role allows`() {
         val roles = setOf(Role.CASHIER, Role.STOREKEEPER)
 
-        for (permission in listOf(RESOLVE_INVOICES, CONFIGURE_PRINTING, AUTHORIZE_SENSITIVE_ACTION)) {
+        for (permission in listOf(RESOLVE_INVOICES, CONFIGURE_PRINTING, AUTHORIZE_SENSITIVE_ACTION, MANAGE_STOCK)) {
             assertFalse(policy.allows(roles, permission), "$permission")
         }
     }

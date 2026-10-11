@@ -13,6 +13,7 @@ import mockwebserver3.MockResponse
 import mockwebserver3.RecordedRequest
 import mockwebserver3.SocketEffect
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 
 internal const val HTTP_OK = 200
@@ -44,6 +45,7 @@ internal class ObrServices(var username: String, var password: String) {
         ConcurrentHashMap(mapOf(ObrSimulator.KNOWN_TIN to ObrSimulator.KNOWN_TAXPAYER))
     val invoices: MutableMap<String, JsonObject> = ConcurrentHashMap()
     val cancelled: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    val stockMovements: MutableList<JsonObject> = CopyOnWriteArrayList()
 
     @Volatile
     var alternateSignatureName = false
@@ -59,6 +61,9 @@ internal class ObrServices(var username: String, var password: String) {
     @Volatile
     var loseNextAcknowledgement = false
 
+    @Volatile
+    var loseNextMovementAnswer = false
+
     private val issuedTokens = AtomicInteger()
     private val registered = AtomicInteger()
     private val acceptedTokens: MutableSet<String> = ConcurrentHashMap.newKeySet()
@@ -73,6 +78,7 @@ internal class ObrServices(var username: String, var password: String) {
         "${ObrSimulator.API_PATH}addInvoice_confirm/" -> authenticated(request, ::addInvoice)
         "${ObrSimulator.API_PATH}getInvoice/" -> authenticated(request, ::getInvoice)
         "${ObrSimulator.API_PATH}cancelInvoice/" -> authenticated(request) { cancelInvoice(it) }
+        "${ObrSimulator.API_PATH}AddStockMovement/" -> authenticated(request) { addStockMovement(it) }
         else -> MockResponse.Builder().code(NOT_FOUND).build()
     }
 

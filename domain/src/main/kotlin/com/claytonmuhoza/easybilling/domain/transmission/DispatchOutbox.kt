@@ -10,6 +10,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatus
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
+import com.claytonmuhoza.easybilling.domain.stock.StockRepository
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -53,6 +54,7 @@ object LocalRefusals {
  * @property receipts the acknowledgements of the OBR.
  * @property profiles the versions of the tax profile the invoices were issued with.
  * @property cancellations the cancellations of the invoices.
+ * @property stock the stock movements and their status.
  * @property auditLog log that records each acknowledgement and each rejection.
  * @property transactions makes the end of an operation a single write.
  */
@@ -62,6 +64,7 @@ class DispatchStorage(
     val receipts: ReceiptArchive,
     val profiles: TaxProfileRepository,
     val cancellations: InvoiceCancellationRepository,
+    val stock: StockRepository,
     val auditLog: AuditLog,
     val transactions: TransactionRunner,
 )
@@ -105,12 +108,14 @@ class DispatchConnection(
  * @property rejected how many invoices the OBR refused.
  * @property remaining how many operations are still in the queue.
  * @property cancelled how many invoices the OBR cancelled.
+ * @property declared how many stock movements the OBR accepted.
  */
 data class DispatchReport(
     val registered: Int = 0,
     val rejected: Int = 0,
     val remaining: Int = 0,
     val cancelled: Int = 0,
+    val declared: Int = 0,
 )
 
 /**
@@ -131,9 +136,10 @@ class DispatchOutbox(
 ) {
     private val mutex = Mutex()
     private val cancellations = CancellationDispatch(storage, connection, time)
+    private val movements = StockMovementDispatch(storage, connection, time)
 
     /** How an operation of the queue was settled, for the report. */
-    private enum class Settled { REGISTERED, REJECTED, CANCELLED, DROPPED }
+    private enum class Settled { REGISTERED, REJECTED, CANCELLED, DECLARED, DROPPED }
 
     /** How an attempt ended. */
     private sealed interface Attempt {
@@ -163,6 +169,7 @@ class DispatchOutbox(
             rejected = settled.count { it == Settled.REJECTED },
             remaining = storage.outbox.pending().size,
             cancelled = settled.count { it == Settled.CANCELLED },
+            declared = settled.count { it == Settled.DECLARED },
         )
     }
 
@@ -177,6 +184,7 @@ class DispatchOutbox(
         return when (val operation = entry.operation) {
             is OutboxOperation.SendInvoice -> sent(entry, operation)
             is OutboxOperation.CancelInvoice -> cancelled(entry, operation)
+            is OutboxOperation.SendStockMovement -> moved(entry, operation)
         }
     }
 
@@ -194,6 +202,14 @@ class DispatchOutbox(
             CancellationDispatch.Outcome.Cancelled -> Settled.CANCELLED
             CancellationDispatch.Outcome.Dropped -> Settled.DROPPED
             is CancellationDispatch.Outcome.Later ->
+                null.also { postpone(entry, Attempt.Later(outcome.reason, uncertain = false)) }
+        }
+
+    private suspend fun moved(entry: OutboxEntry, operation: OutboxOperation.SendStockMovement): Settled? =
+        when (val outcome = movements.send(entry, operation)) {
+            StockMovementDispatch.Outcome.Declared -> Settled.DECLARED
+            StockMovementDispatch.Outcome.Dropped -> Settled.DROPPED
+            is StockMovementDispatch.Outcome.Later ->
                 null.also { postpone(entry, Attempt.Later(outcome.reason, uncertain = false)) }
         }
 
