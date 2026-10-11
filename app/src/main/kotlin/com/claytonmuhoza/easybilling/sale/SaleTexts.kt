@@ -52,6 +52,7 @@ internal val REFUSAL_MESSAGES = mapOf(
     IssueRefusal.NUMBERS_EXHAUSTED to R.string.sale_refusal_numbers,
     IssueRefusal.IDENTIFIER_TOO_LONG to R.string.sale_refusal_identifier,
     IssueRefusal.DISCOUNT_NOT_APPROVED to R.string.sale_refusal_discount_not_approved,
+    IssueRefusal.REPLACED_INVOICE_NOT_CANCELLABLE to R.string.sale_refusal_replaced_not_cancellable,
 )
 
 /** @return the discount in words: `Discount 10 %`, `Discount 250 BIF per unit`. */

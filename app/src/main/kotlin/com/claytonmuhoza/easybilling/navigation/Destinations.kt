@@ -189,3 +189,11 @@ data object SwitchUserDestination
 /** The cap of the discount of the cashier. */
 @Serializable
 data object DiscountCapDestination
+
+/**
+ * Cancellation of an invoice, alone or with its replacement.
+ *
+ * @property id identifier of the invoice.
+ */
+@Serializable
+data class CancelInvoiceDestination(val id: Long)

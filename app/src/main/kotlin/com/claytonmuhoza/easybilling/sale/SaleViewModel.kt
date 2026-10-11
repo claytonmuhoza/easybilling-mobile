@@ -11,6 +11,7 @@ import com.claytonmuhoza.easybilling.domain.identity.AuthorizeSensitiveAction
 import com.claytonmuhoza.easybilling.domain.identity.SessionManager
 import com.claytonmuhoza.easybilling.domain.invoicing.DiscountLimits
 import com.claytonmuhoza.easybilling.domain.invoicing.EditSale
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.IssueSale
 import com.claytonmuhoza.easybilling.domain.invoicing.PaymentType
 import com.claytonmuhoza.easybilling.domain.invoicing.PriceSale
@@ -38,6 +39,7 @@ import javax.inject.Inject
  * @property readiness tells whether invoices can be issued.
  * @property discountLimits tells which discounts need the approval of a manager.
  * @property authorize approves a discount with the PIN of a manager.
+ * @property invoices the issued invoices, for the number of the one a sale replaces.
  */
 class SaleUseCases @Inject constructor(
     val edit: EditSale,
@@ -46,6 +48,7 @@ class SaleUseCases @Inject constructor(
     val readiness: CheckBillingReadiness,
     val discountLimits: DiscountLimits,
     val authorize: AuthorizeSensitiveAction,
+    val invoices: InvoiceRepository,
 )
 
 /** The two parts of the cash register; a narrow screen shows one at a time. */
@@ -67,6 +70,9 @@ enum class IssueRefusal {
 
     /** A discount goes beyond the cap of the user without the approval of a manager. */
     DISCOUNT_NOT_APPROVED,
+
+    /** The invoice the sale replaces can no longer be cancelled. */
+    REPLACED_INVOICE_NOT_CANCELLABLE,
 }
 
 /**
@@ -126,6 +132,7 @@ sealed interface SaleUiState {
      * @property editor the line being modified, or null.
      * @property refusal why the last attempt to issue was refused, or null.
      * @property approval the discount waiting for the approval of a manager, or null.
+     * @property replaces the number of the invoice the sale replaces (UC-E02), or null.
      * @property busy true while a change is written.
      * @property failed true when the last change could not be written.
      */
@@ -138,6 +145,7 @@ sealed interface SaleUiState {
         val editor: LineEditor? = null,
         val refusal: IssueRefusal? = null,
         val approval: LineApproval? = null,
+        val replaces: String? = null,
         val busy: Boolean = false,
         val failed: Boolean = false,
     ) : SaleUiState
@@ -218,6 +226,8 @@ class SaleViewModel @Inject constructor(
                     IssueSale.Result.IdentifierTooLong -> idle.copy(refusal = IssueRefusal.IDENTIFIER_TOO_LONG)
                     is IssueSale.Result.DiscountNotApproved ->
                         idle.copy(refusal = IssueRefusal.DISCOUNT_NOT_APPROVED)
+                    is IssueSale.Result.ReplacedInvoiceNotCancellable ->
+                        idle.copy(refusal = IssueRefusal.REPLACED_INVOICE_NOT_CANCELLABLE)
                     IssueSale.Result.NotFound -> holder.refreshed(idle)
                 }
             }.getOrElse { idle.copy(failed = true) }

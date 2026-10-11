@@ -61,12 +61,16 @@ internal class SaleStateHolder(
     }
 
     /** @return [shown] with the sale, the items found and the sales on hold read again. */
-    suspend fun refreshed(shown: SaleUiState.Ready): SaleUiState.Ready = shown.copy(
-        sale = useCases.price(useCases.edit.current()),
-        results = found(shown.query),
-        heldCount = drafts.held().size,
-        busy = false,
-    )
+    suspend fun refreshed(shown: SaleUiState.Ready): SaleUiState.Ready {
+        val draft = useCases.edit.current()
+        return shown.copy(
+            sale = useCases.price(draft),
+            replaces = draft.replacement?.let { useCases.invoices.find(it.invoiceId)?.content?.number },
+            results = found(shown.query),
+            heldCount = drafts.held().size,
+            busy = false,
+        )
+    }
 
     /** @return the sale being typed, shown for the first time. */
     suspend fun started(): SaleUiState.Ready = refreshed(SaleUiState.Ready(useCases.price(useCases.edit.current())))

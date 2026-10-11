@@ -35,10 +35,12 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.AppIconImage
 import com.claytonmuhoza.easybilling.core.designsystem.component.ErrorState
 import com.claytonmuhoza.easybilling.core.designsystem.component.LoadingState
 import com.claytonmuhoza.easybilling.core.designsystem.component.SearchField
+import com.claytonmuhoza.easybilling.core.designsystem.component.StatusBanner
 import com.claytonmuhoza.easybilling.core.designsystem.component.TextAction
 import com.claytonmuhoza.easybilling.core.designsystem.component.TitledScreen
 import com.claytonmuhoza.easybilling.core.designsystem.component.TonalCard
 import com.claytonmuhoza.easybilling.core.designsystem.theme.Spacing
+import com.claytonmuhoza.easybilling.core.designsystem.theme.StatusTone
 import com.claytonmuhoza.easybilling.core.designsystem.theme.tabularNumbers
 import com.claytonmuhoza.easybilling.domain.catalog.Item
 import com.claytonmuhoza.easybilling.domain.catalog.ItemId
@@ -224,6 +226,13 @@ fun SaleScreen(
             )
             is SaleUiState.Ready -> Column(modifier = Modifier.fillMaxSize()) {
                 banner()
+                state.replaces?.let { number ->
+                    StatusBanner(
+                        tone = StatusTone.NEUTRAL,
+                        text = stringResource(R.string.sale_replaces, number),
+                        modifier = Modifier.padding(horizontal = Spacing.large).padding(bottom = Spacing.small),
+                    )
+                }
                 SalePanes(state, actions)
             }
         }

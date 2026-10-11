@@ -9,6 +9,9 @@ import com.claytonmuhoza.easybilling.documents.InvoicePrintActions
 import com.claytonmuhoza.easybilling.documents.PdfOutcome
 import com.claytonmuhoza.easybilling.documents.PrintUiState
 import com.claytonmuhoza.easybilling.domain.identity.SessionManager
+import com.claytonmuhoza.easybilling.domain.invoicing.CancellationRules
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellation
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellationRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
@@ -36,6 +39,8 @@ import kotlinx.coroutines.launch
  * @property redo starts the sale of an invoice over.
  * @property pdf opens or shares the PDF of an invoice.
  * @property print prints the ticket of an invoice.
+ * @property cancellationRules tells whether an invoice may be cancelled now.
+ * @property cancellations the cancellations of the invoices.
  */
 class InvoiceUseCases @Inject constructor(
     val verify: VerifyInvoice,
@@ -43,6 +48,8 @@ class InvoiceUseCases @Inject constructor(
     val redo: RedoSale,
     val pdf: InvoicePdfActions,
     val print: InvoicePrintActions,
+    val cancellationRules: CancellationRules,
+    val cancellations: InvoiceCancellationRepository,
 )
 
 /** Where a check at the OBR stands. */
@@ -91,11 +98,17 @@ sealed interface InvoiceDetailUiState {
      * @property pdfProblem why the PDF was not opened or shared at the last try, or null.
      * @property print where the printing of the ticket stands, or null before the first print.
      * @property busy true while an action is written or a PDF created.
+     * @property cancellation the last cancellation asked for the invoice, or null.
+     * @property cancellable whether the invoice may be cancelled or replaced now.
+     * @property replacedBy the number of the invoice that replaces it, or null.
      */
     data class Ready(
         val invoice: Invoice,
         val status: InvoiceStatus,
         val receipt: ObrReceipt? = null,
+        val cancellation: InvoiceCancellation? = null,
+        val cancellable: Boolean = false,
+        val replacedBy: String? = null,
         val verification: VerificationUiState? = null,
         val notice: InvoiceNotice? = null,
         val pdfProblem: PdfOutcome? = null,
@@ -155,7 +168,15 @@ class InvoiceDetailViewModel @Inject constructor(
         val invoice = invoices.find(id)
         val status = invoices.statusOf(id)
         return if (invoice != null && status != null) {
-            InvoiceDetailUiState.Ready(invoice, status, receipts.find(id))
+            val cancellation = useCases.cancellations.find(id)
+            InvoiceDetailUiState.Ready(
+                invoice = invoice,
+                status = status,
+                receipt = receipts.find(id),
+                cancellation = cancellation,
+                cancellable = useCases.cancellationRules.problem(id) == null,
+                replacedBy = cancellation?.replacement?.let { invoices.find(it)?.content?.number },
+            )
         } else {
             InvoiceDetailUiState.NotFound
         }
