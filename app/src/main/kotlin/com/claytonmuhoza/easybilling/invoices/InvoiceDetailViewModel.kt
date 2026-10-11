@@ -10,12 +10,14 @@ import com.claytonmuhoza.easybilling.documents.PdfOutcome
 import com.claytonmuhoza.easybilling.documents.PrintUiState
 import com.claytonmuhoza.easybilling.domain.identity.SessionManager
 import com.claytonmuhoza.easybilling.domain.invoicing.CancellationRules
+import com.claytonmuhoza.easybilling.domain.invoicing.CreditNoteRules
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellation
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellationRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatus
+import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceSummary
 import com.claytonmuhoza.easybilling.domain.invoicing.RedoSale
 import com.claytonmuhoza.easybilling.domain.invoicing.ResendRejectedInvoice
 import com.claytonmuhoza.easybilling.domain.transmission.ObrReceipt
@@ -41,6 +43,7 @@ import kotlinx.coroutines.launch
  * @property print prints the ticket of an invoice.
  * @property cancellationRules tells whether an invoice may be cancelled now.
  * @property cancellations the cancellations of the invoices.
+ * @property creditRules tells whether an invoice may be credited now.
  */
 class InvoiceUseCases @Inject constructor(
     val verify: VerifyInvoice,
@@ -50,6 +53,7 @@ class InvoiceUseCases @Inject constructor(
     val print: InvoicePrintActions,
     val cancellationRules: CancellationRules,
     val cancellations: InvoiceCancellationRepository,
+    val creditRules: CreditNoteRules,
 )
 
 /** Where a check at the OBR stands. */
@@ -101,6 +105,9 @@ sealed interface InvoiceDetailUiState {
      * @property cancellation the last cancellation asked for the invoice, or null.
      * @property cancellable whether the invoice may be cancelled or replaced now.
      * @property replacedBy the number of the invoice that replaces it, or null.
+     * @property creditable whether a credit note may be issued on the invoice now.
+     * @property creditNotes the credit notes issued on the invoice, in the order they were issued.
+     * @property credited the invoice a credit note credits, or null for any other document.
      */
     data class Ready(
         val invoice: Invoice,
@@ -109,6 +116,9 @@ sealed interface InvoiceDetailUiState {
         val cancellation: InvoiceCancellation? = null,
         val cancellable: Boolean = false,
         val replacedBy: String? = null,
+        val creditable: Boolean = false,
+        val creditNotes: List<InvoiceSummary> = emptyList(),
+        val credited: InvoiceSummary? = null,
         val verification: VerificationUiState? = null,
         val notice: InvoiceNotice? = null,
         val pdfProblem: PdfOutcome? = null,
@@ -176,6 +186,11 @@ class InvoiceDetailViewModel @Inject constructor(
                 cancellation = cancellation,
                 cancellable = useCases.cancellationRules.problem(id) == null,
                 replacedBy = cancellation?.replacement?.let { invoices.find(it)?.content?.number },
+                creditable = useCases.creditRules.problem(id) == null,
+                creditNotes = invoices.creditNotesOf(invoice.content.number).mapNotNull { invoices.summaryOf(it) },
+                credited = invoice.content.credit
+                    ?.let { invoices.findByNumber(it.invoiceRef) }
+                    ?.let { invoices.summaryOf(it) },
             )
         } else {
             InvoiceDetailUiState.NotFound
@@ -255,3 +270,19 @@ class InvoiceDetailViewModel @Inject constructor(
         }
     }
 }
+
+/** @return [document] as the list of the invoices shows it, or null if it has no status. */
+private suspend fun InvoiceRepository.summaryOf(document: Invoice): InvoiceSummary? =
+    statusOf(document.id)?.let { status ->
+        val content = document.content
+        InvoiceSummary(
+            id = document.id,
+            type = content.type,
+            number = content.number,
+            issuedAt = content.issuedAt,
+            customerName = content.customer.name,
+            paymentType = content.paymentType,
+            total = content.totals.total,
+            status = status,
+        )
+    }

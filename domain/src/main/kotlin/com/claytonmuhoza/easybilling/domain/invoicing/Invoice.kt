@@ -80,6 +80,7 @@ data class InvoiceCustomer(
  * @property issuedBy the user who issued the invoice.
  * @property cancelledInvoiceRef `cancelled_invoice_ref`: the number of the invoice this one
  * replaces, which it cancels at the OBR (UC-E02), or null.
+ * @property credit the invoice a credit note credits and why (UC-E03); null for any other document.
  */
 data class InvoiceContent(
     val type: DocumentType,
@@ -94,6 +95,7 @@ data class InvoiceContent(
     val lines: List<InvoiceLine>,
     val issuedBy: UserId,
     val cancelledInvoiceRef: String? = null,
+    val credit: CreditNote? = null,
 ) {
     /** The totals of the invoice: the sums of the amounts of its lines. */
     val totals: InvoiceTotals get() = InvoiceTotals.of(lines.map { it.amounts }, currency)
@@ -180,6 +182,12 @@ interface InvoiceRepository {
      * @return the invoice with that number, or null.
      */
     suspend fun findByNumber(number: String): Invoice?
+
+    /**
+     * @param number the number of an invoice.
+     * @return the credit notes issued on it, whatever their status, in the order they were issued.
+     */
+    suspend fun creditNotesOf(number: String): List<Invoice>
 
     /**
      * @param id an invoice.

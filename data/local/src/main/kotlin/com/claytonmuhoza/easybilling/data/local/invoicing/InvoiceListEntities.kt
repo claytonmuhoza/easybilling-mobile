@@ -70,11 +70,18 @@ internal interface InvoiceListDao {
         WHERE i.searchText LIKE :pattern ESCAPE '\'
             AND (:status IS NULL OR s.status = :status)
             AND (:since IS NULL OR i.issuedAt >= :since)
+            AND (:type IS NULL OR i.type = :type)
         ORDER BY i.issuedAt DESC, i.id DESC
         LIMIT :limit
         """,
     )
-    suspend fun search(pattern: String, status: String?, since: Long?, limit: Int): List<InvoiceSummaryRow>
+    suspend fun search(
+        pattern: String,
+        status: String?,
+        since: Long?,
+        type: String?,
+        limit: Int,
+    ): List<InvoiceSummaryRow>
 
     /** [pattern] is a `LIKE` pattern whose special characters are escaped with a backslash. */
     @Query(
@@ -82,10 +89,15 @@ internal interface InvoiceListDao {
         SELECT s.status AS status, COUNT(*) AS count
         FROM invoices i JOIN invoice_statuses s ON s.invoiceId = i.id
         WHERE i.searchText LIKE :pattern ESCAPE '\' AND (:since IS NULL OR i.issuedAt >= :since)
+            AND (:type IS NULL OR i.type = :type)
         GROUP BY s.status
         """,
     )
-    suspend fun countByStatus(pattern: String, since: Long?): List<StatusCountRow>
+    suspend fun countByStatus(pattern: String, since: Long?, type: String?): List<StatusCountRow>
+
+    /** @return the credit notes issued on the invoice [number], in the order they were issued. */
+    @Query("SELECT * FROM invoices WHERE invoiceRef = :number ORDER BY issuedAt, id")
+    suspend fun creditNotesOf(number: String): List<InvoiceEntity>
 }
 
 /** [InvoiceListing] backed by the local database. */
@@ -93,8 +105,9 @@ internal class RoomInvoiceListing(database: EasyBillingDatabase) : InvoiceListin
 
     private val dao = database.invoiceListDao()
 
-    override suspend fun search(filter: InvoiceFilter, limit: Int): List<InvoiceSummary> =
-        dao.search(filter.pattern(), filter.status?.name, filter.since?.toEpochMilli(), limit).map { row ->
+    override suspend fun search(filter: InvoiceFilter, limit: Int): List<InvoiceSummary> {
+        val since = filter.since?.toEpochMilli()
+        return dao.search(filter.pattern(), filter.status?.name, since, filter.type?.name, limit).map { row ->
             InvoiceSummary(
                 id = InvoiceId(row.id),
                 type = DocumentType.valueOf(row.type),
@@ -106,9 +119,10 @@ internal class RoomInvoiceListing(database: EasyBillingDatabase) : InvoiceListin
                 status = invoiceStatusOf(row.status, row.message),
             )
         }
+    }
 
     override suspend fun countByStatus(filter: InvoiceFilter): Map<InvoiceStatusKind, Int> =
-        dao.countByStatus(filter.pattern(), filter.since?.toEpochMilli())
+        dao.countByStatus(filter.pattern(), filter.since?.toEpochMilli(), filter.type?.name)
             .associate { InvoiceStatusKind.valueOf(it.status) to it.count }
 
     private fun InvoiceFilter.pattern(): String =

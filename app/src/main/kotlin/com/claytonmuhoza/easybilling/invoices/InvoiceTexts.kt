@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.claytonmuhoza.easybilling.R
 import com.claytonmuhoza.easybilling.core.designsystem.theme.StatusTone
+import com.claytonmuhoza.easybilling.domain.invoicing.DocumentType
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoicePeriod
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceStatusKind
 import com.claytonmuhoza.easybilling.domain.transmission.InvoiceDifference
@@ -30,6 +31,13 @@ internal val PERIOD_LABELS = mapOf(
     InvoicePeriod.TODAY to R.string.invoices_period_today,
     InvoicePeriod.LAST_7_DAYS to R.string.invoices_period_7_days,
     InvoicePeriod.LAST_30_DAYS to R.string.invoices_period_30_days,
+)
+
+/** The name of each type of document as a filter of the list; null is every type. */
+internal val TYPE_FILTER_LABELS: List<Pair<DocumentType?, Int>> = listOf(
+    null to R.string.invoices_filter_type_all,
+    DocumentType.FN to R.string.invoices_filter_type_fn,
+    DocumentType.FA to R.string.invoices_filter_type_fa,
 )
 
 /** The sentence of each difference between the OBR and the device. */

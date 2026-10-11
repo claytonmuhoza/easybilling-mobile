@@ -27,6 +27,10 @@ import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.invoicing.CancelInvoice
 import com.claytonmuhoza.easybilling.domain.invoicing.CancellationRules
 import com.claytonmuhoza.easybilling.domain.invoicing.CorrectionAuthority
+import com.claytonmuhoza.easybilling.domain.invoicing.CreditNoteRules
+import com.claytonmuhoza.easybilling.domain.invoicing.CreditNoteStorage
+import com.claytonmuhoza.easybilling.domain.invoicing.DocumentStamper
+import com.claytonmuhoza.easybilling.domain.invoicing.IssueCreditNote
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellation
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceCancellationRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.RedoSale
@@ -115,6 +119,9 @@ class InMemoryInvoiceRepository :
     override suspend fun findByNumber(number: String): Invoice? =
         invoices.values.firstOrNull { it.content.number == number }
 
+    override suspend fun creditNotesOf(number: String): List<Invoice> =
+        invoices.values.filter { it.content.credit?.invoiceRef == number }
+
     override suspend fun statusOf(id: InvoiceId): InvoiceStatus? = statuses[id]
 
     override suspend fun setStatus(id: InvoiceId, status: InvoiceStatus, at: Instant) {
@@ -156,6 +163,7 @@ class InMemoryInvoiceRepository :
         val wanted = SearchText.normalize(filter.query)
         return invoices.values
             .filter { filter.since == null || it.content.issuedAt >= filter.since }
+            .filter { filter.type == null || it.content.type == filter.type }
             .filter { wanted in SearchText.normalize(it.content.number + " " + it.content.customer.name) }
             .map {
                 InvoiceSummary(
@@ -354,6 +362,7 @@ class SaleFixture {
         DirectTransactionRunner,
         time,
     )
+    val creditRules = CreditNoteRules(invoices, cancellations, drafts)
     val replaceInvoice = ReplaceInvoice(
         cancellationRules,
         authority,
@@ -373,6 +382,22 @@ class SaleFixture {
         IssueStorage(drafts, invoices, outbox, audit, cancellations),
         priceSale,
         AllocateInvoiceNumber(numbering, time, DirectTransactionRunner),
+        DirectTransactionRunner,
+        time,
+    )
+
+    private val readiness = CheckBillingReadiness(profiles, ebmsSettings, taxes, numbering, time)
+    val issueCreditNote = IssueCreditNote(
+        creditRules,
+        authority,
+        DocumentStamper(
+            profiles,
+            ebmsSettings,
+            vault,
+            readiness,
+            AllocateInvoiceNumber(numbering, time, DirectTransactionRunner),
+        ),
+        CreditNoteStorage(invoices, outbox, audit),
         DirectTransactionRunner,
         time,
     )

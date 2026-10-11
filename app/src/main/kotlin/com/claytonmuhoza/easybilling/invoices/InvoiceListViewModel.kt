@@ -2,6 +2,7 @@ package com.claytonmuhoza.easybilling.invoices
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.claytonmuhoza.easybilling.domain.invoicing.DocumentType
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceDay
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceFilter
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceListing
@@ -40,6 +41,8 @@ sealed interface InvoiceListUiState {
      * @property today the current day in Bujumbura, which names the first days.
      * @property anyInvoice whether an invoice was ever issued, whatever the filters.
      * @property limited whether more invoices match than the [InvoiceListViewModel.LIMIT] shown.
+     * @property type the type of document the list is filtered by, or null for every type.
+     * @property typeFilter whether the filter by type is offered: once a credit note exists.
      */
     data class Ready(
         val query: String = "",
@@ -50,6 +53,8 @@ sealed interface InvoiceListUiState {
         val today: LocalDate,
         val anyInvoice: Boolean = true,
         val limited: Boolean = false,
+        val type: DocumentType? = null,
+        val typeFilter: Boolean = false,
     ) : InvoiceListUiState
 }
 
@@ -64,6 +69,7 @@ class InvoiceListViewModel @Inject constructor(
     private var query = ""
     private var status: InvoiceStatusKind? = null
     private var period = InvoicePeriod.ALL
+    private var type: DocumentType? = null
     private var search: Job? = null
 
     private val mutableState = MutableStateFlow<InvoiceListUiState>(InvoiceListUiState.Loading)
@@ -94,12 +100,18 @@ class InvoiceListViewModel @Inject constructor(
         refresh()
     }
 
+    /** @param type the type of document to list, or null for every type. */
+    fun onTypeChange(type: DocumentType?) {
+        this.type = type
+        refresh()
+    }
+
     private fun refresh() {
         search?.cancel()
         search = viewModelScope.launch {
             val asked = query
             val now = time.now()
-            val filter = InvoiceFilter(asked, status, period.since(now))
+            val filter = InvoiceFilter(asked, status, period.since(now), type)
             val result = storageCall {
                 val found = listing.search(filter, LIMIT)
                 InvoiceListUiState.Ready(
@@ -111,6 +123,8 @@ class InvoiceListViewModel @Inject constructor(
                     today = BusinessCalendar.today(time),
                     anyInvoice = found.isNotEmpty() || invoices.count() > 0,
                     limited = found.size == LIMIT,
+                    type = filter.type,
+                    typeFilter = listing.search(InvoiceFilter(type = DocumentType.FA), limit = 1).isNotEmpty(),
                 )
             }.getOrElse { InvoiceListUiState.Failed }
             // A newer search may have been typed while this one ran: its text stays in the field.

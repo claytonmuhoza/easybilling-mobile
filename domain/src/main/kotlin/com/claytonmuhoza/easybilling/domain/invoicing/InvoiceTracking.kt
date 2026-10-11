@@ -63,11 +63,13 @@ enum class InvoicePeriod(val days: Long?) {
  * @property query a part of the number or of the name of the customer; empty for every invoice.
  * @property status the status of the invoices, or null for every status.
  * @property since the moment from which the invoices were issued, or null for no limit.
+ * @property type the type of the documents, or null for every type.
  */
 data class InvoiceFilter(
     val query: String = "",
     val status: InvoiceStatusKind? = null,
     val since: Instant? = null,
+    val type: DocumentType? = null,
 )
 
 /** Reads the issued invoices as the list shows them (UC-C08). */
@@ -92,7 +94,7 @@ interface InvoiceListing {
  * @property date the day, in Bujumbura.
  * @property invoices the invoices issued that day, in the order they were given.
  * @property total the sum of the invoices that count as sales: the refused and the cancelled
- * ones are left out.
+ * ones are left out, and so are the credit notes, which are not sales.
  */
 data class InvoiceDay(val date: LocalDate, val invoices: List<InvoiceSummary>, val total: Money)
 
@@ -103,7 +105,9 @@ data class InvoiceDay(val date: LocalDate, val invoices: List<InvoiceSummary>, v
 fun List<InvoiceSummary>.groupedByDay(): List<InvoiceDay> =
     groupBy { it.issuedAt.atZone(BusinessCalendar.ZONE).toLocalDate() }.map { (date, invoices) ->
         val counted = invoices.filter {
-            it.status.kind != InvoiceStatusKind.REJECTED && it.status.kind != InvoiceStatusKind.CANCELLED
+            it.type == DocumentType.FN &&
+                it.status.kind != InvoiceStatusKind.REJECTED &&
+                it.status.kind != InvoiceStatusKind.CANCELLED
         }
         val zero = Money.zero(invoices.first().total.currency)
         InvoiceDay(date, invoices, counted.map { it.total }.fold(zero, Money::plus))

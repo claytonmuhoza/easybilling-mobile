@@ -61,7 +61,8 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
  * invoices sent again (step 12); 11 settings of the documents (step 13); 12 settings of the printer
  * (step 13); 13 several roles per user, disabled accounts and temporary PINs (step 14a); 14 approval
  * of the discount of a line and cap of the discount (step 14b); 15 cancellations of the invoices,
- * replaced invoice of an invoice and of a sale (step 15a).
+ * replaced invoice of an invoice and of a sale (step 15a); 16 credited invoice and reason of a credit
+ * note (step 15b).
  */
 @Database(
     entities = [
@@ -89,7 +90,7 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
         DiscountSettingsEntity::class,
         InvoiceCancellationEntity::class,
     ],
-    version = 15,
+    version = 16,
     exportSchema = false,
 )
 // One accessor per DAO: the list grows with the schema.

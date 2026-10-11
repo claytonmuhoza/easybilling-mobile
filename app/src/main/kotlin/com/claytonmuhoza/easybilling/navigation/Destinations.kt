@@ -197,3 +197,11 @@ data object DiscountCapDestination
  */
 @Serializable
 data class CancelInvoiceDestination(val id: Long)
+
+/**
+ * A credit note to issue on an invoice.
+ *
+ * @property id identifier of the invoice that is credited.
+ */
+@Serializable
+data class CreditNoteDestination(val id: Long)

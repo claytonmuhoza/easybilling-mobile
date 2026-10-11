@@ -33,6 +33,19 @@ object ObrMessages {
 }
 
 /**
+ * The refusals the application gives itself, kept with the status of the document where the
+ * refusals of the OBR are. They are in French, as the messages of the OBR.
+ */
+object LocalRefusals {
+    /**
+     * A credit note is only sent once the OBR has the invoice it credits (UC-E03): it is not sent
+     * when that invoice was rejected.
+     */
+    const val CREDITED_INVOICE_NOT_REGISTERED =
+        "La facture d'origine n'est pas enregistrée à l'OBR : la facture d'avoir n'a pas été envoyée."
+}
+
+/**
  * What the send queue reads and writes.
  *
  * @property outbox the queue.
@@ -190,6 +203,7 @@ class DispatchOutbox(
         val target = connection.target()
         return when {
             invoice == null || seller == null -> Attempt.Rejected("Invoice ${operation.invoice.value} cannot be read")
+            creditedInvoiceMissing(invoice) -> Attempt.Rejected(LocalRefusals.CREDITED_INVOICE_NOT_REGISTERED)
             target == null -> Attempt.Later(LoginOutcome.NotConfigured.code, entry.uncertain)
             target.environment != invoice.content.environment ->
                 Attempt.Later("The invoice belongs to ${invoice.content.environment}", entry.uncertain)
@@ -197,6 +211,16 @@ class DispatchOutbox(
             entry.uncertain -> lookedUp(target, invoice, rejection = null) { send(target, invoice, seller) }
             else -> send(target, invoice, seller)
         }
+    }
+
+    /**
+     * @return whether [invoice] is a credit note whose invoice the OBR does not have: rejected, or
+     * sent again and waiting behind in the queue.
+     */
+    private suspend fun creditedInvoiceMissing(invoice: Invoice): Boolean {
+        val credit = invoice.content.credit ?: return false
+        val status = storage.invoices.findByNumber(credit.invoiceRef)?.let { storage.invoices.statusOf(it.id) }
+        return status != InvoiceStatus.Registered && status != InvoiceStatus.Cancelled
     }
 
     private suspend fun send(target: LoginTarget, invoice: Invoice, seller: TaxProfile): Attempt {

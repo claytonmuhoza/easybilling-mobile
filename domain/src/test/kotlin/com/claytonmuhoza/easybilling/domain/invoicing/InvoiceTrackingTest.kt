@@ -135,6 +135,15 @@ class InvoiceTrackingTest {
     }
 
     @Test
+    fun `the total of a day is the total of its sales, credit notes left out`() {
+        val note = summary(2, "2026-10-03T09:00:00Z", "400").copy(type = DocumentType.FA, number = "FA-00001/2026")
+        val day = listOf(note, summary(1, "2026-10-03T08:00:00Z", "1000")).groupedByDay().single()
+
+        assertEquals(2, day.invoices.size)
+        assertEquals(Money.of("1000", Currency.BIF), day.total)
+    }
+
+    @Test
     fun `no invoice gives no day`() {
         assertEquals(emptyList(), emptyList<InvoiceSummary>().groupedByDay())
     }

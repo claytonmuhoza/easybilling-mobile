@@ -284,6 +284,23 @@ sealed interface AuditEvent {
         override val details get() = "invoice=${invoice.value}"
     }
 
+    /**
+     * The user issued the credit note [invoice], numbered [number], on the invoice [credited],
+     * approved by [approver] when not null.
+     */
+    data class CreditNoteIssued(
+        override val actor: UserId,
+        val invoice: InvoiceId,
+        val number: String,
+        val credited: InvoiceId,
+        val approver: UserId?,
+    ) : AuditEvent {
+        override val action get() = "CREDIT_NOTE_ISSUED"
+        override val details
+            get() = "invoice=${invoice.value};number=$number;credited=${credited.value}" +
+                approver?.let { ";approver=${it.value}" }.orEmpty()
+    }
+
     /** The refused invoice [invoice] was put back in the send queue with the tax profile [profileVersion]. */
     data class InvoiceResent(override val actor: UserId, val invoice: InvoiceId, val profileVersion: Int) : AuditEvent {
         override val action get() = "INVOICE_RESENT"

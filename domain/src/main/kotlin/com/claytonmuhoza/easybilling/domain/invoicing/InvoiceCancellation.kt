@@ -126,11 +126,17 @@ enum class CancellationProblem {
 
     /** A sale that replaces it is being typed or is on hold. */
     REPLACING,
+
+    /** It is a credit note: nothing the test server showed says the OBR cancels one (§ 7.28). */
+    CREDIT_NOTE,
+
+    /** It has a credit note the OBR did not reject (D51). */
+    CREDITED,
 }
 
 /**
- * Which invoices may be cancelled or replaced (D51): pending or registered, without a cancellation
- * nor a replacement under way.
+ * Which invoices may be cancelled or replaced (D51): normal invoices, pending or registered,
+ * without a credit note, nor a cancellation or a replacement under way.
  */
 class CancellationRules(
     private val invoices: InvoiceRepository,
@@ -143,13 +149,16 @@ class CancellationRules(
      * @return why it cannot be cancelled now, or null.
      */
     suspend fun problem(id: InvoiceId, replacingDraft: DraftId? = null): CancellationProblem? {
+        val invoice = invoices.find(id)
         val status = invoices.statusOf(id)
         return when {
-            status == null -> CancellationProblem.NOT_FOUND
+            invoice == null || status == null -> CancellationProblem.NOT_FOUND
             status is InvoiceStatus.Rejected -> CancellationProblem.REJECTED
             status == InvoiceStatus.Cancelled -> CancellationProblem.CANCELLED
+            invoice.content.type != DocumentType.FN -> CancellationProblem.CREDIT_NOTE
             cancellations.find(id)?.state == CancellationState.Requested -> CancellationProblem.CANCELLING
             replacedBySale(id, replacingDraft) -> CancellationProblem.REPLACING
+            invoices.countedCreditNotes(invoice.content.number).isNotEmpty() -> CancellationProblem.CREDITED
             else -> null
         }
     }

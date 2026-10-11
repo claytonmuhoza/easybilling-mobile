@@ -14,6 +14,9 @@ import com.claytonmuhoza.easybilling.domain.catalog.SearchText
 import com.claytonmuhoza.easybilling.domain.configuration.EbmsEnvironment
 import com.claytonmuhoza.easybilling.domain.customer.CustomerId
 import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.invoicing.CreditNote
+import com.claytonmuhoza.easybilling.domain.invoicing.CreditReason
+import com.claytonmuhoza.easybilling.domain.invoicing.CreditReasonType
 import com.claytonmuhoza.easybilling.domain.invoicing.DocumentType
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceContent
@@ -39,10 +42,18 @@ import java.time.Instant
  * [searchText] the number and the name of the customer without case nor accents: both are written
  * once, for the list of the invoices.
  * [cancelledInvoiceRef] is the number of the invoice this one replaces (`cancelled_invoice_ref`), or null.
+ * [invoiceRef] is the number of the invoice a credit note credits (`invoice_ref`), with the type of
+ * its reason in [creditReasonType] and what the user added in [creditReasonDetail]; all three are
+ * null for any other document.
  */
 @Entity(
     tableName = "invoices",
-    indices = [Index("number", unique = true), Index("identifier", unique = true), Index("issuedAt")],
+    indices = [
+        Index("number", unique = true),
+        Index("identifier", unique = true),
+        Index("issuedAt"),
+        Index("invoiceRef"),
+    ],
 )
 internal data class InvoiceEntity(
     @PrimaryKey(autoGenerate = true) val id: Long,
@@ -63,6 +74,9 @@ internal data class InvoiceEntity(
     val total: String,
     val searchText: String,
     val cancelledInvoiceRef: String?,
+    val invoiceRef: String?,
+    val creditReasonType: String?,
+    val creditReasonDetail: String?,
 )
 
 /**
@@ -151,6 +165,7 @@ internal class RoomInvoiceRepository(private val database: EasyBillingDatabase) 
 
     private val dao = database.invoiceDao()
     private val sellers = database.invoiceSellerDao()
+    private val reader = InvoiceReader(dao, sellers)
 
     override suspend fun create(content: InvoiceContent): Invoice = database.withTransaction {
         val id = dao.insert(content.toEntity())
@@ -159,10 +174,14 @@ internal class RoomInvoiceRepository(private val database: EasyBillingDatabase) 
         Invoice(InvoiceId(id), content)
     }
 
-    override suspend fun find(id: InvoiceId): Invoice? = database.withTransaction { dao.find(id.value)?.toDomain() }
+    override suspend fun find(id: InvoiceId): Invoice? =
+        database.withTransaction { dao.find(id.value)?.let { reader.read(it) } }
 
     override suspend fun findByNumber(number: String): Invoice? =
-        database.withTransaction { dao.findByNumber(number)?.toDomain() }
+        database.withTransaction { dao.findByNumber(number)?.let { reader.read(it) } }
+
+    override suspend fun creditNotesOf(number: String): List<Invoice> =
+        database.withTransaction { database.invoiceListDao().creditNotesOf(number).map { reader.read(it) } }
 
     override suspend fun statusOf(id: InvoiceId): InvoiceStatus? = dao.status(id.value)?.toDomain()
 
@@ -178,7 +197,7 @@ internal class RoomInvoiceRepository(private val database: EasyBillingDatabase) 
 
     override suspend fun rejected(): List<RejectedDocument> = database.withTransaction {
         dao.statuses(REJECTED).mapNotNull { status ->
-            dao.find(status.invoiceId)?.let { RejectedDocument(it.toDomain(), status.message) }
+            dao.find(status.invoiceId)?.let { RejectedDocument(reader.read(it), status.message) }
         }
     }
 
@@ -189,13 +208,24 @@ internal class RoomInvoiceRepository(private val database: EasyBillingDatabase) 
         database.withTransaction {
             check(dao.status(id.value)?.status == REJECTED) { "Invoice ${id.value} is not refused" }
             sellers.write(InvoiceSellerEntity(id.value, profileVersion, identifier))
-            checkNotNull(dao.find(id.value)).toDomain()
+            reader.read(checkNotNull(dao.find(id.value)))
         }
+}
 
-    private suspend fun InvoiceEntity.toDomain(): Invoice {
+/**
+ * Reads an invoice from its rows: its header, its lines, and the seller it is sent again with when
+ * it has one.
+ */
+private class InvoiceReader(private val dao: InvoiceDao, private val sellers: InvoiceSellerDao) {
+
+    /**
+     * @param entity the header of an invoice.
+     * @return the invoice.
+     */
+    suspend fun read(entity: InvoiceEntity): Invoice = with(entity) {
         val currency = Currency.valueOf(currency)
         val seller = sellers.find(id)
-        return Invoice(
+        Invoice(
             id = InvoiceId(id),
             content = InvoiceContent(
                 type = DocumentType.valueOf(type),
@@ -216,8 +246,14 @@ internal class RoomInvoiceRepository(private val database: EasyBillingDatabase) 
                 lines = dao.lines(id).map { it.toDomain(currency) },
                 issuedBy = UserId(issuedBy),
                 cancelledInvoiceRef = cancelledInvoiceRef,
+                credit = creditOf(entity),
             ),
         )
+    }
+
+    private fun creditOf(entity: InvoiceEntity): CreditNote? = entity.invoiceRef?.let { reference ->
+        val type = checkNotNull(entity.creditReasonType) { "A credit note has a reason" }
+        CreditNote(reference, CreditReason(CreditReasonType.valueOf(type), entity.creditReasonDetail.orEmpty()))
     }
 }
 
@@ -240,6 +276,9 @@ private fun InvoiceContent.toEntity() = InvoiceEntity(
     total = totals.total.toPlainString(),
     searchText = SearchText.normalize("$number ${customer.name}"),
     cancelledInvoiceRef = cancelledInvoiceRef,
+    invoiceRef = credit?.invoiceRef,
+    creditReasonType = credit?.reason?.type?.name,
+    creditReasonDetail = credit?.reason?.detail,
 )
 
 /** Code of [InvoiceStatus.Rejected], the only status that is not an object. */
