@@ -20,6 +20,18 @@ enum class Permission {
     /** Create, change and archive items. */
     EDIT_ITEMS,
 
+    /** See the stock of the items and their movements. */
+    VIEW_STOCK,
+
+    /** Record an entry or an exit of stock (UC-F01, F02, F05, F07). */
+    RECORD_STOCK,
+
+    /**
+     * Validate an exit of stock that is not a sale, and decide what happens to a movement the OBR
+     * may or may not have (UC-F07, D53).
+     */
+    MANAGE_STOCK,
+
     /** See, create, change and archive customers. */
     MANAGE_CUSTOMERS,
 
@@ -56,6 +68,7 @@ object FixedPermissionPolicy : PermissionPolicy {
         Permission.SELL,
         Permission.VIEW_INVOICES,
         Permission.VIEW_ITEMS,
+        Permission.VIEW_STOCK,
         Permission.MANAGE_CUSTOMERS,
         Permission.VIEW_TRANSMISSION,
     )
@@ -64,7 +77,12 @@ object FixedPermissionPolicy : PermissionPolicy {
         Role.ADMINISTRATOR to Permission.entries.toSet(),
         Role.MANAGER to Permission.entries.toSet() - setOf(Permission.CONFIGURE_BILLING, Permission.MANAGE_USERS),
         Role.CASHIER to cashier,
-        Role.STOREKEEPER to setOf(Permission.VIEW_ITEMS, Permission.EDIT_ITEMS),
+        Role.STOREKEEPER to setOf(
+            Permission.VIEW_ITEMS,
+            Permission.EDIT_ITEMS,
+            Permission.VIEW_STOCK,
+            Permission.RECORD_STOCK,
+        ),
     )
 
     override fun allows(roles: Set<Role>, permission: Permission): Boolean =

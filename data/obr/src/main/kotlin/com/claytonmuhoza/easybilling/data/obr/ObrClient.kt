@@ -5,11 +5,13 @@ import com.claytonmuhoza.easybilling.domain.customer.TinLookup
 import com.claytonmuhoza.easybilling.domain.customer.TinReply
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
+import com.claytonmuhoza.easybilling.domain.stock.StockMovement
 import com.claytonmuhoza.easybilling.domain.transmission.CancelOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.ExchangeRecorder
 import com.claytonmuhoza.easybilling.domain.transmission.LoginOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.LoginTarget
 import com.claytonmuhoza.easybilling.domain.transmission.LookupOutcome
+import com.claytonmuhoza.easybilling.domain.transmission.MovementOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.ObrAuthentication
 import com.claytonmuhoza.easybilling.domain.transmission.ObrGateway
 import com.claytonmuhoza.easybilling.domain.transmission.ObrInvoiceCopy
@@ -185,12 +187,23 @@ class ObrClient(http: OkHttpClient, recorder: ExchangeRecorder, time: TimeProvid
         }
     }
 
+    override suspend fun addStockMovement(
+        target: LoginTarget,
+        token: String,
+        movement: StockMovement,
+    ): MovementOutcome {
+        val body = StockMovementJson.of(movement, target.credentials.systemId)
+        val reply = transport.post(target, ADD_STOCK_MOVEMENT, body.toString(), token)
+        return StockMovementJson.outcome(reply, ::parse)
+    }
+
     private companion object {
         const val LOGIN = "login/"
         const val CHECK_TIN = "checkTIN/"
         const val ADD_INVOICE = "addInvoice_confirm/"
         const val GET_INVOICE = "getInvoice/"
         const val CANCEL_INVOICE = "cancelInvoice/"
+        const val ADD_STOCK_MOVEMENT = "AddStockMovement/"
 
         /** The refusal of `cancelInvoice/` for an invoice already cancelled (page 30), which is a success. */
         const val ALREADY_CANCELLED = "La facture que vous voulez annuler a été déjà annulée"

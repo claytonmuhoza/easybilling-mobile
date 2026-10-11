@@ -103,6 +103,14 @@ class ObrSimulator(
     }
 
     /**
+     * The next stock movement is accepted and kept by the server, but the connection is cut before
+     * its answer leaves: the sender cannot know whether the movement was received.
+     */
+    fun loseNextMovementAnswer() {
+        services.loseNextMovementAnswer = true
+    }
+
+    /**
      * The invoice is cancelled on the server: `getInvoice/` now reads it with `cancelled_invoice` `Y`.
      *
      * @param identifier the `invoice_identifier` of an accepted invoice.
@@ -110,6 +118,9 @@ class ObrSimulator(
     fun markCancelled(identifier: String) {
         services.cancelled += identifier
     }
+
+    /** The stock movements the server accepted, as they were sent, in order. */
+    val stockMovements: List<JsonObject> get() = services.stockMovements
 
     /** Every token given so far is now refused: the next authenticated call needs a new login. */
     fun expireTokens() = services.expireTokens()
@@ -225,5 +236,23 @@ class ObrSimulator(
         /** A credit note on a cancelled invoice. Only this end of the message was written down (§ 7.28). */
         const val MESSAGE_CREDIT_CANCELLED_INVOICE =
             "a ete annulee. Veuillez fournir un numero de facture non annulee"
+
+        /** Message of an accepted stock movement (200), page 31 of the specification. */
+        const val MESSAGE_MOVEMENT_ADDED = "La transaction a été ajoutée avec succès!"
+
+        /**
+         * Start of the message of a stock movement without one of its mandatory fields (400), page 31
+         * of the specification, which writes "..." after it: the simulator names the missing fields.
+         */
+        const val MESSAGE_MOVEMENT_MISSING_FIELDS =
+            "Veuillez fournir tous les champs obligatoires. Champ(s) manquant(s): "
+
+        /** Message of a stock movement with another system identifier (400), page 32 of the specification. */
+        const val MESSAGE_WRONG_SYSTEM_ID = "Identifiant système incorrect."
+
+        /** Message of a stock movement with an unknown type (400), page 32 of the specification. */
+        const val MESSAGE_INVALID_MOVEMENT_TYPE =
+            "Veuillez fournir un type de mouvement valide. Le type de mouvement de stock doit être inclu dans " +
+                "les types suivants : EN, ER, EI, EAJ, ET, EAU, SN, SP, SV, SD, SC, SAJ, ST, SAU."
     }
 }

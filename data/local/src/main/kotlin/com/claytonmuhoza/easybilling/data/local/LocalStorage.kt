@@ -19,6 +19,7 @@ import com.claytonmuhoza.easybilling.data.local.invoicing.RoomInvoiceListing
 import com.claytonmuhoza.easybilling.data.local.invoicing.RoomInvoiceRepository
 import com.claytonmuhoza.easybilling.data.local.invoicing.RoomSaleDraftRepository
 import com.claytonmuhoza.easybilling.data.local.transmission.RoomExchangeLog
+import com.claytonmuhoza.easybilling.data.local.stock.RoomStockRepository
 import com.claytonmuhoza.easybilling.data.local.transmission.RoomOutboxRepository
 import com.claytonmuhoza.easybilling.data.local.transmission.RoomReceiptArchive
 import com.claytonmuhoza.easybilling.domain.audit.AuditStore
@@ -38,6 +39,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
 import com.claytonmuhoza.easybilling.domain.transmission.ExchangeLog
+import com.claytonmuhoza.easybilling.domain.stock.StockRepository
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxRepository
 import com.claytonmuhoza.easybilling.domain.transmission.ReceiptArchive
 
@@ -80,6 +82,9 @@ class LocalStorage private constructor(internal val database: EasyBillingDatabas
 
     /** The operations to send to the OBR. */
     val outbox: OutboxRepository = RoomOutboxRepository(database.outboxDao())
+
+    /** The stock movements and their status. */
+    val stock: StockRepository = RoomStockRepository(database)
 
     /** The acknowledgements of the OBR. */
     val receipts: ReceiptArchive = RoomReceiptArchive(database.receiptDao())

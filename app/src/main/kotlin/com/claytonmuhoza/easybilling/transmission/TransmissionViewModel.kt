@@ -2,6 +2,10 @@ package com.claytonmuhoza.easybilling.transmission
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.claytonmuhoza.easybilling.domain.identity.SessionManager
+import com.claytonmuhoza.easybilling.domain.identity.UserId
+import com.claytonmuhoza.easybilling.domain.stock.MovementId
+import com.claytonmuhoza.easybilling.domain.stock.ResolveStockMovement
 import com.claytonmuhoza.easybilling.domain.transmission.NetworkMonitor
 import com.claytonmuhoza.easybilling.domain.transmission.ReadTransmissionStatus
 import com.claytonmuhoza.easybilling.domain.transmission.TransmissionStatus
@@ -38,14 +42,17 @@ sealed interface TransmissionUiState {
 }
 
 /**
- * Follows the transmission to the OBR (UC-D03) and forces a pass on request (UC-D05). The state is
- * read again each time a pass over the queue ends and each time the network changes.
+ * Follows the transmission to the OBR (UC-D03), forces a pass on request (UC-D05) and applies what
+ * a manager decides of a stock movement the OBR refused or may not have (§ 7.8). The state is read
+ * again each time a pass over the queue ends and each time the network changes.
  */
 @HiltViewModel
 class TransmissionViewModel @Inject constructor(
     private val readStatus: ReadTransmissionStatus,
     private val monitor: NetworkMonitor,
     private val runner: TransmissionRunner,
+    private val resolveMovement: ResolveStockMovement,
+    private val sessions: SessionManager,
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow<TransmissionUiState>(TransmissionUiState.Loading)
@@ -67,6 +74,30 @@ class TransmissionViewModel @Inject constructor(
 
     /** Tries the whole queue now, whatever the wait of each document. */
     fun retryNow() = runner.kick(force = true)
+
+    /**
+     * Puts a refused or uncertain stock movement back in the send queue, and sends the queue.
+     *
+     * @param id identifier of the movement.
+     */
+    fun resendMovement(id: Long) = decide { actor -> resolveMovement.resend(MovementId(id), actor) }
+
+    /**
+     * Holds an uncertain stock movement as declared: nothing is sent again.
+     *
+     * @param id identifier of the movement.
+     */
+    fun holdMovementAsDeclared(id: Long) = decide { actor -> resolveMovement.holdAsDeclared(MovementId(id), actor) }
+
+    /** Applies a decision of the logged in user, then reads the state again whatever came of it. */
+    private fun decide(decision: suspend (UserId) -> ResolveStockMovement.Result) {
+        val actor = sessions.current.value?.userId ?: return
+        viewModelScope.launch {
+            storageCall { decision(actor) }
+            read(monitor.online.value, runner.offlineSince.value)
+            runner.kick()
+        }
+    }
 
     private suspend fun read(online: Boolean, offlineSince: Instant?) {
         mutableState.value = storageCall { TransmissionUiState.Ready(readStatus(), online, offlineSince) }

@@ -11,6 +11,7 @@ import com.claytonmuhoza.easybilling.domain.identity.Role
 import com.claytonmuhoza.easybilling.domain.identity.SensitiveAction
 import com.claytonmuhoza.easybilling.domain.identity.UserId
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
+import com.claytonmuhoza.easybilling.domain.stock.MovementId
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
@@ -299,6 +300,45 @@ sealed interface AuditEvent {
         override val details
             get() = "invoice=${invoice.value};number=$number;credited=${credited.value}" +
                 approver?.let { ";approver=${it.value}" }.orEmpty()
+    }
+
+    /**
+     * The user recorded the stock movement [movement], whose reference is [reference], validated by
+     * [approver] when not null.
+     */
+    data class StockMovementRecorded(
+        override val actor: UserId,
+        val movement: MovementId,
+        val reference: String,
+        val approver: UserId?,
+    ) : AuditEvent {
+        override val action get() = "STOCK_MOVEMENT_RECORDED"
+        override val details
+            get() = "movement=${movement.value};reference=$reference" +
+                approver?.let { ";approver=${it.value}" }.orEmpty()
+    }
+
+    /**
+     * What the OBR made of the stock movement [movement]: [outcome] is `DECLARED`, `REJECTED` or
+     * `TO_CONFIRM` when its answer never came.
+     */
+    data class StockMovementSettled(val movement: MovementId, val outcome: String) : AuditEvent {
+        override val actor: UserId? get() = null
+        override val action get() = "STOCK_MOVEMENT_$outcome"
+        override val details get() = "movement=${movement.value}"
+    }
+
+    /**
+     * A manager decided of the refused or uncertain stock movement [movement]: sent again when
+     * [resent], held as declared otherwise.
+     */
+    data class StockMovementResolved(
+        override val actor: UserId,
+        val movement: MovementId,
+        val resent: Boolean,
+    ) : AuditEvent {
+        override val action get() = if (resent) "STOCK_MOVEMENT_RESENT" else "STOCK_MOVEMENT_HELD_AS_DECLARED"
+        override val details get() = "movement=${movement.value}"
     }
 
     /** The refused invoice [invoice] was put back in the send queue with the tax profile [profileVersion]. */

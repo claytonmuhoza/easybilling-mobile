@@ -14,8 +14,7 @@ import com.claytonmuhoza.easybilling.core.designsystem.component.NavigationFrame
 import com.claytonmuhoza.easybilling.domain.identity.Permission
 
 /**
- * The main screens, between which the navigation switches. Stock and Reports join them with
- * their own steps.
+ * The main screens, between which the navigation switches. Reports join them with their own step.
  *
  * @property icon the icon of the tab.
  * @property label the name of the tab.
@@ -28,6 +27,9 @@ enum class MainTab(val icon: AppIcon, @StringRes val label: Int, val destination
 
     /** The issued invoices. */
     INVOICES(AppIcon.INVOICE, R.string.invoices_title, InvoicesDestination, Permission.VIEW_INVOICES),
+
+    /** The stock of the items kept in stock. */
+    STOCK(AppIcon.INVENTORY, R.string.stock_title, StockDestination, Permission.VIEW_STOCK),
 }
 
 /**

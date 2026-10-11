@@ -190,6 +190,27 @@ data object SwitchUserDestination
 @Serializable
 data object DiscountCapDestination
 
+/** The stock of the items kept in stock, the "Stock" tab. */
+@Serializable
+data object StockDestination
+
+/**
+ * The stock of an item and its movements.
+ *
+ * @property id identifier of the item.
+ */
+@Serializable
+data class StockItemDestination(val id: Long)
+
+/**
+ * Entry of a stock movement typed by a user.
+ *
+ * @property itemId identifier of the item that moves.
+ * @property exit true for an exit of stock, false for an entry.
+ */
+@Serializable
+data class StockMovementDestination(val itemId: Long, val exit: Boolean)
+
 /**
  * Cancellation of an invoice, alone or with its replacement.
  *

@@ -3,6 +3,7 @@ package com.claytonmuhoza.easybilling.domain.transmission
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfile
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
+import com.claytonmuhoza.easybilling.domain.stock.StockMovement
 import java.math.BigDecimal
 import java.time.Instant
 
@@ -93,6 +94,27 @@ sealed interface CancelOutcome {
     data class Uncertain(val reason: String) : CancelOutcome
 }
 
+/** What declaring a stock movement to the OBR gave (`AddStockMovement/`). */
+sealed interface MovementOutcome {
+    /** The OBR accepted the movement. It gives no identifier nor acknowledgement for it. */
+    data object Accepted : MovementOutcome
+
+    /** The OBR refused, with its [message] (`msg`). */
+    data class Rejected(val message: String) : MovementOutcome
+
+    /** The OBR refused the token: a new one is needed. */
+    data object TokenRefused : MovementOutcome
+
+    /** The request certainly did not reach the OBR, or its server failed: it can be sent again. */
+    data class NotDelivered(val reason: String) : MovementOutcome
+
+    /**
+     * The request left and no answer came. The OBR cannot be asked whether it has the movement, and
+     * sending it again could declare it twice (§ 7.8).
+     */
+    data class Uncertain(val reason: String) : MovementOutcome
+}
+
 /** The fiscal services of the EBMS. The domain knows nothing of HTTP nor of JSON. */
 interface ObrGateway {
     /**
@@ -126,6 +148,16 @@ interface ObrGateway {
      * @return what the OBR answered.
      */
     suspend fun cancelInvoice(target: LoginTarget, token: String, identifier: String, reason: String): CancelOutcome
+
+    /**
+     * Declares a stock movement (`AddStockMovement/`), with the system identifier of [target].
+     *
+     * @param target the server to call.
+     * @param token a token given by `login/`.
+     * @param movement the movement.
+     * @return what the OBR answered.
+     */
+    suspend fun addStockMovement(target: LoginTarget, token: String, movement: StockMovement): MovementOutcome
 }
 
 /** Storage of the acknowledgements of the OBR. It only ever adds: an acknowledgement is a proof. */

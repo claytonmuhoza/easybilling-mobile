@@ -4,6 +4,9 @@ import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.shared.BusinessCalendar
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
+import com.claytonmuhoza.easybilling.domain.stock.MovementStatus
+import com.claytonmuhoza.easybilling.domain.stock.StockMovement
+import com.claytonmuhoza.easybilling.domain.stock.StockRepository
 import kotlinx.coroutines.flow.StateFlow
 import java.time.Duration
 import java.time.Instant
@@ -40,12 +43,13 @@ enum class TransmissionLevel {
 }
 
 /**
- * A document of the send queue, with the invoice it sends.
+ * A document of the send queue, with the invoice or the stock movement it sends.
  *
  * @property entry the entry of the queue.
- * @property invoice the invoice, or null if it can no longer be read.
+ * @property invoice the invoice, or null if it can no longer be read or if the entry sends none.
+ * @property movement the stock movement the entry declares, or null.
  */
-data class QueuedDocument(val entry: OutboxEntry, val invoice: Invoice?)
+data class QueuedDocument(val entry: OutboxEntry, val invoice: Invoice?, val movement: StockMovement? = null)
 
 /**
  * A refused invoice, to be dealt with.
@@ -56,17 +60,28 @@ data class QueuedDocument(val entry: OutboxEntry, val invoice: Invoice?)
 data class RejectedDocument(val invoice: Invoice, val message: String)
 
 /**
+ * A stock movement a manager decides about.
+ *
+ * @property movement the movement.
+ * @property status why it waits for a decision: refused by the OBR, or sent without an answer.
+ */
+data class MovementToResolve(val movement: StockMovement, val status: MovementStatus)
+
+/**
  * Where the transmission to the OBR stands (UC-D03).
  *
  * @property queue the documents still to send, in the order they will be sent.
  * @property rejected the invoices the OBR refused, the most recent first.
  * @property sentToday how many invoices the OBR acknowledged since the start of the day in Bujumbura.
+ * @property stockToResolve the stock movements the OBR refused, or may or may not have: a manager
+ * decides what happens to each.
  * @property readAt when this was read: the ages are counted from it.
  */
 data class TransmissionStatus(
     val queue: List<QueuedDocument> = emptyList(),
     val rejected: List<RejectedDocument> = emptyList(),
     val sentToday: Int = 0,
+    val stockToResolve: List<MovementToResolve> = emptyList(),
     val readAt: Instant,
 ) {
     /** How long the oldest document of the queue has been waiting, or null when nothing waits. */
@@ -80,7 +95,7 @@ data class TransmissionStatus(
         get() {
             val wait = oldestWait ?: Duration.ZERO
             return when {
-                rejected.isNotEmpty() || wait >= ALERT_AFTER -> TransmissionLevel.ALERT
+                rejected.isNotEmpty() || stockToResolve.isNotEmpty() || wait >= ALERT_AFTER -> TransmissionLevel.ALERT
                 wait >= WARNING_AFTER -> TransmissionLevel.WARNING
                 else -> TransmissionLevel.OK
             }
@@ -101,11 +116,13 @@ data class TransmissionStatus(
  *
  * @param outbox the send queue.
  * @param invoices the invoices and their status.
+ * @param stock the stock movements and their status.
  * @param time source of the current time.
  */
 class ReadTransmissionStatus(
     private val outbox: OutboxRepository,
     private val invoices: InvoiceRepository,
+    private val stock: StockRepository,
     private val time: TimeProvider,
 ) {
     /** @return the queue, the refused invoices and how many invoices were acknowledged today. */
@@ -114,10 +131,18 @@ class ReadTransmissionStatus(
         val startOfDay = now.atZone(BusinessCalendar.ZONE).toLocalDate().atStartOfDay(BusinessCalendar.ZONE).toInstant()
         return TransmissionStatus(
             queue = outbox.pending().map { entry ->
-                QueuedDocument(entry, invoices.find(entry.operation.invoice))
+                val operation = entry.operation
+                QueuedDocument(
+                    entry = entry,
+                    invoice = operation.invoice?.let { invoices.find(it) },
+                    movement = (operation as? OutboxOperation.SendStockMovement)?.let { stock.find(it.movement) },
+                )
             },
             rejected = invoices.rejected(),
             sentToday = invoices.countRegisteredSince(startOfDay),
+            stockToResolve = stock.toResolve().mapNotNull { movement ->
+                stock.statusOf(movement.id)?.let { MovementToResolve(movement, it) }
+            },
             readAt = now,
         )
     }

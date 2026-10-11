@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Update
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
+import com.claytonmuhoza.easybilling.domain.stock.MovementId
 import com.claytonmuhoza.easybilling.domain.transmission.ObrReceipt
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxEntry
 import com.claytonmuhoza.easybilling.domain.transmission.OutboxOperation
@@ -16,14 +17,15 @@ import java.time.Instant
 
 /**
  * Row of the `outbox_entries` table: an operation to send to the OBR. The identifier gives the
- * order of the queue. [kind] names the operation and [invoiceId] is the invoice it sends or cancels. The
+ * order of the queue. [kind] names the operation and [subjectId] is what it is about: the invoice it
+ * sends or cancels, or the stock movement it declares. The
  * times are in milliseconds; [nextAttemptAt] is null while the operation can be tried at once.
  */
 @Entity(tableName = "outbox_entries")
 internal data class OutboxEntryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long,
     val kind: String,
-    val invoiceId: Long,
+    val subjectId: Long,
     val createdAt: Long,
     val attempts: Int,
     val nextAttemptAt: Long?,
@@ -67,8 +69,13 @@ internal class RoomOutboxRepository(private val dao: OutboxDao) : OutboxReposito
         kind = when (operation) {
             is OutboxOperation.SendInvoice -> SEND_INVOICE
             is OutboxOperation.CancelInvoice -> CANCEL_INVOICE
+            is OutboxOperation.SendStockMovement -> SEND_STOCK_MOVEMENT
         },
-        invoiceId = operation.invoice.value,
+        subjectId = when (val operation = operation) {
+            is OutboxOperation.SendInvoice -> operation.invoice.value
+            is OutboxOperation.CancelInvoice -> operation.invoice.value
+            is OutboxOperation.SendStockMovement -> operation.movement.value
+        },
         createdAt = createdAt.toEpochMilli(),
         attempts = attempts,
         nextAttemptAt = nextAttemptAt?.toEpochMilli(),
@@ -79,8 +86,9 @@ internal class RoomOutboxRepository(private val dao: OutboxDao) : OutboxReposito
     private fun OutboxEntryEntity.toDomain() = OutboxEntry(
         id = id,
         operation = when (kind) {
-            SEND_INVOICE -> OutboxOperation.SendInvoice(InvoiceId(invoiceId))
-            CANCEL_INVOICE -> OutboxOperation.CancelInvoice(InvoiceId(invoiceId))
+            SEND_INVOICE -> OutboxOperation.SendInvoice(InvoiceId(subjectId))
+            CANCEL_INVOICE -> OutboxOperation.CancelInvoice(InvoiceId(subjectId))
+            SEND_STOCK_MOVEMENT -> OutboxOperation.SendStockMovement(MovementId(subjectId))
             else -> error("Unknown outbox operation $kind")
         },
         createdAt = Instant.ofEpochMilli(createdAt),
@@ -93,6 +101,7 @@ internal class RoomOutboxRepository(private val dao: OutboxDao) : OutboxReposito
     private companion object {
         const val SEND_INVOICE = "SEND_INVOICE"
         const val CANCEL_INVOICE = "CANCEL_INVOICE"
+        const val SEND_STOCK_MOVEMENT = "SEND_STOCK_MOVEMENT"
     }
 }
 

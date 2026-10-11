@@ -31,6 +31,9 @@ import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceCancellationDao
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceCancellationEntity
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceDao
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceEntity
+import com.claytonmuhoza.easybilling.data.local.stock.StockMovementDao
+import com.claytonmuhoza.easybilling.data.local.stock.StockMovementEntity
+import com.claytonmuhoza.easybilling.data.local.stock.StockMovementStatusEntity
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceLineEntity
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceListDao
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceSellerDao
@@ -62,7 +65,8 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
  * (step 13); 13 several roles per user, disabled accounts and temporary PINs (step 14a); 14 approval
  * of the discount of a line and cap of the discount (step 14b); 15 cancellations of the invoices,
  * replaced invoice of an invoice and of a sale (step 15a); 16 credited invoice and reason of a credit
- * note (step 15b).
+ * note (step 15b); 17 stock movements with their status, and what an entry of the send queue is
+ * about (step 16a).
  */
 @Database(
     entities = [
@@ -89,8 +93,10 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
         PrinterSettingsEntity::class,
         DiscountSettingsEntity::class,
         InvoiceCancellationEntity::class,
+        StockMovementEntity::class,
+        StockMovementStatusEntity::class,
     ],
-    version = 16,
+    version = 17,
     exportSchema = false,
 )
 // One accessor per DAO: the list grows with the schema.
@@ -133,6 +139,8 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
     abstract fun discountSettingsDao(): DiscountSettingsDao
 
     abstract fun invoiceCancellationDao(): InvoiceCancellationDao
+
+    abstract fun stockMovementDao(): StockMovementDao
 }
 
 /**
@@ -141,8 +149,15 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
  * recreated after a schema change gets them too.
  */
 internal object AppendOnlyTables : RoomDatabase.Callback() {
-    private val tables =
-        listOf("audit_entries", "tax_profile_versions", "tax_versions", "invoices", "invoice_lines", "invoice_receipts")
+    private val tables = listOf(
+        "audit_entries",
+        "tax_profile_versions",
+        "tax_versions",
+        "invoices",
+        "invoice_lines",
+        "invoice_receipts",
+        "stock_movements",
+    )
 
     override fun onOpen(db: SupportSQLiteDatabase) {
         for (table in tables) {

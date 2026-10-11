@@ -1,19 +1,25 @@
 package com.claytonmuhoza.easybilling.domain.transmission
 
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
+import com.claytonmuhoza.easybilling.domain.stock.MovementId
 import java.time.Duration
 import java.time.Instant
 
 /** Something to send to the OBR. It is stored before anything is sent (`docs/architecture.md` § 7.6). */
 sealed interface OutboxOperation {
-    /** The invoice the operation sends or cancels. */
-    val invoice: InvoiceId
+    /** The invoice the operation sends or cancels, or null when it is about something else. */
+    val invoice: InvoiceId?
 
     /** Sends the invoice [invoice] (`addInvoice_confirm/`). */
     data class SendInvoice(override val invoice: InvoiceId) : OutboxOperation
 
     /** Cancels the invoice [invoice] at the OBR (`cancelInvoice/`), with the reason recorded for it. */
     data class CancelInvoice(override val invoice: InvoiceId) : OutboxOperation
+
+    /** Declares the stock movement [movement] (`AddStockMovement/`). */
+    data class SendStockMovement(val movement: MovementId) : OutboxOperation {
+        override val invoice: InvoiceId? get() = null
+    }
 }
 
 /**
