@@ -3,6 +3,7 @@ package com.claytonmuhoza.easybilling.domain.transmission
 import com.claytonmuhoza.easybilling.domain.configuration.TaxProfile
 import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
+import com.claytonmuhoza.easybilling.domain.stock.DmcLine
 import com.claytonmuhoza.easybilling.domain.stock.StockMovement
 import java.math.BigDecimal
 import java.time.Instant
@@ -94,6 +95,21 @@ sealed interface CancelOutcome {
     data class Uncertain(val reason: String) : CancelOutcome
 }
 
+/** What asking the OBR for the lines of a customs declaration gave (`getDmcItems`). */
+sealed interface DmcOutcome {
+    /** The OBR gave the [lines] of the declaration; none when it has none for it. */
+    data class Found(val lines: List<DmcLine>) : DmcOutcome
+
+    /** The OBR refused, with its [message] (`msg`): another NIF, a missing field. */
+    data class Refused(val message: String) : DmcOutcome
+
+    /** The OBR refused the token: a new one is needed. */
+    data object TokenRefused : DmcOutcome
+
+    /** No usable answer came, because of [reason]. */
+    data class Unavailable(val reason: String) : DmcOutcome
+}
+
 /** What declaring a stock movement to the OBR gave (`AddStockMovement/`). */
 sealed interface MovementOutcome {
     /** The OBR accepted the movement. It gives no identifier nor acknowledgement for it. */
@@ -150,7 +166,19 @@ interface ObrGateway {
     suspend fun cancelInvoice(target: LoginTarget, token: String, identifier: String, reason: String): CancelOutcome
 
     /**
-     * Declares a stock movement (`AddStockMovement/`), with the system identifier of [target].
+     * Asks for the lines of a customs declaration (`getDmcItems`).
+     *
+     * @param target the server to call.
+     * @param token a token given by `login/`.
+     * @param tin the NIF of the business.
+     * @param reference the reference of the declaration.
+     * @return what the OBR answered.
+     */
+    suspend fun getDmcItems(target: LoginTarget, token: String, tin: String, reference: String): DmcOutcome
+
+    /**
+     * Declares a stock movement, with the system identifier of [target]: `AddStockMovement/`, or
+     * `AddStockMovementImporters/` for an entry of imported goods.
      *
      * @param target the server to call.
      * @param token a token given by `login/`.

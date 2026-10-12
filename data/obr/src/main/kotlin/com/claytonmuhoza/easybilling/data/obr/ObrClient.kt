@@ -7,6 +7,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.Invoice
 import com.claytonmuhoza.easybilling.domain.shared.TimeProvider
 import com.claytonmuhoza.easybilling.domain.stock.StockMovement
 import com.claytonmuhoza.easybilling.domain.transmission.CancelOutcome
+import com.claytonmuhoza.easybilling.domain.transmission.DmcOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.ExchangeRecorder
 import com.claytonmuhoza.easybilling.domain.transmission.LoginOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.LoginTarget
@@ -175,26 +176,20 @@ class ObrClient(http: OkHttpClient, recorder: ExchangeRecorder, time: TimeProvid
         }
     }
 
-    private fun cancelOutcome(reply: ObrReply.Answered): CancelOutcome {
-        val message = parse(reply.body)?.text("msg").orEmpty()
-        return when (reply.code) {
-            HTTP_OK -> CancelOutcome.Cancelled
-            HTTP_FORBIDDEN -> CancelOutcome.TokenRefused
-            // The specification refuses an invoice already cancelled; the server answers 200 again (§ 7.28).
-            in UNKNOWN_CODES ->
-                if (message.startsWith(ALREADY_CANCELLED)) CancelOutcome.Cancelled else CancelOutcome.Rejected(message)
-            else -> CancelOutcome.NotDelivered("HTTP ${reply.code}")
-        }
-    }
-
     override suspend fun addStockMovement(
         target: LoginTarget,
         token: String,
         movement: StockMovement,
     ): MovementOutcome {
         val body = StockMovementJson.of(movement, target.credentials.systemId)
-        val reply = transport.post(target, ADD_STOCK_MOVEMENT, body.toString(), token)
+        val service = if (movement.content.imported == null) ADD_STOCK_MOVEMENT else ADD_IMPORTED_MOVEMENT
+        val reply = transport.post(target, service, body.toString(), token)
         return StockMovementJson.outcome(reply, ::parse)
+    }
+
+    override suspend fun getDmcItems(target: LoginTarget, token: String, tin: String, reference: String): DmcOutcome {
+        val reply = transport.post(target, GET_DMC_ITEMS, DmcJson.of(tin, reference).toString(), token)
+        return DmcJson.outcome(reply, ::parse)
     }
 
     private companion object {
@@ -204,9 +199,10 @@ class ObrClient(http: OkHttpClient, recorder: ExchangeRecorder, time: TimeProvid
         const val GET_INVOICE = "getInvoice/"
         const val CANCEL_INVOICE = "cancelInvoice/"
         const val ADD_STOCK_MOVEMENT = "AddStockMovement/"
+        const val ADD_IMPORTED_MOVEMENT = "AddStockMovementImporters/"
 
-        /** The refusal of `cancelInvoice/` for an invoice already cancelled (page 30), which is a success. */
-        const val ALREADY_CANCELLED = "La facture que vous voulez annuler a été déjà annulée"
+        /** Page 32 of the specification writes this address without a final slash. */
+        const val GET_DMC_ITEMS = "getDmcItems"
 
         /** The only refusal of `getInvoice/` that means the OBR does not have the invoice (page 19). */
         const val UNKNOWN_IDENTIFIER = "Identifiant de la facture inconnu."
@@ -216,10 +212,6 @@ class ObrClient(http: OkHttpClient, recorder: ExchangeRecorder, time: TimeProvid
          * the server was seen to add words after it.
          */
         const val UNKNOWN_TIN = "NIF du contribuable inconnu."
-        const val HTTP_OK = 200
-        const val HTTP_BAD_REQUEST = 400
-        const val HTTP_UNAUTHORIZED = 401
-        const val HTTP_FORBIDDEN = 403
         const val HTTP_CONFLICT = 409
 
         /**
@@ -228,6 +220,28 @@ class ObrClient(http: OkHttpClient, recorder: ExchangeRecorder, time: TimeProvid
          */
         val UNKNOWN_CODES = setOf(HTTP_BAD_REQUEST, HTTP_UNAUTHORIZED)
         val HTTP_SERVER_ERRORS = 500..599
+    }
+}
+
+private const val HTTP_OK = 200
+private const val HTTP_BAD_REQUEST = 400
+private const val HTTP_UNAUTHORIZED = 401
+private const val HTTP_FORBIDDEN = 403
+
+/** The refusal of `cancelInvoice/` for an invoice already cancelled (page 30), which is a success. */
+private const val ALREADY_CANCELLED = "La facture que vous voulez annuler a été déjà annulée"
+
+/** @return what the answer [reply] of `cancelInvoice/` means (pages 29 and 30). */
+private fun cancelOutcome(reply: ObrReply.Answered): CancelOutcome {
+    val message = parse(reply.body)?.text("msg").orEmpty()
+    return when (reply.code) {
+        HTTP_OK -> CancelOutcome.Cancelled
+        HTTP_FORBIDDEN -> CancelOutcome.TokenRefused
+        // The specification refuses an invoice already cancelled; the server answers 200 again (§ 7.28).
+        // The codes "unknown" comes with: 400 in the specification, 401 on the server.
+        HTTP_BAD_REQUEST, HTTP_UNAUTHORIZED ->
+            if (message.startsWith(ALREADY_CANCELLED)) CancelOutcome.Cancelled else CancelOutcome.Rejected(message)
+        else -> CancelOutcome.NotDelivered("HTTP ${reply.code}")
     }
 }
 

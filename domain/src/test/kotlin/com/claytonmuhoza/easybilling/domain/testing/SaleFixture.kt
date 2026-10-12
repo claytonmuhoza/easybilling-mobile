@@ -59,9 +59,11 @@ import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraft
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
+import com.claytonmuhoza.easybilling.domain.stock.DmcLine
 import com.claytonmuhoza.easybilling.domain.stock.InvoiceStock
 import com.claytonmuhoza.easybilling.domain.stock.StockMovement
 import com.claytonmuhoza.easybilling.domain.transmission.CancelOutcome
+import com.claytonmuhoza.easybilling.domain.transmission.DmcOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.LoginTarget
 import com.claytonmuhoza.easybilling.domain.transmission.LookupOutcome
 import com.claytonmuhoza.easybilling.domain.transmission.MovementOutcome
@@ -285,6 +287,19 @@ class FakeObrGateway : ObrGateway {
         } else {
             CancelOutcome.Rejected("Identifiant de la facture inconnu")
         }
+    }
+
+    /** The lines of the customs declarations the OBR knows, by reference; they belong to any NIF. */
+    val dmcs = mutableMapOf<String, List<DmcLine>>()
+
+    /** Outcomes given to the next readings of a declaration instead of the normal one, oldest first. */
+    val forcedDmcs = mutableListOf<DmcOutcome>()
+
+    override suspend fun getDmcItems(target: LoginTarget, token: String, tin: String, reference: String): DmcOutcome {
+        calls += Triple("getDmcItems", tin, reference)
+        return forcedDmcs.removeFirstOrNull()
+            ?: dmcs[reference]?.let { DmcOutcome.Found(it) }
+            ?: DmcOutcome.Refused("La reference DMC n'appartient pas a ce NIF")
     }
 
     /** Outcomes given to the next stock movements instead of the normal one, oldest first. */

@@ -16,6 +16,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.shared.Currency
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.shared.Quantity
+import com.claytonmuhoza.easybilling.domain.stock.ImportedGoods
 import com.claytonmuhoza.easybilling.domain.stock.MovementDirection
 import com.claytonmuhoza.easybilling.domain.stock.MovementId
 import com.claytonmuhoza.easybilling.domain.stock.MovementStatus
@@ -31,11 +32,13 @@ import java.time.Instant
  * `AppendOnlyTables`) and the reference is unique at the database level. The quantity and the unit
  * cost are stored as decimal text, never as floating numbers; [signedQuantity] is the quantity as
  * it moves the stock, negative for an exit, also as decimal text. [occurredAt] is in milliseconds.
- * [invoiceId] is the invoice or the credit note the movement was written with, if any.
+ * [invoiceId] is the invoice or the credit note the movement was written with, if any. The five
+ * columns after it are what an entry of imported goods adds, all null for any other movement;
+ * [piecesPerPacket] is decimal text.
  */
 @Entity(
     tableName = "stock_movements",
-    indices = [Index("reference", unique = true), Index("itemId"), Index("invoiceId")],
+    indices = [Index("reference", unique = true), Index("itemId"), Index("invoiceId"), Index("dmcReference")],
 )
 internal data class StockMovementEntity(
     @PrimaryKey(autoGenerate = true) val id: Long,
@@ -56,6 +59,11 @@ internal data class StockMovementEntity(
     val recordedBy: Long,
     val approvedBy: Long?,
     val invoiceId: Long?,
+    val dmcReference: String?,
+    val dmcLine: Int?,
+    val tariffHeading: String?,
+    val piecesPerPacket: String?,
+    val packaging: String?,
 )
 
 /**
@@ -203,9 +211,14 @@ private fun StockMovementContent.toEntity() = StockMovementEntity(
     recordedBy = recordedBy.value,
     approvedBy = approvedBy?.value,
     invoiceId = invoiceId?.value,
+    dmcReference = imported?.dmcReference,
+    dmcLine = imported?.dmcLine,
+    tariffHeading = imported?.tariffHeading,
+    piecesPerPacket = imported?.piecesPerPacket?.toPlainString(),
+    packaging = imported?.packaging,
 )
 
-private fun StockMovementEntity.toDomain(): StockMovement {
+internal fun StockMovementEntity.toDomain(): StockMovement {
     val movementType = MovementType.valueOf(type)
     check((movementType.direction == MovementDirection.EXIT) == signedQuantity.startsWith("-")) {
         "The movement $reference does not move the stock as its type says"
@@ -228,7 +241,19 @@ private fun StockMovementEntity.toDomain(): StockMovement {
             recordedBy = UserId(recordedBy),
             approvedBy = approvedBy?.let { UserId(it) },
             invoiceId = invoiceId?.let { InvoiceId(it) },
+            imported = imported(),
         ),
+    )
+}
+
+/** @return what the entry of imported goods adds, or null when the movement is not one. */
+private fun StockMovementEntity.imported(): ImportedGoods? = dmcReference?.let { reference ->
+    ImportedGoods(
+        dmcReference = reference,
+        dmcLine = checkNotNull(dmcLine),
+        tariffHeading = checkNotNull(tariffHeading),
+        piecesPerPacket = BigDecimal(checkNotNull(piecesPerPacket)),
+        packaging = checkNotNull(packaging),
     )
 }
 

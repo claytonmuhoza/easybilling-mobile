@@ -42,7 +42,6 @@ import com.claytonmuhoza.easybilling.sale.SaleRoute
 import com.claytonmuhoza.easybilling.settings.SettingsActions
 import com.claytonmuhoza.easybilling.settings.SettingsRoute
 import com.claytonmuhoza.easybilling.setup.SetupRoute
-import com.claytonmuhoza.easybilling.stock.StockListRoute
 import com.claytonmuhoza.easybilling.taxes.LinePreviewRoute
 import com.claytonmuhoza.easybilling.taxes.TaxEditorRoute
 import com.claytonmuhoza.easybilling.taxes.TaxListRoute
@@ -398,12 +397,7 @@ private fun NavGraphBuilder.mainTabs(access: AccessState.Ready, navController: N
         popExitTransition = { ExitTransition.None },
     ) {
         LoggedIn(access, navController, Permission.VIEW_STOCK) {
-            MainTabs(selected = MainTab.STOCK, onSelect = openTab) {
-                StockListRoute(
-                    onOpenItem = { id -> navController.navigate(StockItemDestination(id)) },
-                    onOpenInventory = { navController.navigate(InventoryDestination) },
-                )
-            }
+            MainTabs(selected = MainTab.STOCK, onSelect = openTab) { StockTab(navController) }
         }
     }
 }

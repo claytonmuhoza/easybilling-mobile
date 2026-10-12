@@ -198,6 +198,27 @@ data object StockDestination
 @Serializable
 data object InventoryDestination
 
+/** The customs declarations read from the OBR, and the reading of another one. */
+@Serializable
+data object ImportsDestination
+
+/**
+ * The lines of a customs declaration and what was entered of them.
+ *
+ * @property reference the reference of the declaration.
+ */
+@Serializable
+data class DmcDestination(val reference: String)
+
+/**
+ * Entry into the stock of a line of a customs declaration.
+ *
+ * @property reference the reference of the declaration.
+ * @property line the rank of the line, from one.
+ */
+@Serializable
+data class ImportEntryDestination(val reference: String, val line: Int)
+
 /**
  * The stock of an item and its movements.
  *

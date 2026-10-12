@@ -12,7 +12,8 @@ import java.time.format.DateTimeFormatter
 
 /**
  * Writes a stock movement as the body of `AddStockMovement/` (pages 30 and 31 of the
- * specification) and reads its answer (pages 31 and 32). Every value is a text, numbers included;
+ * specification) or of `AddStockMovementImporters/` (page 35) and reads its answer (pages 31, 32,
+ * 35 and 36). Every value is a text, numbers included;
  * a value that does not exist is an empty text, never `null`; the date is written in the time of
  * Bujumbura.
  */
@@ -44,6 +45,14 @@ internal object StockMovementJson {
         put("item_movement_invoice_ref", content.invoiceRef.orEmpty())
         put("item_movement_description", content.obrDescription)
         put("item_movement_date", DATE.format(content.occurredAt))
+        // The table of page 14 names the third `nombre_piece_par_paquet`; the example and the list of
+        // mandatory fields of page 35 say `nombre_par_paquet`, which is sent.
+        content.imported?.let { goods ->
+            put("reference_dmc", goods.dmcReference)
+            put("rubrique_tarifaire", goods.tariffHeading)
+            put("nombre_par_paquet", goods.piecesPerPacket.toPlainString())
+            put("description_paquet", goods.packaging)
+        }
     }
 
     /**

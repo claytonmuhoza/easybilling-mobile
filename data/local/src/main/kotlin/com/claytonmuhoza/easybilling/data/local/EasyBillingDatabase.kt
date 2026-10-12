@@ -31,6 +31,9 @@ import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceCancellationDao
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceCancellationEntity
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceDao
 import com.claytonmuhoza.easybilling.data.local.invoicing.InvoiceEntity
+import com.claytonmuhoza.easybilling.data.local.stock.DmcDao
+import com.claytonmuhoza.easybilling.data.local.stock.DmcEntity
+import com.claytonmuhoza.easybilling.data.local.stock.DmcLineEntity
 import com.claytonmuhoza.easybilling.data.local.stock.InventoryCountEntity
 import com.claytonmuhoza.easybilling.data.local.stock.InventoryDao
 import com.claytonmuhoza.easybilling.data.local.stock.StockMovementDao
@@ -70,7 +73,8 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
  * replaced invoice of an invoice and of a sale (step 15a); 16 credited invoice and reason of a credit
  * note (step 15b); 17 stock movements with their status, and what an entry of the send queue is
  * about (step 16a); 18 invoice a stock movement was written with (step 16b);
- * 19 inventory in progress and reorder thresholds (step 16c).
+ * 19 inventory in progress and reorder thresholds (step 16c); 20 customs declarations with their lines,
+ * and what an entry of imported goods adds to a stock movement (step 17).
  */
 @Database(
     entities = [
@@ -101,8 +105,10 @@ import com.claytonmuhoza.easybilling.data.local.transmission.ReceiptDao
         StockMovementStatusEntity::class,
         InventoryCountEntity::class,
         StockThresholdEntity::class,
+        DmcEntity::class,
+        DmcLineEntity::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = false,
 )
 // One accessor per DAO: the list grows with the schema.
@@ -149,6 +155,8 @@ internal abstract class EasyBillingDatabase : RoomDatabase() {
     abstract fun stockMovementDao(): StockMovementDao
 
     abstract fun inventoryDao(): InventoryDao
+
+    abstract fun dmcDao(): DmcDao
 }
 
 /**

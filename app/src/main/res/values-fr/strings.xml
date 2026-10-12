@@ -1000,4 +1000,52 @@
         <item quantity="other">%1$d articles en stock n’ont pas de prix d’achat connu et ne sont pas comptés.</item>
     </plurals>
     <string name="stock_threshold_reached">Seuil atteint</string>
+
+    <!-- Imported goods (UC-F03, F04) -->
+    <string name="imports_action">Importations</string>
+    <string name="imports_title">Marchandises importées</string>
+    <string name="imports_help">Saisissez la référence de la déclaration de mise en consommation (DMC) : ses lignes sont lues auprès de l\'OBR. Il faut une connexion.</string>
+    <string name="imports_reference">Référence de la déclaration</string>
+    <string name="imports_fetch">Lire la déclaration</string>
+    <string name="imports_fetching">Lecture…</string>
+    <string name="imports_load_error">Les déclarations n\'ont pas pu être lues.</string>
+    <string name="imports_error_reference">Saisissez une référence de 50 caractères au plus.</string>
+    <string name="imports_error_refused">L\'OBR a refusé : %1$s</string>
+    <string name="imports_error_empty">L\'OBR n\'a donné aucune ligne pour cette déclaration.</string>
+    <string name="imports_error_unavailable">L\'OBR n\'a pas répondu. Vérifiez la connexion et réessayez.</string>
+    <string name="imports_error_not_configured">Le profil fiscal ou la connexion à l\'EBMS n\'est pas configuré.</string>
+    <string name="imports_error_failed">La déclaration n\'a pas pu être conservée sur cet appareil.</string>
+    <string name="imports_known">Déclarations déjà lues</string>
+    <string name="imports_none">Aucune déclaration n\'a encore été lue.</string>
+    <string name="imports_read_on">Lue le %1$s</string>
+    <plurals name="imports_lines">
+        <item quantity="one">%1$d ligne</item>
+        <item quantity="other">%1$d lignes</item>
+    </plurals>
+    <string name="dmc_help">Choisissez une ligne pour entrer sa marchandise en stock.</string>
+    <string name="dmc_not_found">Cette déclaration n\'est pas sur cet appareil : relisez-la.</string>
+    <string name="dmc_tariff">Rubrique tarifaire : %1$s</string>
+    <string name="dmc_packaging">Emballage : %1$s</string>
+    <string name="dmc_quantities">Déclaré : %1$s · Entré : %2$s · Reste : %3$s</string>
+    <string name="dmc_quantities_unknown">Quantité déclarée inconnue · Entré : %1$s</string>
+    <string name="dmc_entered_as">Entré comme %1$s</string>
+    <string name="dmc_complete">Entièrement entré</string>
+    <string name="import_entry_title">Entrée de marchandises importées</string>
+    <string name="import_line_of">Déclaration %1$s</string>
+    <string name="import_line_gone">Cette ligne n\'est pas dans la déclaration conservée sur cet appareil.</string>
+    <string name="import_item">Article du catalogue</string>
+    <string name="import_item_code_unit">%1$s · %2$s</string>
+    <string name="import_item_change">Changer</string>
+    <string name="import_item_new">Créer un article</string>
+    <string name="import_item_none">Aucun article suivi en stock ne correspond.</string>
+    <string name="import_field_quantity_in">Quantité (%1$s)</string>
+    <string name="import_field_per_packet">Nombre de pièces par paquet</string>
+    <string name="import_field_packaging">Description du paquet</string>
+    <string name="import_packaging_hint">Par exemple : CARTON / 24 / 500 / ML</string>
+    <string name="import_problem_item">Choisissez l\'article.</string>
+    <string name="import_problem_per_packet">Saisissez un nombre supérieur à zéro, avec deux décimales au plus.</string>
+    <string name="import_problem_packaging_missing">Décrivez le paquet.</string>
+    <string name="import_problem_packaging_long">La description du paquet tient en 50 caractères au plus.</string>
+    <string name="import_exceeds">Il ne reste que %1$s à entrer sur cette ligne de la déclaration.</string>
+    <string name="import_record">Entrer en stock</string>
 </resources>
