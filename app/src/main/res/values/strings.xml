@@ -994,4 +994,52 @@
         <item quantity="other">%1$d items in stock have no known purchase price and are left out.</item>
     </plurals>
     <string name="stock_threshold_reached">Threshold reached</string>
+
+    <!-- Imported goods (UC-F03, F04) -->
+    <string name="imports_action">Imports</string>
+    <string name="imports_title">Imported goods</string>
+    <string name="imports_help">Type the reference of the customs declaration (DMC): its lines are read from the OBR. This needs the network.</string>
+    <string name="imports_reference">Reference of the declaration</string>
+    <string name="imports_fetch">Read the declaration</string>
+    <string name="imports_fetching">Reading…</string>
+    <string name="imports_load_error">The declarations could not be read.</string>
+    <string name="imports_error_reference">Type a reference of 50 characters at most.</string>
+    <string name="imports_error_refused">The OBR refused: %1$s</string>
+    <string name="imports_error_empty">The OBR gave no line for this declaration.</string>
+    <string name="imports_error_unavailable">The OBR did not answer. Check the network and try again.</string>
+    <string name="imports_error_not_configured">The tax profile or the connection to the EBMS is not configured.</string>
+    <string name="imports_error_failed">The declaration could not be kept on this device.</string>
+    <string name="imports_known">Declarations already read</string>
+    <string name="imports_none">No declaration has been read yet.</string>
+    <string name="imports_read_on">Read on %1$s</string>
+    <plurals name="imports_lines">
+        <item quantity="one">%1$d line</item>
+        <item quantity="other">%1$d lines</item>
+    </plurals>
+    <string name="dmc_help">Pick a line to enter its goods into the stock.</string>
+    <string name="dmc_not_found">This declaration is not on this device: read it again.</string>
+    <string name="dmc_tariff">Tariff heading: %1$s</string>
+    <string name="dmc_packaging">Packaging: %1$s</string>
+    <string name="dmc_quantities">Declared: %1$s · Entered: %2$s · Left: %3$s</string>
+    <string name="dmc_quantities_unknown">Declared quantity unknown · Entered: %1$s</string>
+    <string name="dmc_entered_as">Entered as %1$s</string>
+    <string name="dmc_complete">Fully entered</string>
+    <string name="import_entry_title">Entry of imported goods</string>
+    <string name="import_line_of">Declaration %1$s</string>
+    <string name="import_line_gone">This line is not in the declaration kept on this device.</string>
+    <string name="import_item">Item of the catalogue</string>
+    <string name="import_item_code_unit">%1$s · %2$s</string>
+    <string name="import_item_change">Change</string>
+    <string name="import_item_new">Create an item</string>
+    <string name="import_item_none">No item kept in stock matches.</string>
+    <string name="import_field_quantity_in">Quantity (%1$s)</string>
+    <string name="import_field_per_packet">Pieces per packet</string>
+    <string name="import_field_packaging">Description of the packet</string>
+    <string name="import_packaging_hint">For example: CARTON / 24 / 500 / ML</string>
+    <string name="import_problem_item">Choose the item.</string>
+    <string name="import_problem_per_packet">Type a number above zero, with two decimals at most.</string>
+    <string name="import_problem_packaging_missing">Describe the packet.</string>
+    <string name="import_problem_packaging_long">The description of the packet holds 50 characters at most.</string>
+    <string name="import_exceeds">Only %1$s is left to enter on this line of the declaration.</string>
+    <string name="import_record">Enter into the stock</string>
 </resources>

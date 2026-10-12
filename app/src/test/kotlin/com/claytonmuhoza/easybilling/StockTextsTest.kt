@@ -1,7 +1,9 @@
 package com.claytonmuhoza.easybilling
 
+import com.claytonmuhoza.easybilling.domain.stock.ImportProblem
 import com.claytonmuhoza.easybilling.domain.stock.MovementProblem
 import com.claytonmuhoza.easybilling.domain.stock.MovementType
+import com.claytonmuhoza.easybilling.stock.IMPORT_PROBLEM_MESSAGES
 import com.claytonmuhoza.easybilling.stock.MOVEMENT_PROBLEM_MESSAGES
 import com.claytonmuhoza.easybilling.stock.TYPE_LABELS
 import kotlin.test.Test
@@ -19,5 +21,10 @@ class StockTextsTest {
     @Test
     fun `every problem of a movement has a message`() {
         assertEquals(MovementProblem.entries.toSet(), MOVEMENT_PROBLEM_MESSAGES.keys)
+    }
+
+    @Test
+    fun `every problem of an entry of imported goods has a message`() {
+        assertEquals(ImportProblem.entries.toSet(), IMPORT_PROBLEM_MESSAGES.keys)
     }
 }

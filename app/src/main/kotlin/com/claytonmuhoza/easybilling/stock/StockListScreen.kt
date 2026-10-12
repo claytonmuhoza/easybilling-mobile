@@ -51,12 +51,14 @@ private val ListMaxWidth = 600.dp
  *
  * @param onOpenItem called with the identifier of the item the user picks.
  * @param onOpenInventory called when the user opens the inventory.
+ * @param onOpenImports called when the user opens the imported goods.
  * @param viewModel holder of the list state.
  */
 @Composable
 fun StockListRoute(
     onOpenItem: (Long) -> Unit,
     onOpenInventory: () -> Unit,
+    onOpenImports: () -> Unit,
     viewModel: StockListViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -69,6 +71,7 @@ fun StockListRoute(
         actions = StockListActions(
             onOpenItem = onOpenItem,
             onOpenInventory = onOpenInventory,
+            onOpenImports = onOpenImports,
             onQueryChange = viewModel::onQueryChange,
             onToReorderOnlyChange = viewModel::onToReorderOnlyChange,
             onRetry = viewModel::load,
@@ -81,6 +84,7 @@ fun StockListRoute(
  *
  * @property onOpenItem called with the identifier of the item the user picks.
  * @property onOpenInventory called when the user opens the inventory.
+ * @property onOpenImports called when the user opens the imported goods.
  * @property onQueryChange called with the new content of the search field.
  * @property onToReorderOnlyChange called when the user shows only the items to reorder, or all of them.
  * @property onRetry called when the user asks to read the stock again.
@@ -88,6 +92,7 @@ fun StockListRoute(
 class StockListActions(
     val onOpenItem: (Long) -> Unit = {},
     val onOpenInventory: () -> Unit = {},
+    val onOpenImports: () -> Unit = {},
     val onQueryChange: (String) -> Unit = {},
     val onToReorderOnlyChange: (Boolean) -> Unit = {},
     val onRetry: () -> Unit = {},
@@ -95,7 +100,7 @@ class StockListActions(
 
 /**
  * The items kept in stock with their stock, its value, the items to reorder and their search
- * (UC-F10), and the way to the inventory (UC-F08).
+ * (UC-F10), and the ways to the inventory (UC-F08) and to the imported goods (UC-F03).
  *
  * @param state the list state.
  * @param actions what the user can do.
@@ -109,6 +114,7 @@ fun StockListScreen(state: StockListUiState, actions: StockListActions, modifier
         modifier = modifier,
         actions = {
             if (counts) {
+                TextAction(label = stringResource(R.string.imports_action), onClick = actions.onOpenImports)
                 TextAction(label = stringResource(R.string.inventory_title), onClick = actions.onOpenInventory)
             }
         },
