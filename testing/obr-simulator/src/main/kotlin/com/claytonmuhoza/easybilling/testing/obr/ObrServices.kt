@@ -46,6 +46,8 @@ internal class ObrServices(var username: String, var password: String) {
     val invoices: MutableMap<String, JsonObject> = ConcurrentHashMap()
     val cancelled: MutableSet<String> = ConcurrentHashMap.newKeySet()
     val stockMovements: MutableList<JsonObject> = CopyOnWriteArrayList()
+    val importedMovements: MutableList<JsonObject> = CopyOnWriteArrayList()
+    val dmcs: MutableMap<String, SimulatedDmc> = ConcurrentHashMap()
 
     @Volatile
     var alternateSignatureName = false
@@ -79,6 +81,8 @@ internal class ObrServices(var username: String, var password: String) {
         "${ObrSimulator.API_PATH}getInvoice/" -> authenticated(request, ::getInvoice)
         "${ObrSimulator.API_PATH}cancelInvoice/" -> authenticated(request) { cancelInvoice(it) }
         "${ObrSimulator.API_PATH}AddStockMovement/" -> authenticated(request) { addStockMovement(it) }
+        "${ObrSimulator.API_PATH}AddStockMovementImporters/" -> authenticated(request) { addImportedMovement(it) }
+        "${ObrSimulator.API_PATH}getDmcItems" -> authenticated(request) { getDmcItems(it) }
         else -> MockResponse.Builder().code(NOT_FOUND).build()
     }
 

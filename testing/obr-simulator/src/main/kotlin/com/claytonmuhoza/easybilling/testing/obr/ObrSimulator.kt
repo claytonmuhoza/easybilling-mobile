@@ -122,6 +122,12 @@ class ObrSimulator(
     /** The stock movements the server accepted, as they were sent, in order. */
     val stockMovements: List<JsonObject> get() = services.stockMovements
 
+    /** The entries of imported goods the server accepted, as they were sent, in order. */
+    val importedMovements: List<JsonObject> get() = services.importedMovements
+
+    /** The customs declarations the server knows, by `reference_dmc`. */
+    val dmcs: MutableMap<String, SimulatedDmc> get() = services.dmcs
+
     /** Every token given so far is now refused: the next authenticated call needs a new login. */
     fun expireTokens() = services.expireTokens()
 
@@ -254,5 +260,16 @@ class ObrSimulator(
         const val MESSAGE_INVALID_MOVEMENT_TYPE =
             "Veuillez fournir un type de mouvement valide. Le type de mouvement de stock doit être inclu dans " +
                 "les types suivants : EN, ER, EI, EAJ, ET, EAU, SN, SP, SV, SD, SC, SAJ, ST, SAU."
+
+        /** Message of an entry of imported goods whose type is not EN (400), page 36 of the specification. */
+        const val MESSAGE_INVALID_IMPORT_TYPE =
+            "Veuillez fournir un type de mouvement valide. Le type de mouvement de stock doit être inclu dans " +
+                "le type suivant : EN"
+
+        /** Message of `getDmcItems` without a NIF (400), page 34 of the specification. */
+        const val MESSAGE_DMC_NO_TIN = "Veuillez fournir un NIF."
+
+        /** Message of `getDmcItems` for a declaration of another NIF (404), page 34 of the specification. */
+        const val MESSAGE_DMC_OF_ANOTHER_TIN = "La reference DMC n'appartient pas a ce NIF"
     }
 }

@@ -8,11 +8,16 @@ import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceId
 import com.claytonmuhoza.easybilling.domain.shared.Money
 import com.claytonmuhoza.easybilling.domain.stock.CloseInventory
 import com.claytonmuhoza.easybilling.domain.stock.CountInventory
+import com.claytonmuhoza.easybilling.domain.stock.Dmc
+import com.claytonmuhoza.easybilling.domain.stock.DmcRepository
+import com.claytonmuhoza.easybilling.domain.stock.EnterImportedGoods
+import com.claytonmuhoza.easybilling.domain.stock.FetchDmc
 import com.claytonmuhoza.easybilling.domain.stock.InventoryCount
 import com.claytonmuhoza.easybilling.domain.stock.InventoryRepository
 import com.claytonmuhoza.easybilling.domain.stock.MovementId
 import com.claytonmuhoza.easybilling.domain.stock.MovementStatus
 import com.claytonmuhoza.easybilling.domain.stock.MovementType
+import com.claytonmuhoza.easybilling.domain.stock.ReadDmc
 import com.claytonmuhoza.easybilling.domain.stock.ReadInventory
 import com.claytonmuhoza.easybilling.domain.stock.ReadStock
 import com.claytonmuhoza.easybilling.domain.stock.RecordStockMovement
@@ -76,6 +81,9 @@ class InMemoryStockRepository : StockRepository {
         .filter { it.content.type in setOf(MovementType.EN, MovementType.EI) && statuses.getValue(it.id).counts }
         .associate { it.content.itemId to it.content.unitCost }
 
+    /** @return every movement, the oldest first. */
+    fun all(): List<StockMovement> = movements.values.toList()
+
     override suspend fun ofInvoice(invoiceId: InvoiceId): List<StockMovement> =
         movements.values.filter { it.content.invoiceId == invoiceId }
 
@@ -101,6 +109,23 @@ class InMemoryInventoryRepository : InventoryRepository {
     }
 
     override suspend fun clear() = kept.clear()
+}
+
+/** The customs declarations kept in a map, in front of the movements of [stock]. */
+class InMemoryDmcRepository(private val stock: InMemoryStockRepository) : DmcRepository {
+    private val kept = LinkedHashMap<String, Dmc>()
+
+    override suspend fun save(dmc: Dmc) {
+        kept.remove(dmc.reference)
+        kept[dmc.reference] = dmc
+    }
+
+    override suspend fun find(reference: String): Dmc? = kept[reference]
+
+    override suspend fun all(): List<Dmc> = kept.values.reversed()
+
+    override suspend fun entriesOf(reference: String): List<StockMovement> =
+        stock.all().filter { it.content.imported?.dmcReference == reference }
 }
 
 /** The reorder thresholds kept in a map. */
@@ -149,6 +174,18 @@ class StockFixture(val sale: SaleFixture = SaleFixture()) {
         sale.time,
     )
     val setThreshold = SetReorderThreshold(sale.access, sale.items, settings, sale.audit)
+    val dmcs = InMemoryDmcRepository(sale.stock)
+    val readDmc = ReadDmc(dmcs, sale.stock, storage)
+    val enterImported = EnterImportedGoods(sale.access, storage, dmcs, DirectTransactionRunner, sale.time)
+
+    /** @return the reading of a customs declaration, in front of [gateway]. */
+    fun fetchDmc(gateway: FakeObrGateway) = FetchDmc(
+        sale.access,
+        sale.profiles,
+        DispatchConnection({ sale.ebmsSettings.activeLoginTarget(sale.vault) }, FixedTokenProvider(), gateway),
+        dmcs,
+        sale.time,
+    )
 
     /** @return the send queue of the business, in front of [gateway]. */
     fun dispatcher(gateway: FakeObrGateway) = DispatchOutbox(

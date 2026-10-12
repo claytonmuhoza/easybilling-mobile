@@ -127,6 +127,8 @@ object MovementReference {
  * @property approvedBy the manager who validated it with their PIN, or null.
  * @property invoiceId the invoice or the credit note the movement was written with, or null for a
  * movement typed by a user. It never leaves the device.
+ * @property imported what the entry of imported goods adds (`AddStockMovementImporters/`), or null
+ * for any other movement.
  */
 data class StockMovementContent(
     val reference: String,
@@ -144,6 +146,7 @@ data class StockMovementContent(
     val recordedBy: UserId,
     val approvedBy: UserId? = null,
     val invoiceId: InvoiceId? = null,
+    val imported: ImportedGoods? = null,
 ) {
     /** `item_movement_description`: the reference, then what the user wrote. */
     val obrDescription: String get() = if (description.isEmpty()) reference else "$reference $description"

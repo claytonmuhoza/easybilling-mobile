@@ -19,6 +19,7 @@ import com.claytonmuhoza.easybilling.data.local.invoicing.RoomInvoiceListing
 import com.claytonmuhoza.easybilling.data.local.invoicing.RoomInvoiceRepository
 import com.claytonmuhoza.easybilling.data.local.invoicing.RoomSaleDraftRepository
 import com.claytonmuhoza.easybilling.data.local.transmission.RoomExchangeLog
+import com.claytonmuhoza.easybilling.data.local.stock.RoomDmcRepository
 import com.claytonmuhoza.easybilling.data.local.stock.RoomInventoryRepository
 import com.claytonmuhoza.easybilling.data.local.stock.RoomStockRepository
 import com.claytonmuhoza.easybilling.data.local.stock.RoomStockSettingsRepository
@@ -41,6 +42,7 @@ import com.claytonmuhoza.easybilling.domain.invoicing.InvoiceRepository
 import com.claytonmuhoza.easybilling.domain.invoicing.SaleDraftRepository
 import com.claytonmuhoza.easybilling.domain.shared.TransactionRunner
 import com.claytonmuhoza.easybilling.domain.transmission.ExchangeLog
+import com.claytonmuhoza.easybilling.domain.stock.DmcRepository
 import com.claytonmuhoza.easybilling.domain.stock.InventoryRepository
 import com.claytonmuhoza.easybilling.domain.stock.StockRepository
 import com.claytonmuhoza.easybilling.domain.stock.StockSettingsRepository
@@ -95,6 +97,9 @@ class LocalStorage private constructor(internal val database: EasyBillingDatabas
 
     /** The reorder thresholds of the items. */
     val stockSettings: StockSettingsRepository = RoomStockSettingsRepository(database)
+
+    /** The customs declarations read from the OBR. */
+    val dmcs: DmcRepository = RoomDmcRepository(database)
 
     /** The acknowledgements of the OBR. */
     val receipts: ReceiptArchive = RoomReceiptArchive(database.receiptDao())
